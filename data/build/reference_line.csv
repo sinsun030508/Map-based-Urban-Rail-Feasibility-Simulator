@@ -1,0 +1,364 @@
+﻿line_name,section_name,operator,rail_class,mode_type,region_class,raw_type_text,length_km,station_count,total_cost,base_year,cost_status,period_start,period_end,opened_year,source_name,is_outlier,note,cost_per_km,avg_spacing_km,data_grade
+청라~강서 광역BRT,인천 청라~서울 화곡역,,BRT,BRT_HIGH,CAPITAL,HIGH,23.1,17.0,983.0,,DISCLOSED,2006,2015,,국토교통부 BRT 정책자료,False,시범사업,42.6,1.359,A
+하남~천호 광역BRT,천호역~하남 창우동,,BRT,BRT_HIGH,CAPITAL,HIGH,10.5,11.0,444.0,,DISCLOSED,2006,2013,,국토교통부 BRT 정책자료,False,시범사업,42.3,0.955,A
+가덕도신공항 접근철도,부산신항~신공항,국가철도공단,GENERAL,DOUBLE_ELEC,METRO_C,복선전철,16.5,,12948.0,,DISCLOSED,2023.0,2031.0,,국가철도공단 사업계획,False,,784.7,,B
+경강선,여주~원주,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,22.2,,10935.0,,DISCLOSED,2014.0,2029.0,,국가철도공단 사업계획,False,,492.6,,B
+경부선/충북선,천안~청주공항,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,57.0,,5612.0,,DISCLOSED,2014.0,2030.0,,국가철도공단 사업계획,False,,98.5,,B
+경전선,광주송정~순천,국가철도공단,GENERAL,SINGLE_ELEC,METRO_C,단선전철,121.5,,21521.0,,DISCLOSED,2023.0,2031.0,,국가철도공단 사업계획,False,,177.1,,B
+남부내륙선,김천~거제,국가철도공단,GENERAL,SINGLE_ELEC,LOCAL,단선철도,174.6,,68187.0,,DISCLOSED,2020.0,2031.0,,국가철도공단 사업계획,False,,390.5,,B
+대구산업선,대구산단∼서대구,국가철도공단,GENERAL,SINGLE_ELEC,METRO_C,단선전철,36.4,,17242.0,,DISCLOSED,2020.0,2032.0,,국가철도공단 사업계획,False,,473.7,,B
+대장~홍대 광역철도,대장~홍대,국가철도공단,REGIONAL,DOUBLE_ELEC,LOCAL,복선전철,20.0,,21287.0,,DISCLOSED,2025.0,2032.0,,국가철도공단 사업계획,False,,1064.3,,B
+대전역~세종 BRT,대전역~세종시~오송역,,BRT,BRT_LOW,METRO_C,LOW,53.0,,740.0,,DISCLOSED,2012,2016,,국토교통부 BRT 정책정보,False,세종BRT와 22.3km 중복구간,14.0,,B
+대전역~와동IC 광역BRT,대전역~와동IC,,BRT,BRT_HIGH,METRO_C,HIGH,11.95,,767.0,,DISCLOSED,2009,2015,,국토교통부 BRT 정책자료,False,30대 선도프로젝트,64.2,,B
+동해북부선,강릉~제진,국가철도공단,GENERAL,SINGLE_ELEC,LOCAL,단선전철,110.9,,35382.0,,DISCLOSED,2021.0,2029.0,,국가철도공단 사업계획,False,,319.0,,B
+문경·경북선,문경~김천,국가철도공단,GENERAL,SINGLE_ELEC,LOCAL,단선전철,70.1,,16025.0,,DISCLOSED,2025.0,2033.0,,국가철도공단 사업계획,False,,228.6,,B
+부산 하단~진해 용원 광역BRT,하단~진해 용원교차로,,BRT,BRT_HIGH,METRO_C,HIGH,15.9,,392.0,,DISCLOSED,2021,2025,,제4차 대도시권 광역교통시행계획,False,,24.7,,B
+부전~마산,부전~마산,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철 [BTL],32.7,,15484.0,,DISCLOSED,2014.0,2026.0,,국가철도공단 사업계획,False,,473.5,,B
+삼성~동탄 광역급행철도,삼성~동탄,국가철도공단,REGIONAL,DOUBLE_ELEC,CAPITAL,복선전철,39.7,,21576.0,,DISCLOSED,2014.0,2028.0,,국가철도공단 사업계획,False,,543.5,,B
+새만금항 인입철도,대야∼신항만 철송장,국가철도공단,GENERAL,SINGLE_ELEC,LOCAL,단선전철,48.3,,15859.0,,DISCLOSED,2025.0,2033.0,,국가철도공단 사업계획,False,,328.3,,B
+석문산단 인입철도,합덕~석문산단,국가철도공단,GENERAL,SINGLE_ELEC,LOCAL,단선전철,31.2,,10719.0,,DISCLOSED,2020.0,2032.0,,국가철도공단 사업계획,False,,343.6,,B
+성남~복정 광역BRT,복정역~남한산성입구,,BRT,BRT_HIGH,CAPITAL,HIGH,10.2,,419.0,,DISCLOSED,2022,2026,,제4차 대도시권 광역교통시행계획,False,,41.1,,B
+세종 BRT,반석역~세종시~오송역,,BRT,BRT_HIGH,METRO_C,HIGH,31.2,,5409.0,,DISCLOSED,2009,2012,,국토교통부 BRT 정책정보,True,신도시 건설사업 포함 — 이상치 의심,173.4,,B
+세종~공주 광역BRT,행복도시~공주시내버스터미널,,BRT,BRT_LOW,METRO_C,LOW,20.5,,159.0,,DISCLOSED,2021,2025,,제4차 대도시권 광역교통시행계획,False,,7.8,,B
+세종~청주 광역BRT,행복도시~청주대농지구,,BRT,BRT_LOW,METRO_C,LOW,32.3,,58.0,,DISCLOSED,2021,2025,,제4차 대도시권 광역교통시행계획,False,기존도로 활용 비중 높음,1.8,,B
+수도권광역급행철도(A노선),운정~삼성,국가철도공단,REGIONAL,DOUBLE_ELEC,CAPITAL,복선전철,46.0,,37080.0,,DISCLOSED,2014.0,2030.0,,국가철도공단 사업계획,False,,806.1,,B
+수도권광역급행철도(B노선),"인천대입구~용산, 상봉~마석",국가철도공단,REGIONAL,UPGRADE,CAPITAL,"복선전철, 기존선개량",62.8,,42894.0,,DISCLOSED,2021.0,2031.0,,국가철도공단 사업계획,False,,683.0,,B
+수도권광역급행철도(C노선),덕정~수원/상록수,국가철도공단,REGIONAL,DOUBLE_ELEC,CAPITAL,복선전철,86.5,,46084.0,,DISCLOSED,2019.0,2031.0,,국가철도공단 사업계획,False,,532.8,,B
+수서광주선,수서~광주,국가철도공단,GENERAL,DOUBLE_ELEC,METRO_C,복선전철,19.4,,11233.0,,DISCLOSED,2020.0,2031.0,,국가철도공단 사업계획,False,,579.0,,B
+신분당선(광교~호매실),광교~호매실,국가철도공단,REGIONAL,DOUBLE_ELEC,CAPITAL,복선전철,9.9,,11491.0,,DISCLOSED,2021.0,2029.0,,국가철도공단 사업계획,False,,1160.7,,B
+신안산선,안산~여의도,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,복선전철,44.9,,43055.0,,DISCLOSED,2016.0,2026.0,,국가철도공단 사업계획,False,,958.9,,B
+올림픽대로 광역BRT(서부BTX),행주대교~당산역,,BRT,BRT_HIGH,CAPITAL,HIGH,10.0,,496.0,,DISCLOSED,2021,2025,,제4차 대도시권 광역교통시행계획,False,,49.6,,B
+용산~강남,용산~강남,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,7.8,,18553.0,,DISCLOSED,2016.0,2034.0,,국가철도공단 사업계획,True,7.8km 대심도 구간에 고정비 집중 — km당 단가 이상치,2378.6,,B
+용산~상봉 광역급행철도,용산~상봉,국가철도공단,REGIONAL,DOUBLE_ELEC,CAPITAL,복선전철,19.9,,28488.0,,DISCLOSED,2021.0,2030.0,,국가철도공단 사업계획,False,,1431.6,,B
+월곶판교선,월곶~판교,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,39.8,,32665.0,,DISCLOSED,2015.0,2030.0,,국가철도공단 사업계획,False,,820.7,,B
+인덕원동탄선,인덕원~동탄,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,38.3,,46421.0,,DISCLOSED,2015.0,2030.0,,국가철도공단 사업계획,False,,1212.0,,B
+장항선,"신성~주포, 남포~간치",국가철도공단,GENERAL,UPGRADE,LOCAL,단선개량,33.0,,10477.0,,DISCLOSED,2010.0,2031.0,,국가철도공단 사업계획,False,,317.5,,B
+장항선,신창~대야,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철화,118.6,,8590.0,,DISCLOSED,2018.0,2029.0,,국가철도공단 사업계획,True,118.6km 개량사업 — 장거리 개량이라 km당 단가 이상치,72.4,,B
+춘천속초선,춘천~속초,국가철도공단,GENERAL,SINGLE_ELEC,LOCAL,단선전철,93.7,,30986.0,,DISCLOSED,2016.0,2029.0,,국가철도공단 사업계획,False,,330.7,,B
+충북선,청주공항~봉양,국가철도공단,GENERAL,UPGRADE,LOCAL,기존선 고속화,85.5,,21291.0,,DISCLOSED,2023.0,2031.0,,국가철도공단 사업계획,False,,249.0,,B
+충청권 광역철도(1단계),계룡~신탄진,국가철도공단,REGIONAL,UPGRADE,LOCAL,기존선개량,35.4,,3583.0,,DISCLOSED,2016.0,2029.0,,국가철도공단 사업계획,False,,101.2,,B
+충청권 광역철도(옥천연장),오정~옥천,국가철도공단,REGIONAL,DOUBLE_ELEC,LOCAL,복선전철,20.1,,490.0,,DISCLOSED,2021.0,2026.0,,국가철도공단 사업계획,True,기존선 활용 구간 — km당 단가 이상치,24.4,,B
+태화강~북울산 광역철도,태화강~북울산,국가철도공단,REGIONAL,DOUBLE_ELEC,METRO_C,복선전철,9.7,,418.0,,DISCLOSED,2022.0,2026.0,,국가철도공단 사업계획,True,기존선 활용 구간 — km당 단가 이상치,43.1,,B
+호남선,서대전~논산,국가철도공단,GENERAL,UPGRADE,METRO_C,기존선 고속화,29.8,,9189.0,,DISCLOSED,2025.0,2034.0,,국가철도공단 사업계획,False,,308.4,,B
+경강선,판교~여주,한국철도공사,METRO,HEAVY_METRO,LOCAL,,57.0,12,,,UNDISCLOSED,,,2016.0,전국도시철도노선정보 표준데이터,False,,,4.75,C
+경기 김포,양촌~김포공항,,METRO,LIGHT_RAIL,CAPITAL,,23.6,10.0,,,UNDISCLOSED,,,2019.0,국토교통부 도시철도 운영현황,False,,,2.36,C
+경기 용인,기흥~전대,,METRO,LIGHT_RAIL,CAPITAL,,18.1,15.0,,,UNDISCLOSED,,,2013.0,국토교통부 도시철도 운영현황,False,,,1.207,C
+경기 의정부,발곡~탑석,,METRO,LIGHT_RAIL,CAPITAL,,10.6,15.0,,,UNDISCLOSED,,,2012.0,국토교통부 도시철도 운영현황,False,,,0.707,C
+경부선,서울~신창,한국철도공사,METRO,HEAVY_METRO,CAPITAL,,122.9,46,,,UNDISCLOSED,,,1974.0,전국도시철도노선정보 표준데이터,False,,,2.672,C
+경원선,청량리~소요산,한국철도공사,METRO,HEAVY_METRO,LOCAL,,60.6,28,,,UNDISCLOSED,,,1974.0,전국도시철도노선정보 표준데이터,False,,,2.164,C
+경의·중앙선,용문~문산,한국철도공사,METRO,HEAVY_METRO,LOCAL,,137.8,47,,,UNDISCLOSED,,,1978.0,전국도시철도노선정보 표준데이터,False,,,2.932,C
+경인선,구로~인천,한국철도공사,METRO,HEAVY_METRO,CAPITAL,,27.0,20,,,UNDISCLOSED,,,1974.0,전국도시철도노선정보 표준데이터,False,,,1.35,C
+경춘선,상봉~춘천,한국철도공사,METRO,HEAVY_METRO,LOCAL,,80.7,19,,,UNDISCLOSED,,,2010.0,전국도시철도노선정보 표준데이터,False,,,4.247,C
+광주 1호선,녹동∼평동,,METRO,HEAVY_METRO,METRO_C,,20.5,20.0,,,UNDISCLOSED,,,2004.0,국토교통부 도시철도 운영현황,False,,,1.025,C
+김포도시철도,양촌역~김포공항역,김포골드라인에스알에스㈜,METRO,HEAVY_METRO,CAPITAL,,23.67,10,,,UNDISCLOSED,,,2019.0,전국도시철도노선정보 표준데이터,False,,,2.367,C
+대경선,구미~경산,한국철도공사,METRO,HEAVY_METRO,LOCAL,,61.9,8,,,UNDISCLOSED,,,2024.0,전국도시철도노선정보 표준데이터,False,,,7.737,C
+대구 1호선,설화명곡∼하양,,METRO,HEAVY_METRO,METRO_C,,37.6,35.0,,,UNDISCLOSED,,,1997.0,국토교통부 도시철도 운영현황,False,,,1.074,C
+대구 2호선,문양∼영남대,,METRO,HEAVY_METRO,METRO_C,,31.4,29.0,,,UNDISCLOSED,,,2005.0,국토교통부 도시철도 운영현황,False,,,1.083,C
+대구 3호선,칠곡경대병원∼용지,,METRO,HEAVY_METRO,METRO_C,,23.1,30.0,,,UNDISCLOSED,,,2015.0,국토교통부 도시철도 운영현황,False,,,0.77,C
+대구 도시철도 1호선,설화명곡~하양(대구가톨릭대),대구교통공사,METRO,HEAVY_METRO,METRO_C,,28.4,35,,,UNDISCLOSED,,,1997.0,전국도시철도노선정보 표준데이터,False,,,0.811,C
+대구 도시철도 2호선,문양~영남대,대구교통공사,METRO,HEAVY_METRO,METRO_C,,31.4,29,,,UNDISCLOSED,,,2012.0,전국도시철도노선정보 표준데이터,False,,,1.083,C
+대구 도시철도 3호선,칠곡경대병원~용지,대구교통공사,METRO,HEAVY_METRO,METRO_C,,23.1,30,,,UNDISCLOSED,,,2015.0,전국도시철도노선정보 표준데이터,False,,,0.77,C
+대전 1호선,판암∼반석,,METRO,HEAVY_METRO,METRO_C,,20.5,22.0,,,UNDISCLOSED,,,2006.0,국토교통부 도시철도 운영현황,False,,,0.932,C
+대전 도시철도 1호선,판암역~반석,대전교통공사,METRO,HEAVY_METRO,METRO_C,,20.47,22,,,UNDISCLOSED,,,2006.0,전국도시철도노선정보 표준데이터,False,,,0.93,C
+도시철도 7호선,까치울역~석남역,인천교통공사,METRO,HEAVY_METRO,CAPITAL,,14.4,11,,,UNDISCLOSED,,,,전국도시철도노선정보 표준데이터,False,,,1.309,C
+동해선,부전~태화강,한국철도공사,METRO,HEAVY_METRO,LOCAL,,63.8,23,,,UNDISCLOSED,,,2016.0,전국도시철도노선정보 표준데이터,False,,,2.774,C
+부산 1호선,노포∼다대포해수욕장,,METRO,HEAVY_METRO,METRO_C,,39.9,40.0,,,UNDISCLOSED,,,1985.0,국토교통부 도시철도 운영현황,False,,,0.997,C
+부산 2호선,장산∼양산,,METRO,HEAVY_METRO,METRO_C,,45.2,43.0,,,UNDISCLOSED,,,1999.0,국토교통부 도시철도 운영현황,False,,,1.051,C
+부산 3호선,대저∼수영,,METRO,HEAVY_METRO,METRO_C,,18.1,17.0,,,UNDISCLOSED,,,2005.0,국토교통부 도시철도 운영현황,False,,,1.065,C
+부산 4호선,안평∼미남,,METRO,HEAVY_METRO,METRO_C,,12.0,14.0,,,UNDISCLOSED,,,2011.0,국토교통부 도시철도 운영현황,False,,,0.857,C
+부산 경량도시철도 4호선,미남~안평,부산교통공사,METRO,LIGHT_RAIL,METRO_C,,12.0,14,,,UNDISCLOSED,,,2011.0,전국도시철도노선정보 표준데이터,False,,,0.857,C
+부산 도시철도 1호선,다대포해수욕장~노포,부산교통공사,METRO,HEAVY_METRO,METRO_C,,39.9,40,,,UNDISCLOSED,,,1985.0,전국도시철도노선정보 표준데이터,False,,,0.997,C
+부산 도시철도 2호선,장산~양산,부산교통공사,METRO,HEAVY_METRO,METRO_C,,45.2,43,,,UNDISCLOSED,,,1999.0,전국도시철도노선정보 표준데이터,False,,,1.051,C
+부산 도시철도 3호선,수영~대저,부산교통공사,METRO,HEAVY_METRO,METRO_C,,18.1,17,,,UNDISCLOSED,,,2005.0,전국도시철도노선정보 표준데이터,False,,,1.065,C
+부산 부산-김해,사상~가야대,,METRO,LIGHT_RAIL,METRO_C,,22.3,21.0,,,UNDISCLOSED,,,2011.0,국토교통부 도시철도 운영현황,False,,,1.062,C
+부산김해경전철,사상~가야대,부산-김해경전철㈜,METRO,LIGHT_RAIL,METRO_C,,22.361,21,,,UNDISCLOSED,,,2011.0,전국도시철도노선정보 표준데이터,False,,,1.065,C
+분당선,왕십리~수원,한국철도공사,METRO,HEAVY_METRO,CAPITAL,,52.9,35,,,UNDISCLOSED,,,1994.0,전국도시철도노선정보 표준데이터,False,,,1.511,C
+서울 1호선,서울역∼청량리,,METRO,HEAVY_METRO,CAPITAL,,7.8,10.0,,,UNDISCLOSED,,,1974.0,국토교통부 도시철도 운영현황,False,,,0.78,C
+서울 2호선,성수∼성수,,METRO,HEAVY_METRO,CAPITAL,,60.2,50.0,,,UNDISCLOSED,,,1980.0,국토교통부 도시철도 운영현황,False,,,1.204,C
+서울 3호선,지축∼오금,,METRO,HEAVY_METRO,CAPITAL,,38.2,34.0,,,UNDISCLOSED,,,1985.0,국토교통부 도시철도 운영현황,False,,,1.124,C
+서울 4호선,진접~남태령,,METRO,HEAVY_METRO,CAPITAL,,45.4,29.0,,,UNDISCLOSED,,,1985.0,국토교통부 도시철도 운영현황,False,,,1.566,C
+서울 5호선,"방화~하남검단산,마천",,METRO,HEAVY_METRO,CAPITAL,,59.8,56.0,,,UNDISCLOSED,,,1995.0,국토교통부 도시철도 운영현황,False,,,1.068,C
+서울 6호선,응암~신내,,METRO,HEAVY_METRO,CAPITAL,,36.3,39.0,,,UNDISCLOSED,,,2000.0,국토교통부 도시철도 운영현황,False,,,0.931,C
+서울 7호선,장암~온수,,METRO,HEAVY_METRO,CAPITAL,,46.9,42.0,,,UNDISCLOSED,,,1996.0,국토교통부 도시철도 운영현황,False,,,1.117,C
+서울 8호선,별내~모란,,METRO,HEAVY_METRO,CAPITAL,,30.6,24.0,,,UNDISCLOSED,,,1996.0,국토교통부 도시철도 운영현황,False,,,1.275,C
+서울 9호선(1단계),개화~신논현,,METRO,HEAVY_METRO,CAPITAL,,27.0,25.0,,,UNDISCLOSED,,,2009.0,국토교통부 도시철도 운영현황,False,,,1.08,C
+서울 9호선(2·3단계),언주~종합운동장,,METRO,HEAVY_METRO,CAPITAL,,13.6,13.0,,,UNDISCLOSED,,,,국토교통부 도시철도 운영현황,False,,,1.046,C
+서울 도시철도 9호선,개화~중앙보훈병원,서울시메트로9호선㈜(4101~4125) 서울교통공사 9호선운영부문(4126~4138),METRO,HEAVY_METRO,CAPITAL,,40.7,38,,,UNDISCLOSED,,,,전국도시철도노선정보 표준데이터,False,,,1.071,C
+서울 신림선,샛강~관악산,,METRO,LIGHT_RAIL,CAPITAL,,7.8,11.0,,,UNDISCLOSED,,,2022.0,국토교통부 도시철도 운영현황,False,,,0.709,C
+서울 우이-신설,북한산우이~신설동,,METRO,LIGHT_RAIL,CAPITAL,,11.0,13.0,,,UNDISCLOSED,,,2017.0,국토교통부 도시철도 운영현황,False,,,0.846,C
+서해선,소사~원시,한국철도공사,METRO,HEAVY_METRO,LOCAL,,40.3,15,,,UNDISCLOSED,,,2021.0,전국도시철도노선정보 표준데이터,False,,,2.687,C
+수도권 경량도시철도 신림선,샛강~관악산,남서울경전철 주식회사,METRO,LIGHT_RAIL,CAPITAL,,7.76,11,,,UNDISCLOSED,,,2022.0,전국도시철도노선정보 표준데이터,False,,,0.705,C
+수도권 경량도시철도 에버라인,기흥(백남준아트센터)~전대·에버랜드,용인경전철,METRO,LIGHT_RAIL,CAPITAL,,0.018,15,,,UNDISCLOSED,,,2013.0,전국도시철도노선정보 표준데이터,False,,,0.001,C
+수도권 경량도시철도 우이신설선,북한산우이~신설동,우이신설경전철운영㈜,METRO,LIGHT_RAIL,CAPITAL,,11.4,13,,,UNDISCLOSED,,,2017.0,전국도시철도노선정보 표준데이터,False,,,0.877,C
+수도권 광역철도 1호선,청량리(서울시립대입구)~서울역,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,7.8,10,,,UNDISCLOSED,,,1974.0,전국도시철도노선정보 표준데이터,False,,,0.78,C
+수도권 광역철도 3호선,지축~오금,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,38.2,34,,,UNDISCLOSED,,,1985.0,전국도시철도노선정보 표준데이터,False,,,1.124,C
+수도권 광역철도 4호선,불암산~남태령,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,31.1,26,,,UNDISCLOSED,,,1985.0,전국도시철도노선정보 표준데이터,False,,,1.196,C
+수도권 도시철도 2호선,성수~성수,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,48.8,43,,,UNDISCLOSED,,,1980.0,전국도시철도노선정보 표준데이터,False,,,1.135,C
+수도권 도시철도 2호선,성수~신설동,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,5.4,4,,,UNDISCLOSED,,,1980.0,전국도시철도노선정보 표준데이터,False,,,1.35,C
+수도권 도시철도 2호선,신도림~까치산,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,6.0,4,,,UNDISCLOSED,,,1992.0,전국도시철도노선정보 표준데이터,False,,,1.5,C
+수도권 도시철도 5호선,방화~하남검단산/마천,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,59.8,56,,,UNDISCLOSED,,,1995.0,전국도시철도노선정보 표준데이터,False,,,1.068,C
+수도권 도시철도 6호선,응암~신내,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,36.4,39,,,UNDISCLOSED,,,2000.0,전국도시철도노선정보 표준데이터,False,,,0.933,C
+수도권 도시철도 7호선,장암~온수(성공회대입구),서울교통공사,METRO,HEAVY_METRO,CAPITAL,,46.9,42,,,UNDISCLOSED,,,1996.0,전국도시철도노선정보 표준데이터,False,,,1.117,C
+수도권 도시철도 8호선,암사역사공원~모란,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,18.8,19,,,UNDISCLOSED,,,1996.0,전국도시철도노선정보 표준데이터,False,,,0.989,C
+수도권 전철 8호선,다산역~별내역,남양주도시공사,METRO,HEAVY_METRO,CAPITAL,,2.234,1,,,UNDISCLOSED,,,2024.0,전국도시철도노선정보 표준데이터,False,,,2.234,C
+수인선,오이도~인천,한국철도공사,METRO,HEAVY_METRO,CAPITAL,,38.8,18,,,UNDISCLOSED,,,2012.0,전국도시철도노선정보 표준데이터,False,,,2.156,C
+신분당선,신사역~광교(경기대),네오트랜스(주),METRO,HEAVY_METRO,CAPITAL,,33.5,1,,,UNDISCLOSED,,,2028.0,전국도시철도노선정보 표준데이터,False,,,33.5,C
+안산·과천선,남태령~오이도,한국철도공사,METRO,HEAVY_METRO,CAPITAL,,40.4,21,,,UNDISCLOSED,,,1988.0,전국도시철도노선정보 표준데이터,False,,,1.924,C
+인천 1호선,계양∼송도달빛축제공원,,METRO,HEAVY_METRO,CAPITAL,,30.3,30.0,,,UNDISCLOSED,,,1999.0,국토교통부 도시철도 운영현황,False,,,1.01,C
+인천 2호선,검단오류∼운연,,METRO,HEAVY_METRO,CAPITAL,,29.1,27.0,,,UNDISCLOSED,,,2016.0,국토교통부 도시철도 운영현황,False,,,1.078,C
+인천 7호선,부평구청 ~ 석남,,METRO,HEAVY_METRO,CAPITAL,,14.4,11.0,,,UNDISCLOSED,,,,국토교통부 도시철도 운영현황,False,,,1.309,C
+인천국제공항선,서울~인천공항2터미널,공항철도주식회사,METRO,HEAVY_METRO,CAPITAL,,63.8,14,,,UNDISCLOSED,,,2007.0,전국도시철도노선정보 표준데이터,False,,,4.557,C
+인천지하철 1호선,계양역~송도달빛축제공원역,인천교통공사,METRO,HEAVY_METRO,CAPITAL,,30.3,30,,,UNDISCLOSED,,,1999.0,전국도시철도노선정보 표준데이터,False,,,1.01,C
+인천지하철 2호선,검단오류역~운연역,인천교통공사,METRO,HEAVY_METRO,CAPITAL,,29.1,27,,,UNDISCLOSED,,,2016.0,전국도시철도노선정보 표준데이터,False,,,1.078,C
+일산선,지축~대화,한국철도공사,METRO,HEAVY_METRO,LOCAL,,19.2,11,,,UNDISCLOSED,,,1996.0,전국도시철도노선정보 표준데이터,False,,,1.745,C
+진접선,별내별가람역~진접역,남양주도시공사,METRO,HEAVY_METRO,CAPITAL,,14.892,3,,,UNDISCLOSED,,,2022.0,전국도시철도노선정보 표준데이터,False,,,4.964,C
+(2.5km) 개통,신사∼강남,,REGIONAL,DOUBLE_ELEC,LOCAL,,2.5,,,,UNDISCLOSED,,,2022.0,국토교통부 광역철도 운영현황,False,,,,D
+(구)경춘선 갈매 군전용선 이설,,국가철도공단,GENERAL,,LOCAL,,,,,,UNDISCLOSED,2015.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+1군지사 영외 하화시설 인입철도,,국가철도공단,GENERAL,,LOCAL,,,,115.0,,DISCLOSED,2020.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+BIM기반 통합 플랫폼 개발,,국가철도공단,GENERAL,,LOCAL,,,,14.0,,DISCLOSED,2020.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+가상건설시스템 개발,,국가철도공단,GENERAL,,LOCAL,,,,3.0,,DISCLOSED,2006.0,2011.0,,국가철도공단 철도건설현황,False,,,,D
+강릉~제진 철도건설,,국가철도공단,GENERAL,,LOCAL,,,,34797.0,,DISCLOSED,2021.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+건널목 위탁관리,,국가철도공단,GENERAL,,LOCAL,,,,2042.0,,DISCLOSED,2008.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+건널목 입체화 사업,,국가철도공단,GENERAL,,LOCAL,,,,4685.0,,DISCLOSED,2004.0,2019.0,,국가철도공단 철도건설현황,False,,,,D
+경부고속철도,,국가철도공단,GENERAL,,LOCAL,,,,127377.0,,DISCLOSED,1992.0,2008.0,,국가철도공단 철도건설현황,False,,,,D
+경부고속철도 2단계,,국가철도공단,GENERAL,,LOCAL,,,,82478.0,,DISCLOSED,2002.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+경부고속철도 유지보수비,,국가철도공단,GENERAL,,LOCAL,,,,20775.0,,DISCLOSED,2004.0,2028.0,,국가철도공단 철도건설현황,False,,,,D
+경부선 당정역사 신설,,국가철도공단,GENERAL,,LOCAL,,,,224.0,,DISCLOSED,2007.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+경부선 병점차량기지역 신설,,국가철도공단,GENERAL,,LOCAL,,,,340.0,,DISCLOSED,2007.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+경부선 오산역 환승센터 건설사업,,국가철도공단,GENERAL,,LOCAL,,,,346.0,,DISCLOSED,2014.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+경북선 예천-어등간 철도이설,,국가철도공단,GENERAL,,LOCAL,,,,108.0,,DISCLOSED,2013.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+경원선,의정부∼동두천,,REGIONAL,DOUBLE_ELEC,CAPITAL,,22.3,,,,UNDISCLOSED,,,2006.0,국토교통부 광역철도 운영현황,False,,,,D
+경원선 철도복원,,국가철도공단,GENERAL,,LOCAL,,,,1791.0,,DISCLOSED,2015.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+경원선 회정역 신설사업,,국가철도공단,GENERAL,,LOCAL,,,,314.0,,DISCLOSED,2020.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+경의선,용산∼공덕,,REGIONAL,DOUBLE_ELEC,LOCAL,,1.9,,,,UNDISCLOSED,,,2014.0,국토교통부 광역철도 운영현황,False,,,,D
+경의선 강매역사 신설공사,,국가철도공단,GENERAL,,LOCAL,,,,186.0,,DISCLOSED,2010.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+경의선 야당역 신설사업,,국가철도공단,GENERAL,,LOCAL,,,,243.0,,DISCLOSED,2013.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+경의선 운천역 신설,,국가철도공단,GENERAL,,LOCAL,,,,103.0,,DISCLOSED,2020.0,2022.0,,국가철도공단 철도건설현황,False,,,,D
+경의선 장단~문산 선로복구사업,,국가철도공단,GENERAL,,LOCAL,,,,,,UNDISCLOSED,2003.0,2003.0,,국가철도공단 철도건설현황,False,,,,D
+"경의선 철도,도로 출입시설 공용야드사업",,국가철도공단,GENERAL,,LOCAL,,,,,,UNDISCLOSED,2006.0,2011.0,,국가철도공단 철도건설현황,False,,,,D
+경의선 철도출입시설사업,,국가철도공단,GENERAL,,LOCAL,,,,,,UNDISCLOSED,2006.0,2011.0,,국가철도공단 철도건설현황,False,,,,D
+경의선 횡단 입체교차시설,,국가철도공단,GENERAL,,LOCAL,,,,244.0,,DISCLOSED,2010.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+경의중앙선 향동역 신설(수탁),,국가철도공단,GENERAL,,LOCAL,,,,148.0,,DISCLOSED,2021.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+경인 2복선전철,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,6674.0,,DISCLOSED,1991.0,2005.0,,국가철도공단 철도건설현황,False,,,,D
+경인선 백운역 철도역 복개,,국가철도공단,GENERAL,,LOCAL,,,,183.0,,DISCLOSED,2011.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+경춘선,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,20628.0,,DISCLOSED,1996.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+경춘선,망우∼금곡,,REGIONAL,DOUBLE_ELEC,LOCAL,,18.0,,,,UNDISCLOSED,,,2010.0,국토교통부 광역철도 운영현황,False,,,,D
+경춘선 묵현역 신설,,국가철도공단,GENERAL,,LOCAL,,,,3.0,,DISCLOSED,2010.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+경춘선 별내역 신설,,국가철도공단,GENERAL,,LOCAL,,,,261.0,,DISCLOSED,2010.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+고속철도 안전 및 시설개량,,국가철도공단,GENERAL,UPGRADE,LOCAL,,,,12342.0,,DISCLOSED,2012.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+공항철도 연계시설 확충사업 건설공사,,국가철도공단,GENERAL,,LOCAL,,,,3031.0,,DISCLOSED,2010.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+과천지식정보타운 지하철역 신설,,국가철도공단,GENERAL,,CAPITAL,,,,979.0,,DISCLOSED,2019.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+광주 도시철도 1호선,녹동~평동,광주교통공사,METRO,HEAVY_METRO,METRO_C,,,20,,,UNDISCLOSED,,,2004.0,전국도시철도노선정보 표준데이터,False,,,,D
+광주송정~순천 철도건설,,국가철도공단,GENERAL,,METRO_C,,,,21520.0,,DISCLOSED,2021.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+구로차량기지이전,,국가철도공단,GENERAL,,LOCAL,,,,4765.0,,DISCLOSED,2007.0,2012.0,,국가철도공단 철도건설현황,False,,,,D
+국가중요시설방호경비,,국가철도공단,GENERAL,,LOCAL,,,,1179.0,,DISCLOSED,2006.0,2019.0,,국가철도공단 철도건설현황,False,,,,D
+국가중요시설방호경비(자체),,국가철도공단,GENERAL,,LOCAL,,,,6.0,,DISCLOSED,2018.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+군산선(익산~대야),,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,4662.0,,DISCLOSED,2005.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+군장국가산업단지 인입철도,,국가철도공단,GENERAL,,LOCAL,,,,6170.0,,DISCLOSED,2005.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+급행철도에이선,수서~동탄,,REGIONAL,DOUBLE_ELEC,LOCAL,,32.7,,,,UNDISCLOSED,,,2024.0,국토교통부 광역철도 운영현황,False,,,,D
+기타 수탁사업,,국가철도공단,GENERAL,,LOCAL,,,,4031.0,,DISCLOSED,2007.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+기타사업(환경시설개량 등),,국가철도공단,GENERAL,UPGRADE,LOCAL,,,,,,UNDISCLOSED,2007.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+김포도시철도 건설사업,,국가철도공단,GENERAL,,CAPITAL,,,,15086.0,,DISCLOSED,2009.0,2019.0,,국가철도공단 철도건설현황,False,,,,D
+남부내륙철도,,국가철도공단,GENERAL,,LOCAL,,,,49438.0,,DISCLOSED,2021.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+당고개~진접,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,15479.0,,DISCLOSED,2010.0,2022.0,,국가철도공단 철도건설현황,False,,,,D
+대곡~소사,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,2404.0,,DISCLOSED,2016.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+대곡~소사 전동열차 일산역 연장 운행(수탁),,국가철도공단,GENERAL,,LOCAL,,,,109.0,,DISCLOSED,2021.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+대구권 광역철도,,국가철도공단,GENERAL,,METRO_C,,,,2092.0,,DISCLOSED,2016.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+대구권 북삼역 신설(수탁),,국가철도공단,GENERAL,,METRO_C,,,,468.0,,DISCLOSED,2020.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+대구권광역철도기본조사,,국가철도공단,GENERAL,,METRO_C,,,,10.0,,DISCLOSED,2009.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+대구산업선 철도건설,,국가철도공단,GENERAL,,METRO_C,,,,15511.0,,DISCLOSED,2020.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+대구선,,국가철도공단,GENERAL,DOUBLE_ELEC,METRO_C,복선전철,,,7552.0,,DISCLOSED,2006.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+대구선 철도이설,,국가철도공단,GENERAL,,METRO_C,,,,2258.0,,DISCLOSED,1994.0,2008.0,,국가철도공단 철도건설현황,False,,,,D
+대구선 하양역사 대체 신설사업(수탁),,국가철도공단,GENERAL,,METRO_C,,,,131.0,,DISCLOSED,2019.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+대구선 화물역중계역 신설,,국가철도공단,GENERAL,,METRO_C,,,,,,UNDISCLOSED,2003.0,2004.0,,국가철도공단 철도건설현황,False,,,,D
+대구선 화물중계역,,국가철도공단,GENERAL,,METRO_C,,,,130.0,,DISCLOSED,2006.0,2006.0,,국가철도공단 철도건설현황,False,,,,D
+대구차량사업소 정비시설 공용화 개량사업(수탁),,국가철도공단,GENERAL,UPGRADE,METRO_C,,,,22.0,,DISCLOSED,2020.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+덕소~원주 복선전철(수탁사업),,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,50.0,,DISCLOSED,2007.0,2009.0,,국가철도공단 철도건설현황,False,,,,D
+덕소∼원주,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,19585.0,,DISCLOSED,1993.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+도담~영천,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,43352.0,,DISCLOSED,2010.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+도시형 자기부상열차 실용화 사업,,국가철도공단,GENERAL,,LOCAL,,,,3238.0,,DISCLOSED,2006.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+동두천~연천,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,4986.0,,DISCLOSED,2010.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+동부전동차사무소 건설,,국가철도공단,GENERAL,,LOCAL,,,,2179.0,,DISCLOSED,1996.0,2007.0,,국가철도공단 철도건설현황,False,,,,D
+동순천∼광양 복선화,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,3946.0,,DISCLOSED,2001.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+동해~강릉 전철화,,국가철도공단,GENERAL,,LOCAL,,,,830.0,,DISCLOSED,2001.0,2005.0,,국가철도공단 철도건설현황,False,,,,D
+동해남부선 일광지구 지하차도 설치공사,,국가철도공단,GENERAL,,LOCAL,,,,15.0,,DISCLOSED,2014.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+동해북부선 남북철도연결사업,,국가철도공단,GENERAL,,LOCAL,,,,,,UNDISCLOSED,2002.0,2004.0,,국가철도공단 철도건설현황,False,,,,D
+"동해선 철도,도로 출입시설 공용야드사업",,국가철도공단,GENERAL,,LOCAL,,,,212.0,,DISCLOSED,2006.0,2009.0,,국가철도공단 철도건설현황,False,,,,D
+동해선(포항~동해)전철화 사업,,국가철도공단,GENERAL,,LOCAL,,,,4382.0,,DISCLOSED,2019.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+망우∼금곡,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,6204.0,,DISCLOSED,1997.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+무선통신 및 제어시스템 실용화,,국가철도공단,GENERAL,,LOCAL,,,,265.0,,DISCLOSED,2014.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+문산~임진강 전철화,,국가철도공단,GENERAL,,LOCAL,,,,348.0,,DISCLOSED,2016.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+미래철도 기술개발 사업,,국가철도공단,GENERAL,,LOCAL,,,,244.0,,DISCLOSED,2011.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+민자철도운영지원,,국가철도공단,GENERAL,,LOCAL,,,,13.0,,DISCLOSED,2013.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+별내선,암사역~별내,,REGIONAL,DOUBLE_ELEC,LOCAL,,12.9,,,,UNDISCLOSED,,,2024.0,국토교통부 광역철도 운영현황,False,,,,D
+보성∼임성리 철도건설,,국가철도공단,GENERAL,,LOCAL,,,,16451.0,,DISCLOSED,2002.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+부과세 부가처분비,,국가철도공단,GENERAL,,LOCAL,,,,2445.0,,DISCLOSED,2014.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+부산~울산 동부산관광단지역 신설,,국가철도공단,GENERAL,,METRO_C,,,,163.0,,DISCLOSED,2013.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+부산~울산 소골과선교 설치공사,,국가철도공단,GENERAL,,METRO_C,,,,26.0,,DISCLOSED,2016.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+부산~울산 원동역 신설사업,,국가철도공단,GENERAL,,METRO_C,,,,278.0,,DISCLOSED,2015.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+부산∼울산,,국가철도공단,GENERAL,DOUBLE_ELEC,METRO_C,복선전철,,,28271.0,,DISCLOSED,1993.0,2022.0,,국가철도공단 철도건설현황,False,,,,D
+부산신항 남컨테이너부두 운용,,국가철도공단,GENERAL,,METRO_C,,,,,,UNDISCLOSED,2009.0,2012.0,,국가철도공단 철도건설현황,False,,,,D
+부산신항 진입철도 및 임항철도 운용설비 신설,,국가철도공단,GENERAL,,METRO_C,,,,62.0,,DISCLOSED,,,,국가철도공단 철도건설현황,False,,,,D
+부산신항배후철도 건설,,국가철도공단,GENERAL,,METRO_C,,,,9335.0,,DISCLOSED,2001.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+부전~마산 광역철도,,국가철도공단,GENERAL,,LOCAL,,,,30.0,,DISCLOSED,2021.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+부전~마산 복선전철 신월역 신설,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,200.0,,DISCLOSED,2020.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+부전∼마산,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,1192.0,,DISCLOSED,2004.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+분당~수서간 도시고속도로 소음저감시설 2단계 설치,,국가철도공단,GENERAL,,LOCAL,,,,25.0,,DISCLOSED,2024.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+분당선,왕십리∼선릉,(79.1km),REGIONAL,DOUBLE_ELEC,LOCAL,,6.8,,,,UNDISCLOSED,,,2012.0,국토교통부 광역철도 운영현황,False,,,,D
+분당선복선전철(선릉~오리),,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,,,UNDISCLOSED,1990.0,2004.0,,국가철도공단 철도건설현황,False,,,,D
+삼랑진∼진주,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,18254.0,,DISCLOSED,1997.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+삼성-동탄 광역급행철도,,국가철도공단,GENERAL,,CAPITAL,,,,21382.0,,DISCLOSED,2014.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+삼성~동탄 광역급행철도 동탄역사 신설,,국가철도공단,GENERAL,,CAPITAL,,,,393.0,,DISCLOSED,2014.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+서대구 고속철도정거장 신설,,국가철도공단,GENERAL,,METRO_C,,,,737.0,,DISCLOSED,2017.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+서울지하철 4호선 운영필수시설 설치,,국가철도공단,GENERAL,,CAPITAL,,,,753.0,,DISCLOSED,2021.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+서해로 하향조정공사,,국가철도공단,GENERAL,,LOCAL,,,,50.0,,DISCLOSED,2018.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+서해선,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,40937.0,,DISCLOSED,2009.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+서해선 신남 제2지구 철도시설계획 변경(수탁),,국가철도공단,GENERAL,,LOCAL,,,,145.0,,DISCLOSED,2019.0,2022.0,,국가철도공단 철도건설현황,False,,,,D
+서해선 안중 제2과선교 확장(수탁),,국가철도공단,GENERAL,,LOCAL,,,,38.0,,DISCLOSED,2021.0,2022.0,,국가철도공단 철도건설현황,False,,,,D
+석문산단 인입철도,,국가철도공단,GENERAL,,LOCAL,,,,10719.0,,DISCLOSED,2022.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+성남∼여주,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,복선전철,,,19036.0,,DISCLOSED,1999.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+소사∼원시,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,2387.0,,DISCLOSED,2004.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+수도권 북부 내륙화물기지 인입철도,,국가철도공단,GENERAL,,CAPITAL,,,,296.0,,DISCLOSED,2008.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+"수도권 송도~용현간 용현,학익지구 철도개선사",,국가철도공단,GENERAL,,CAPITAL,,,,1042.0,,DISCLOSED,2012.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+수도권(일산~삼성) 광역급행철도,,국가철도공단,GENERAL,,CAPITAL,,,,19217.0,,DISCLOSED,2017.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+수도권고속철 유지보수,,국가철도공단,GENERAL,,CAPITAL,,,,788.0,,DISCLOSED,2016.0,2047.0,,국가철도공단 철도건설현황,False,,,,D
+수도권고속철도 수서~평택구간 건설사업,,국가철도공단,GENERAL,,CAPITAL,,,,30583.0,,DISCLOSED,2008.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+수도권고속철도 지제역 신설,,국가철도공단,GENERAL,,CAPITAL,,,,272.0,,DISCLOSED,2013.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+수도권광역급행철도 A노선 창릉역 신설,,국가철도공단,GENERAL,,CAPITAL,,,,35.0,,DISCLOSED,2022.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+"수도권광역급행철도 B노선(송도~용산,상봉~마석)",,국가철도공단,GENERAL,,CAPITAL,,,,106.0,,DISCLOSED,2022.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+수도권광역급행철도 B노선(용산~상봉),,국가철도공단,GENERAL,,CAPITAL,,,,28077.0,,DISCLOSED,2022.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+수도권광역급행철도 C노선,,국가철도공단,GENERAL,,CAPITAL,,,,25079.0,,DISCLOSED,2021.0,2028.0,,국가철도공단 철도건설현황,False,,,,D
+수도권전철 부성역 신설(수탁),,국가철도공단,GENERAL,,CAPITAL,,,,402.0,,DISCLOSED,2022.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+수도권전철 풍기역 신설(수탁),,국가철도공단,GENERAL,,CAPITAL,,,,187.0,,DISCLOSED,2020.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+수서~광주,,국가철도공단,GENERAL,DOUBLE_ELEC,METRO_C,복선전철,,,11233.0,,DISCLOSED,2021.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+수서역세권개발사업,,국가철도공단,GENERAL,,LOCAL,,,,2315.0,,DISCLOSED,2019.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+수원~천안 2복선전철,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,,,,12044.0,,DISCLOSED,1990.0,2008.0,,국가철도공단 철도건설현황,False,,,,D
+수원∼인천,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,복선전철,,,20201.0,,DISCLOSED,1995.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+수원발KTX,,국가철도공단,GENERAL,,CAPITAL,,,,3499.0,,DISCLOSED,2017.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+수인선,수원∼한대,,REGIONAL,DOUBLE_ELEC,CAPITAL,,19.9,,,,UNDISCLOSED,,,2020.0,국토교통부 광역철도 운영현황,False,,,,D
+수인선 2공구 수원시구간 지하화사업,,국가철도공단,GENERAL,,CAPITAL,,,,1676.0,,DISCLOSED,2013.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 고색역 추가출입구 설치,,국가철도공단,GENERAL,,LOCAL,,,,125.0,,DISCLOSED,2020.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 국제여객터미널 정거장 출입구 추가신설,,국가철도공단,GENERAL,,LOCAL,,,,16.0,,DISCLOSED,2014.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 봉담역 환승시설 연결통로 설치사업,,국가철도공단,GENERAL,,LOCAL,,,,23.0,,DISCLOSED,2020.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 봉담정거장 환승주차장 신설,,국가철도공단,GENERAL,,LOCAL,,,,109.0,,DISCLOSED,2016.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 송도역인근 옥골구역 철도덮개구조물,,국가철도공단,GENERAL,,LOCAL,,,,109.0,,DISCLOSED,2015.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 수원시 지하화 상부 주민편익시설 설치사업,,국가철도공단,GENERAL,,CAPITAL,,,,188.0,,DISCLOSED,2020.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 안산시 동서연결도로건설,,국가철도공단,GENERAL,,CAPITAL,,,,173.0,,DISCLOSED,2013.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 안산시 상부공간 공원조성공사,,국가철도공단,GENERAL,,CAPITAL,,,,130.0,,DISCLOSED,2014.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 연수역 역무시설 추가설치,,국가철도공단,GENERAL,,LOCAL,,,,48.0,,DISCLOSED,2013.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 옥골구역 철도덮개구조물 2단계 신설,,국가철도공단,GENERAL,,LOCAL,,,,140.0,,DISCLOSED,2017.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 용현역 출입구 및 환기구 위치변경,,국가철도공단,GENERAL,,LOCAL,,,,34.0,,DISCLOSED,2015.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 천천리 지하차도 공사,,국가철도공단,GENERAL,,LOCAL,,,,26.0,,DISCLOSED,2017.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 학익역 2단계 신설사업(인천시),,국가철도공단,GENERAL,,CAPITAL,,,,482.0,,DISCLOSED,2023.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+수인선 화성지 지하화 상부 주민편익시설 설치,,국가철도공단,GENERAL,,CAPITAL,,,,34.0,,DISCLOSED,2020.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+순천∼여수,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,7448.0,,DISCLOSED,2000.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+시설장비 운영비,,국가철도공단,GENERAL,,LOCAL,,,,235.0,,DISCLOSED,2016.0,2029.0,,국가철도공단 철도건설현황,False,,,,D
+신분당선,강남∼정자,(143.2km),REGIONAL,DOUBLE_ELEC,CAPITAL,,18.5,,,,UNDISCLOSED,,,2011.0,국토교통부 광역철도 운영현황,False,,,,D
+신분당선,정자∼광교,㈜경기철도,REGIONAL,DOUBLE_ELEC,CAPITAL,,12.8,,,,UNDISCLOSED,,,2016.0,국토교통부 광역철도 운영현황,False,,,,D
+신분당선 연장(정자~광교) 복선전철-민자,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,,,,7821.0,,DISCLOSED,2005.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+신분당선(강남~정자) 복선전철-민자,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,,,,5765.0,,DISCLOSED,2005.0,2011.0,,국가철도공단 철도건설현황,False,,,,D
+신안산선,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,복선전철,,,7091.0,,DISCLOSED,2016.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+신탄리~철원 철도복원,,국가철도공단,GENERAL,,LOCAL,,,,477.0,,DISCLOSED,2006.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+안전품질비,,국가철도공단,GENERAL,,LOCAL,,,,,,UNDISCLOSED,2007.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+여수정거장 이전,,국가철도공단,GENERAL,,LOCAL,,,,24.0,,DISCLOSED,2006.0,2009.0,,국가철도공단 철도건설현황,False,,,,D
+여주~원주,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,9348.0,,DISCLOSED,2015.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+역명부기 사용,,국가철도공단,GENERAL,,LOCAL,,,,12.0,,DISCLOSED,2017.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+영구사옥건립,,국가철도공단,GENERAL,,LOCAL,,,,1126.0,,DISCLOSED,2004.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+영남권내륙화물기지 인입철도건설,,국가철도공단,GENERAL,,LOCAL,,,,368.0,,DISCLOSED,2004.0,2008.0,,국가철도공단 철도건설현황,False,,,,D
+영동선 철도이설,,국가철도공단,GENERAL,,LOCAL,,,,5204.0,,DISCLOSED,1998.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+영주댐 수몰지구 철도이설,,국가철도공단,GENERAL,,LOCAL,,,,2041.0,,DISCLOSED,2009.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+영천~신경주,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,5603.0,,DISCLOSED,2010.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+오리∼수원,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,복선전철,,,13768.0,,DISCLOSED,2000.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+온양온천~신창,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철화,,,215.0,,DISCLOSED,2006.0,2008.0,,국가철도공단 철도건설현황,False,,,,D
+왕십리∼선릉,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,7428.0,,DISCLOSED,2000.0,2012.0,,국가철도공단 철도건설현황,False,,,,D
+용산~강남 복선전철-민자 사업관리(PM),,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,4.0,,DISCLOSED,2017.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+용산~강남 복선전철_민자,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,6527.0,,DISCLOSED,2010.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+용산∼문산,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,24432.0,,DISCLOSED,1993.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+울산∼포항,,국가철도공단,GENERAL,DOUBLE_ELEC,METRO_C,복선전철,,,26784.0,,DISCLOSED,2003.0,2022.0,,국가철도공단 철도건설현황,False,,,,D
+울산신항 인입철도건설,,국가철도공단,GENERAL,,METRO_C,,,,2225.0,,DISCLOSED,2010.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+원주 ~ 강릉 강릉시구간 지화화,,국가철도공단,GENERAL,,LOCAL,,,,400.0,,DISCLOSED,2014.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+원주~강릉 BTL,,국가철도공단,GENERAL,,LOCAL,,,,48.0,,DISCLOSED,2006.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+원주~강릉 횡성정거장 공군 유류수불시설,,국가철도공단,GENERAL,,LOCAL,,,,69.0,,DISCLOSED,2015.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+원주∼강릉 철도건설,,국가철도공단,GENERAL,,LOCAL,,,,36458.0,,DISCLOSED,1998.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+원주∼제천,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,12109.0,,DISCLOSED,2003.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+월계∼녹천 철도이설,,국가철도공단,GENERAL,,LOCAL,,,,649.0,,DISCLOSED,1999.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+월곶~판교,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,28486.0,,DISCLOSED,2016.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+월미은하레일 하자감정평가,,국가철도공단,GENERAL,,LOCAL,,,,1.0,,DISCLOSED,2014.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+의정부,탑석~발곡,의정부경량전철㈜,METRO,HEAVY_METRO,CAPITAL,,,15,,,UNDISCLOSED,,,2012.0,전국도시철도노선정보 표준데이터,False,,,,D
+의정부∼동안,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,복선전철,,,8566.0,,DISCLOSED,1995.0,2008.0,,국가철도공단 철도건설현황,False,,,,D
+이천~문경 철도건설,,국가철도공단,GENERAL,,LOCAL,,,,25504.0,,DISCLOSED,2004.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+이천~충주 222신호장 공군 유류수불시설,,국가철도공단,GENERAL,,LOCAL,,,,69.0,,DISCLOSED,2018.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+인덕원~동탄 복선전철 건설사업,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,40732.0,,DISCLOSED,2015.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+인천공항 제2여객터미널 연결사업,,국가철도공단,GENERAL,,CAPITAL,,,,4381.0,,DISCLOSED,2012.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+인천공항 제2여객터미널 운영시설 유지보수(자체),,국가철도공단,GENERAL,,CAPITAL,,,,11.0,,DISCLOSED,2019.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+인천공항 제2여객터미널 차량 유지보수(자체),,국가철도공단,GENERAL,,CAPITAL,,,,224.0,,DISCLOSED,2019.0,2040.0,,국가철도공단 철도건설현황,False,,,,D
+인천공항철도 마곡역 신설사업,,국가철도공단,GENERAL,,CAPITAL,,,,685.0,,DISCLOSED,2013.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+인천공항철도 영종역 신설사업,,국가철도공단,GENERAL,,CAPITAL,,,,394.0,,DISCLOSED,2012.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+인천공항철도 청라역신설,,국가철도공단,GENERAL,,CAPITAL,,,,670.0,,DISCLOSED,2011.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+인천국제공항 활주로구간 철도건설,,국가철도공단,GENERAL,,CAPITAL,,,,356.0,,DISCLOSED,2004.0,2007.0,,국가철도공단 철도건설현황,False,,,,D
+인천국제공항철도 건설,,국가철도공단,GENERAL,,CAPITAL,,,,1505.0,,DISCLOSED,2001.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+인천발KTX,,국가철도공단,GENERAL,,CAPITAL,,,,5553.0,,DISCLOSED,2017.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+일반철도 운영시설 유지보수(자체),,국가철도공단,GENERAL,,LOCAL,,,,89.0,,DISCLOSED,2019.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+일반철도 유지보수비,,국가철도공단,GENERAL,,LOCAL,,,,104668.0,,DISCLOSED,2004.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+일반철도시설개량,,국가철도공단,GENERAL,UPGRADE,LOCAL,,,,102527.0,,DISCLOSED,2004.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+일산선 원흥역 신설,,국가철도공단,GENERAL,,LOCAL,,,,838.0,,DISCLOSED,2009.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+자기부상철도,인천공항1터미널역~용유역,인천국제공항공사,METRO,HEAVY_METRO,CAPITAL,,,6,,,UNDISCLOSED,,,2016.0,전국도시철도노선정보 표준데이터,False,,,,D
+장항선 개량,,국가철도공단,GENERAL,UPGRADE,LOCAL,,,,15542.0,,DISCLOSED,1997.0,2009.0,,국가철도공단 철도건설현황,False,,,,D
+장항선 개량 2단계,,국가철도공단,GENERAL,UPGRADE,LOCAL,,,,9947.0,,DISCLOSED,2010.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+장항선 복선전철사업,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,8396.0,,DISCLOSED,2018.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+장항선 탕정역 신설사업,,국가철도공단,GENERAL,,LOCAL,,,,348.0,,DISCLOSED,2016.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+전라선,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철화,,,5026.0,,DISCLOSED,2002.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+"전라선개량(임실~금지, 압록~구례구)",,국가철도공단,GENERAL,UPGRADE,LOCAL,,,,10882.0,,DISCLOSED,1988.0,2004.0,,국가철도공단 철도건설현황,False,,,,D
+전용선 유지보수위탁,,국가철도공단,GENERAL,,LOCAL,,,,116.0,,DISCLOSED,2008.0,2013.0,,국가철도공단 철도건설현황,False,,,,D
+정자~광교 건설사업관리,,국가철도공단,GENERAL,,LOCAL,,,,36.0,,DISCLOSED,2011.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+제2철도교통관제센터 건설사업,,국가철도공단,GENERAL,,LOCAL,,,,3769.0,,DISCLOSED,2021.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+제천∼도담,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,3007.0,,DISCLOSED,2004.0,2012.0,,국가철도공단 철도건설현황,False,,,,D
+제천∼쌍용,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,3687.0,,DISCLOSED,2003.0,2014.0,,국가철도공단 철도건설현황,False,,,,D
+조치원∼대구 전철화,,국가철도공단,GENERAL,,METRO_C,,,,7329.0,,DISCLOSED,2001.0,2007.0,,국가철도공단 철도건설현황,False,,,,D
+중부권내륙화물기지 인입철도건설,,국가철도공단,GENERAL,,LOCAL,,,,770.0,,DISCLOSED,2004.0,2009.0,,국가철도공단 철도건설현황,False,,,,D
+중앙선,청량리∼덕소,(168.8km),REGIONAL,DOUBLE_ELEC,LOCAL,,18.0,,,,UNDISCLOSED,,,2005.0,국토교통부 광역철도 운영현황,False,,,,D
+중앙선 오빈역사 신설,,국가철도공단,GENERAL,,LOCAL,,,,135.0,,DISCLOSED,2008.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+중앙선 지평역 전동차 연장운행 시설개량,,국가철도공단,GENERAL,UPGRADE,LOCAL,,,,65.0,,DISCLOSED,2015.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+진접선,당고개∼진접,,REGIONAL,DOUBLE_ELEC,LOCAL,,14.9,,,,UNDISCLOSED,,,2022.0,국토교통부 광역철도 운영현황,False,,,,D
+진접선 복선전철 건설사업 차량기지 개발분담금(서울시),,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,,,,73.0,,DISCLOSED,2019.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+진접선 복선전철 선로 등 기반시설 유지보수,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,126.0,,DISCLOSED,2022.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+진주~광양 전철화,,국가철도공단,GENERAL,,LOCAL,,,,1560.0,,DISCLOSED,2018.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+진주∼광양 복선화,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,,,,10854.0,,DISCLOSED,2003.0,2017.0,,국가철도공단 철도건설현황,False,,,,D
+차량구입비(대곡-소사),,국가철도공단,GENERAL,,LOCAL,,,,1151.0,,DISCLOSED,2018.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+차세대 열차제어 기술 개발,,국가철도공단,GENERAL,,LOCAL,,,,28.0,,DISCLOSED,2018.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+천안~청주공항,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,5122.0,,DISCLOSED,2016.0,2029.0,,국가철도공단 철도건설현황,False,,,,D
+천안∼온양온천,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,5301.0,,DISCLOSED,1997.0,2009.0,,국가철도공단 철도건설현황,False,,,,D
+철도 기반정보 구축 플랫폼 기술개발,,국가철도공단,GENERAL,,LOCAL,,,,2.0,,DISCLOSED,2013.0,2016.0,,국가철도공단 철도건설현황,False,,,,D
+철도건설 반환금 처리비(자체),,국가철도공단,GENERAL,,LOCAL,,,,108.0,,DISCLOSED,2014.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+철도건설사전조사비(자체),,국가철도공단,GENERAL,,LOCAL,,,,11.0,,DISCLOSED,2015.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+철도공안사무소 청사 증개축,,국가철도공단,GENERAL,,LOCAL,,,,6.0,,DISCLOSED,2009.0,2009.0,,국가철도공단 철도건설현황,False,,,,D
+철도교통관제시설,,국가철도공단,GENERAL,,LOCAL,,,,298.0,,DISCLOSED,2005.0,2011.0,,국가철도공단 철도건설현황,False,,,,D
+철도사후관리 및 지원(국고),,국가철도공단,GENERAL,,LOCAL,,,,452.0,,DISCLOSED,2017.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+철도사후관리 및 지원(자체),,국가철도공단,GENERAL,,LOCAL,,,,1598.0,,DISCLOSED,2009.0,2034.0,,국가철도공단 철도건설현황,False,,,,D
+철도산업정보센터,,국가철도공단,GENERAL,,LOCAL,,,,146.0,,DISCLOSED,2006.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+철도산업정보센터운영,,국가철도공단,GENERAL,,LOCAL,,,,154.0,,DISCLOSED,2011.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+철도시설 이력관리 시스템구축,,국가철도공단,GENERAL,,LOCAL,,,,215.0,,DISCLOSED,2018.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+철도재해복구비,,국가철도공단,GENERAL,,LOCAL,,,,7.0,,DISCLOSED,2008.0,2048.0,,국가철도공단 철도건설현황,False,,,,D
+철도종합 시험선로 구축,,국가철도공단,GENERAL,,LOCAL,,,,2399.0,,DISCLOSED,2011.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+철도차량 입출고 전용선로 신설(정읍),,국가철도공단,GENERAL,,LOCAL,,,,69.0,,DISCLOSED,2019.0,2020.0,,국가철도공단 철도건설현황,False,,,,D
+철도횡단시설사업,,국가철도공단,GENERAL,,LOCAL,,,,2438.0,,DISCLOSED,2004.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+청량리∼덕소,,국가철도공단,GENERAL,DOUBLE_ELEC,LOCAL,복선전철,,,7494.0,,DISCLOSED,1990.0,2010.0,,국가철도공단 철도건설현황,False,,,,D
+춘천~속초 철도건설,,국가철도공단,GENERAL,,LOCAL,,,,30131.0,,DISCLOSED,2016.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+충북선 전철화,,국가철도공단,GENERAL,,LOCAL,,,,,,UNDISCLOSED,1997.0,2004.0,,국가철도공단 철도건설현황,False,,,,D
+충청권 광역철도,,국가철도공단,GENERAL,,LOCAL,,,,2583.0,,DISCLOSED,2016.0,2023.0,,국가철도공단 철도건설현황,False,,,,D
+충청권 광역철도 옥천연장(대전~옥천),,국가철도공단,GENERAL,,METRO_C,,,,490.0,,DISCLOSED,2021.0,2026.0,,국가철도공단 철도건설현황,False,,,,D
+태화강~송정 광역철,,국가철도공단,GENERAL,,LOCAL,,,,262.0,,DISCLOSED,2021.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+평창동계올림픽지원 기존선 고속,,국가철도공단,GENERAL,,LOCAL,,,,1053.0,,DISCLOSED,2015.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+평택~오송 2복선화 사업,,국가철도공단,GENERAL,DOUBLE_ELEC,CAPITAL,,,,32384.0,,DISCLOSED,2021.0,2027.0,,국가철도공단 철도건설현황,False,,,,D
+평화육교 개체공사,,국가철도공단,GENERAL,,LOCAL,,,,239.0,,DISCLOSED,2016.0,2018.0,,국가철도공단 철도건설현황,False,,,,D
+포승~평택 철도건설,,국가철도공단,GENERAL,,CAPITAL,,,,7091.0,,DISCLOSED,2004.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+포항∼삼척 철도건설,,국가철도공단,GENERAL,,LOCAL,,,,34289.0,,DISCLOSED,2002.0,2024.0,,국가철도공단 철도건설현황,False,,,,D
+포항영일만신항 인입철도건설,,국가철도공단,GENERAL,,LOCAL,,,,1696.0,,DISCLOSED,2010.0,2019.0,,국가철도공단 철도건설현황,False,,,,D
+하남선,상일동∼검단산,서울교통공사,REGIONAL,DOUBLE_ELEC,CAPITAL,,7.7,,,,UNDISCLOSED,,,2021.0,국토교통부 광역철도 운영현황,False,,,,D
+해외공사용역비,,국가철도공단,GENERAL,,LOCAL,,,,801.0,,DISCLOSED,2006.0,2015.0,,국가철도공단 철도건설현황,False,,,,D
+해외철도수주지원(국고),,국가철도공단,GENERAL,,LOCAL,,,,10.0,,DISCLOSED,2017.0,2021.0,,국가철도공단 철도건설현황,False,,,,D
+호남고속철도,,국가철도공단,GENERAL,,LOCAL,,,,81191.0,,DISCLOSED,2006.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+호남고속철도 2단계 건설사업,,국가철도공단,GENERAL,,LOCAL,,,,27863.0,,DISCLOSED,2014.0,2025.0,,국가철도공단 철도건설현황,False,,,,D
+호남고속철도 유지보수비,,국가철도공단,GENERAL,,LOCAL,,,,2386.0,,DISCLOSED,2010.0,2030.0,,국가철도공단 철도건설현황,False,,,,D
+호남권내륙화물기지 인입철도,,국가철도공단,GENERAL,,LOCAL,,,,538.0,,DISCLOSED,2001.0,2004.0,,국가철도공단 철도건설현황,False,,,,D
+호남선전철화(대전~목포),,국가철도공단,GENERAL,,METRO_C,,,,,,UNDISCLOSED,2001.0,2004.0,,국가철도공단 철도건설현황,False,,,,D
