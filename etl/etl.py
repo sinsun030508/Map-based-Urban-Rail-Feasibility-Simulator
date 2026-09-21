@@ -70,6 +70,11 @@ def to_number(v):
         return None
 
 
+def to_int(v):
+    n = to_number(v)
+    return int(n) if n is not None else None
+
+
 def parse_period(v):
     """'2020~2032' '2025∼2033' → (2020, 2032)"""
     s = clean_text(v)
@@ -97,11 +102,18 @@ def count_stations(v):
 # 유형 분류
 # ---------------------------------------------------------------
 
-# 경전철로 알려진 도시철도 노선 (운영현황 표에는 유형 표기가 없음)
+# 경전철로 알려진 도시철도 노선 (운영현황·xlsx 모두 유형 표기가 없음)
+# 노선명에 부분 문자열로 포함되면 경전철로 본다.
 LIGHT_RAIL_LINES = {
     '우이-신설', '우이신설', '신림선', '의정부', '용인', '김포',
     '부산-김해', '김해', '인천공항자기부상', '동북선', '위례',
+    '인천 2호선', '인천지하철 2호선',
 }
+
+
+def is_light_rail(name):
+    s = clean_text(name) or ''
+    return any(k in s for k in LIGHT_RAIL_LINES)
 
 TYPE_RULES = [
     (r'기존선\s*개량|기존선\s*고속화|개량|고속화', 'UPGRADE'),
@@ -154,7 +166,8 @@ def load_metro_xlsx(path):
     for _, r in df.iterrows():
         length_m = to_number(r.get('노선연장'))
         name, _ = split_line_name(r.get('노선명'))
-        rtype = classify_type(r.get('노선명'), fallback='HEAVY_METRO')
+        rtype = classify_type(r.get('노선명'),
+                              fallback='LIGHT_RAIL' if is_light_rail(r.get('노선명')) else 'HEAVY_METRO')
         rows.append({
             'line_name': name,
             'section_name': f"{clean_text(r.get('기점명'))}~{clean_text(r.get('종점명'))}",
@@ -321,13 +334,13 @@ def parse_metro_ops(lines):
         stations = to_number(cols[2]) if len(cols) > 2 else None
         if not name or length is None or stations is None:
             continue                      # 줄바꿈으로 흘러나온 조각 행
-        base = re.sub(r'\(.*?\)', '', name).strip()
+        full = f'{region} {name}' if region else name
         rows.append({
-            'line_name': f'{region} {name}' if region else name,
+            'line_name': full,
             'section_name': clean_text(cols[3]) if len(cols) > 3 else None,
             'operator': None,
             'rail_class': 'METRO',
-            'mode_type': 'LIGHT_RAIL' if base in LIGHT_RAIL_LINES else 'HEAVY_METRO',
+            'mode_type': 'LIGHT_RAIL' if is_light_rail(re.sub(r'\(.*?\)', '', full)) else 'HEAVY_METRO',
             'region_class': classify_region(region or '', name),
             'raw_type_text': None,
             'length_km': length,
@@ -440,6 +453,40 @@ def load_brt_seed(path):
 
 
 # ---------------------------------------------------------------
+# 소스 7) 도시철도 비용 시드 (수기 정리 csv)
+# 원본 3종엔 지하철·경전철 금액이 없어서, 공개 자료(인천교통공사 등)와
+# 건설현황 금액+xlsx 연장을 구간 단위로 직접 맞춘 건만 모은다.
+# ---------------------------------------------------------------
+
+def load_metro_seed(path):
+    df = pd.read_csv(path)
+    rows = []
+    for _, r in df.iterrows():
+        note = clean_text(r.get('note')) or ''
+        rows.append({
+            'line_name': clean_text(r['line_name']),
+            'section_name': clean_text(r.get('section_name')),
+            'operator': None,
+            'rail_class': 'METRO',
+            'mode_type': clean_text(r['mode_type']),
+            'region_class': clean_text(r['region_class']),
+            'raw_type_text': None,
+            'length_km': to_number(r.get('length_km')),
+            'station_count': int(to_number(r['station_count'])),
+            'total_cost': to_number(r.get('total_cost')),
+            'base_year': to_int(r.get('base_year')),
+            'cost_status': 'DISCLOSED',
+            'period_start': to_int(r.get('period_start')),
+            'period_end': to_int(r.get('period_end')),
+            'opened_year': None,
+            'source_name': clean_text(r.get('source_name')),
+            'is_outlier': '이상치' in note,
+            'note': note or None,
+        })
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------
 # 알려진 이상치 — 지우지 않고 is_outlier 플래그만 남긴다 (CLAUDE.md 참고).
 # BRT는 brt_seed.csv 의 note 에 '이상치'가 있으면 load_brt_seed 에서 이미 처리됨.
 # 여기서는 그 외 출처(사업계획/건설현황)에서 온 알려진 사례만 다룬다.
@@ -455,6 +502,42 @@ KNOWN_OUTLIERS = {
     ('태화강~북울산 광역철도', '태화강~북울산'):
         '기존선 활용 구간 — km당 단가 이상치',
 }
+
+
+# ---------------------------------------------------------------
+# 출처 간 동일 사업 — 이름·구간 표기가 달라 노선명+구간 중복 제거에 안 걸리는 건.
+# 등급이 낮은 쪽 행을 지우고, 남는 행 note 에 지운 행의 원문을 남긴다.
+# (지울 행 line_name, 지울 행 출처, 남길 행 line_name)
+# ---------------------------------------------------------------
+
+HISTORY = '국가철도공단 철도건설현황'
+REGIONAL_OPS = '국토교통부 광역철도 운영현황'
+
+SAME_PROJECT = [
+    ('김포도시철도 건설사업', HISTORY, '김포도시철도'),
+    ('당고개~진접', HISTORY, '진접선'),
+    ('진접선', REGIONAL_OPS, '진접선'),
+    ('충청권 광역철도 옥천연장(대전~옥천)', HISTORY, '충청권 광역철도(옥천연장)'),
+    ('석문산단 인입철도', HISTORY, '석문산단 인입철도'),
+    ('수서~광주', HISTORY, '수서광주선'),
+]
+
+
+def drop_same_projects(df):
+    for dup, dup_src, keep in SAME_PROJECT:
+        dup_mask = (df['line_name'] == dup) & (df['source_name'] == dup_src)
+        cand = df[(df['line_name'] == keep) & ~dup_mask].sort_values('data_grade')
+        # 원본이 바뀌어 매칭이 어긋나면 조용히 넘어가지 말고 멈춘다
+        if dup_mask.sum() != 1 or cand.empty:
+            raise ValueError(f'SAME_PROJECT 매칭 실패: {dup} ({dup_src}) → {keep}')
+        keep_idx = cand.index[0]
+        if df.loc[dup_mask, 'data_grade'].iloc[0] <= df.loc[keep_idx, 'data_grade']:
+            raise ValueError(f'SAME_PROJECT 등급 역전: {dup} 가 {keep} 보다 등급이 높거나 같음')
+        memo = f"{dup_src} '{dup}'과 동일 사업 (중복 행 제거)"
+        old = df.loc[keep_idx, 'note']
+        df.loc[keep_idx, 'note'] = f'{old} / {memo}' if pd.notna(old) else memo
+        df = df[~dup_mask]
+    return df.reset_index(drop=True)
 
 
 def flag_known_outliers(df):
@@ -478,6 +561,7 @@ def build():
         load_history_csv(latest('국가철도공단_철도건설현황*.csv')),
         load_mixed_txt(latest('데이터*.txt')),
         load_brt_seed(SEED / 'brt_seed.csv'),
+        load_metro_seed(SEED / 'metro_seed.csv'),
     ]
     df = pd.concat(frames, ignore_index=True)
     df['is_outlier'] = df.get('is_outlier', False).fillna(False).astype(bool)
@@ -511,7 +595,21 @@ def build():
             .sort_values(['data_grade', 'line_name'])
             .reset_index(drop=True))
     df = flag_known_outliers(df)
+    df = drop_same_projects(df)
     return df
+
+
+# 같은 노선이 운영현황·xlsx·시드에 중복돼 있어 전체로 집계하면 한 노선이 여러 번 잡힌다.
+# 역간격 통계는 운영현황 한 출처만 쓰고, 운영현황에 없는 수단(트램·BRT)만 다른 출처를 쓴다.
+SPACING_SOURCE = '국토교통부 도시철도 운영현황'
+
+
+def spacing_stats(df):
+    s = df[df['avg_spacing_km'].notna() & ~df['is_outlier']]
+    ops = s[s['source_name'] == SPACING_SOURCE]
+    s = pd.concat([ops, s[~s['mode_type'].isin(ops['mode_type'].unique())]])
+    return (s.groupby('mode_type')['avg_spacing_km']
+             .agg(n='count', 중앙값='median', 최소='min', 최대='max').round(2))
 
 
 def to_sql(df, path):
@@ -565,7 +663,5 @@ if __name__ == '__main__':
     print(m.groupby(['rail_class', 'mode_type'])['cost_per_km']
             .agg(n='count', 평균='mean', 최소='min', 최대='max')
             .round(0).to_string(), '\n')
-    print('[유형별 평균 역간격(km)]')
-    s = df[df['avg_spacing_km'].notna()]
-    print(s.groupby('mode_type')['avg_spacing_km']
-           .agg(n='count', 평균='mean').round(2).to_string())
+    print('[유형별 역간격(km) — 운영현황 기준 중앙값]')
+    print(spacing_stats(df).to_string())

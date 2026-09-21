@@ -9,8 +9,8 @@ TRUNCATE TABLE mode_capacity;
 INSERT INTO mode_capacity
     (mode_type, display_name, pphpd_min, pphpd_max,
      cost_per_km_min, cost_per_km_max, spacing_km, source) VALUES
- ('HEAVY_METRO', '중전철(지하철)', 40000, 80000,  405, 2027, 1.07, 'NABIS + 운영현황 22개 노선 중앙값'),
- ('LIGHT_RAIL',  '경전철',          5000, 66000,  100,  963, 0.95, 'NABIS + 운영현황 6개 노선 중앙값'),
+ ('HEAVY_METRO', '중전철(지하철)', 40000, 80000,  920, 1470, 1.06, '제안서(서울 3·7·9호선 연장·하단녹산선) + 운영현황 21개 노선 중앙값'),
+ ('LIGHT_RAIL',  '경전철',          5000, 66000,  400,  700, 1.06, '제안서(용인경전철) + 운영현황 7개 노선 중앙값'),
  ('TRAM',        '트램',            5000, 20000,  380,  480, 0.86, '위례선·대전2호선 사례'),
  ('BRT_HIGH',    'BRT 고급형',     15000, 35000,   25,   64, 1.16, '국토교통부 BRT 정책자료 6건'),
  ('BRT_LOW',     'BRT 저급형',     10000, 20000,    2,   14, 1.16, '광역BRT 저비용 3건 — 역간격은 고급형 준용'),
