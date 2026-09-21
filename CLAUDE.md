@@ -27,6 +27,10 @@ deck.gl 3D 렌더링이 모바일에서 불안정하며, 사용 맥락이 "앉�
 ## 디렉터리 구조
 
 ```
+CLAUDE.md                 # 이 파일
+README.md
+docker-compose.yml        # MySQL 8.0 + Redis, 첫 기동 시 db/ 자동 적재
+.env.example
 data/
   raw/                    # 받은 원본 — 절대 수정 금지
     데이터.txt
@@ -43,11 +47,21 @@ db/
   seed/S2__reference_line.sql
 etl/
   etl.py
-backend/                  # Spring Boot
-frontend/                 # React
+  requirements.txt
+docs/                     # 제안서 docx/pdf, erd.png
+backend/                  # Spring Boot (미착수)
+frontend/                 # React (미착수)
 ```
 
 `data/raw/`는 파싱 규칙을 바꿨을 때 다시 돌려야 하므로 손대지 않는다.
+
+### 적재 흐름
+```bash
+python etl/etl.py                                  # raw + seed → build csv + S2 sql
+docker compose down -v && docker compose up -d     # 볼륨 초기화 후 재적재
+```
+MySQL `docker-entrypoint-initdb.d`는 **하위 폴더를 읽지 않고, 볼륨이 비어야만 실행**된다.
+그래서 compose에서 SQL을 파일 단위로 `01_` `02_` `03_` 접두사 붙여 마운트한다.
 
 ---
 
@@ -198,6 +212,39 @@ frontend/                 # React
 ## 작업 규칙
 
 - 코드는 간결하게. 불필요한 추상화 금지, 기능 코드를 하나의 파일 만들지 말고 기능별로 만들기
-- 스키마를 바꾸면 엔티티·DTO·리포지토리까지 함께 수정
+- 스키마를 바꾸면 엔티티·DTO·리포지토리·`etl.py`의 `SQL_COLUMNS`까지 함께 수정
+  (과거에 DDL만 옛날 버전으로 남아 seed가 재현 불가능한 고아가 된 사고가 있었다)
+- `S2__reference_line.sql`은 손으로 고치지 않는다. `etl.py`를 고치고 재실행
+- `data_grade`도 DB 생성 컬럼이다. ETL 판정과 어긋나지 않도록 DB를 기준으로 삼는다
 - ETL 재실행 시 중복 방지를 위해 `S2__reference_line.sql` 앞에 TRUNCATE 포함
 - `docker-entrypoint-initdb.d`는 볼륨이 비어야 실행됨 → 스키마 변경 시 `docker compose down -v`
+- 새 규칙이나 결정이 생기면 이 파일에 추가한다
+
+---
+
+## 현재 상태
+
+### 완료
+- 제안서 (docs/)
+- 데이터 수집·정규화 ETL — 372건 (A 19 / B 39 / C 70 / D 244)
+- 지하철·경전철·트램 비용 사례 시드 (`metro_seed.csv`, 제안서 인용 사례 포함)
+- `reference_line` / `type_mapping` / `price_index` / `mode_capacity` DDL + 시드
+- Docker Compose (MySQL, Redis)
+
+### 다음 할 일 (우선순위 순)
+1. **서비스 테이블 DDL 추가** — `user`, `scenario`, `route_point`, `station`, `cost_standard`,
+   `benefit_parameter` (docs/erd.png 참고). V2 마이그레이션 파일로 분리
+2. **Spring Boot 뼈대** — 엔티티, 리포지토리, JWT 인증, 시나리오 CRUD
+3. **비용 회귀식 도출** — `data_grade IN ('A','B') AND cost_status='DISCLOSED' AND NOT is_outlier`
+   로 수단별 고정비·변동단가 추정. 결과를 `cost_standard`에 적재
+4. **`price_index` 채우기** — 한국은행 GDP 디플레이터. 현재 비어 있어
+   `total_cost_2025`가 전부 NULL이고, 기준연도 2001~2025의 물가차가 오차로 남아 있다
+5. React + MapLibre 지도 화면
+6. SGIS API 연동 (수요 추정)
+
+### 알려진 데이터 공백
+- D등급 244건 대부분이 철도건설현황 csv — 금액은 있으나 연장이 없음.
+  노선명 자동 조인은 오매칭 위험이 커서 `metro_seed.csv`에 구간 단위로 수기 매칭한다
+- 광역철도 운영현황 블록은 구간별로 쪼개져 있어(분당선 5구간 등) 노선 단위 합산 필요
+- BRT 역간격 표본 2건뿐 — 현재는 1.16km로 고정, 경전철과 유사하다고 가정
+- 트램 표본 2건뿐 (위례선·대전 2호선) — 비용·역간격 모두 범위 참고용

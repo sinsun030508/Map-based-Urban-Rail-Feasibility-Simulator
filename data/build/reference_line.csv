@@ -104,7 +104,7 @@
 서울 우이-신설,북한산우이~신설동,,METRO,LIGHT_RAIL,CAPITAL,,11.0,13.0,,,UNDISCLOSED,,,2017.0,국토교통부 도시철도 운영현황,False,,,0.846,C
 서해선,소사~원시,한국철도공사,METRO,HEAVY_METRO,LOCAL,,40.3,15,,,UNDISCLOSED,,,2021.0,전국도시철도노선정보 표준데이터,False,,,2.687,C
 수도권 경량도시철도 신림선,샛강~관악산,남서울경전철 주식회사,METRO,LIGHT_RAIL,CAPITAL,,7.76,11,,,UNDISCLOSED,,,2022.0,전국도시철도노선정보 표준데이터,False,,,0.705,C
-수도권 경량도시철도 에버라인,기흥(백남준아트센터)~전대·에버랜드,용인경전철,METRO,LIGHT_RAIL,CAPITAL,,0.018,15,,,UNDISCLOSED,,,2013.0,전국도시철도노선정보 표준데이터,False,,,0.001,C
+수도권 경량도시철도 에버라인,기흥(백남준아트센터)~전대·에버랜드,용인경전철,METRO,LIGHT_RAIL,CAPITAL,,0.018,15,,,UNDISCLOSED,,,2013.0,전국도시철도노선정보 표준데이터,True,"xlsx 원본 오류 — 연장 0.018km (실제 18.1km, 단위 오기로 추정)",,0.001,C
 수도권 경량도시철도 우이신설선,북한산우이~신설동,우이신설경전철운영㈜,METRO,LIGHT_RAIL,CAPITAL,,11.4,13,,,UNDISCLOSED,,,2017.0,전국도시철도노선정보 표준데이터,False,,,0.877,C
 수도권 광역철도 1호선,청량리(서울시립대입구)~서울역,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,7.8,10,,,UNDISCLOSED,,,1974.0,전국도시철도노선정보 표준데이터,False,,,0.78,C
 수도권 광역철도 3호선,지축~오금,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,38.2,34,,,UNDISCLOSED,,,1985.0,전국도시철도노선정보 표준데이터,False,,,1.124,C
@@ -118,7 +118,7 @@
 수도권 도시철도 8호선,암사역사공원~모란,서울교통공사,METRO,HEAVY_METRO,CAPITAL,,18.8,19,,,UNDISCLOSED,,,1996.0,전국도시철도노선정보 표준데이터,False,,,0.989,C
 수도권 전철 8호선,다산역~별내역,남양주도시공사,METRO,HEAVY_METRO,CAPITAL,,2.234,1,,,UNDISCLOSED,,,2024.0,전국도시철도노선정보 표준데이터,False,,,2.234,C
 수인선,오이도~인천,한국철도공사,METRO,HEAVY_METRO,CAPITAL,,38.8,18,,,UNDISCLOSED,,,2012.0,전국도시철도노선정보 표준데이터,False,,,2.156,C
-신분당선,신사역~광교(경기대),네오트랜스(주),METRO,HEAVY_METRO,CAPITAL,,33.5,1,,,UNDISCLOSED,,,2028.0,전국도시철도노선정보 표준데이터,False,,,33.5,C
+신분당선,신사역~광교(경기대),네오트랜스(주),METRO,HEAVY_METRO,CAPITAL,,33.5,1,,,UNDISCLOSED,,,2028.0,전국도시철도노선정보 표준데이터,True,xlsx 원본 오류 — 역수 1·개통 2028 (정거장구성 미기재로 추정),,33.5,C
 안산·과천선,남태령~오이도,한국철도공사,METRO,HEAVY_METRO,CAPITAL,,40.4,21,,,UNDISCLOSED,,,1988.0,전국도시철도노선정보 표준데이터,False,,,1.924,C
 인천 1호선,계양∼송도달빛축제공원,,METRO,HEAVY_METRO,CAPITAL,,30.3,30.0,,,UNDISCLOSED,,,1999.0,국토교통부 도시철도 운영현황,False,,,1.01,C
 인천 2호선,검단오류∼운연,,METRO,LIGHT_RAIL,CAPITAL,,29.1,27.0,,,UNDISCLOSED,,,2016.0,국토교통부 도시철도 운영현황,False,,,1.078,C

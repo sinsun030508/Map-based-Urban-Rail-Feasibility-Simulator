@@ -1,0 +1,28 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: railfeas-db
+    environment:
+      MYSQL_DATABASE: railfeas
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-railfeas}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+      # initdb.d 는 하위 폴더를 읽지 않으므로 파일 단위로 마운트 (알파벳 순 실행)
+      - ./db/schema/V1__create_tables.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./db/seed/S1__mode_capacity.sql:/docker-entrypoint-initdb.d/02_mode_capacity.sql:ro
+      - ./db/seed/S2__reference_line.sql:/docker-entrypoint-initdb.d/03_reference_line.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    container_name: railfeas-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  db-data:

@@ -1,0 +1,26 @@
+# 환경
+.env
+.venv/
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 빌드
+backend/build/
+backend/target/
+backend/.gradle/
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# data/build 는 ETL 산출물이지만 검토용으로 커밋한다
+
+# 전달용 압축본
+*.zip
