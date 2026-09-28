@@ -49,8 +49,10 @@ db/
   seed/S2__reference_line.sql
   seed/S3__restricted_zone.sql          # 문화재·상수원·군사 구역 (근사 좌표)
   seed/S4__price_index.sql              # ETL 자동 생성 — price_index.csv 를 고칠 것
+  seed/S5__cost_standard.sql            # cost_model.py 자동 생성 — 직접 수정 금지
 etl/
-  etl.py
+  etl.py                  # raw → reference_line
+  cost_model.py           # reference_line → 비용 계수 (S5)
   requirements.txt
 docs/                     # 제안서 docx/pdf, erd.png
 backend/                  # Spring Boot (Maven, Java 17)
@@ -70,8 +72,12 @@ frontend/                 # React (미착수)
 
 ### 백엔드 실행
 ```bash
-cd backend && mvn spring-boot:run        # Java 17 이상 필요
+cd backend && ./mvnw spring-boot:run     # Maven 설치 불필요 (래퍼가 받아 온다)
 ```
+- **JDK 23 이상에서 빌드할 때 주의** — javac 가 클래스패스의 애너테이션 프로세서를 기본으로
+  돌리지 않아 Lombok getter 가 생성되지 않는다. `pom.xml` 의 `annotationProcessorPaths` 에
+  Lombok 을 명시해 두었고 Lombok 도 1.18.38 로 올렸다 (Boot 3.3 기본값 1.18.34 는 JDK 24 에서 실패)
+- 컴파일은 확인됨 (JDK 24, release 17). **기동·DB 연동은 미검증** — Docker 미설치
 - **스키마는 JPA가 만들지 않는다.** `ddl-auto=validate` 로 고정하고 `db/schema/*.sql` 이 만든다.
   엔티티를 고치면 DDL도 같이 고치고 `docker compose down -v` 로 다시 올려야 한다
 - 인증은 JWT. 소셜 로그인은 `/oauth2/authorization/google`, `/oauth2/authorization/kakao` 로
@@ -84,7 +90,7 @@ python etl/etl.py                                  # raw + seed → build csv + 
 docker compose down -v && docker compose up -d     # 볼륨 초기화 후 재적재
 ```
 MySQL `docker-entrypoint-initdb.d`는 **하위 폴더를 읽지 않고, 볼륨이 비어야만 실행**된다.
-그래서 compose에서 SQL을 파일 단위로 `01_`~`06_` 접두사 붙여 마운트한다 (스키마 → 시드 순).
+그래서 compose에서 SQL을 파일 단위로 `01_`~`07_` 접두사 붙여 마운트한다 (스키마 → 시드 순).
 
 ---
 
@@ -212,6 +218,34 @@ MySQL `docker-entrypoint-initdb.d`는 **하위 폴더를 읽지 않고, 볼륨�
 - `station` — `scenario_result`에 매달린다 (역간격이 수단마다 다르므로)
 
 **ERD 그림은 아직 이 구조가 아니다.** 제안서 수정 시 함께 고칠 것.
+
+### 비용 계수 (cost_standard) — `etl/cost_model.py` 산출
+
+2단계다. ① log-log 회귀로 규모의 경제를 잡고 ② 그 곡선을 5~40km 에서 직선으로 근사해
+`고정비 + 연장×단가` 형태로 바꾼다. 스키마가 그 형태이기 때문이다.
+
+`log(사업비) = 절편 + 0.921·log(연장) + 0.613·지하비율 + 수단더미`
+
+| 수단 | 구조 | 고정비 | km당 | 표본 |
+|---|---|---|---|---|
+| 지하철 | 지하 | 1,702 | 1,090 | 13 |
+| 지하철 | 고가 | 980 | 628 | 13 |
+| 경전철 | 지하 | 1,218 | 780 | 12 |
+| 경전철 | 고가 | 702 | 449 | 12 |
+| 트램 | 지상 | 653 | 418 | 2 |
+| BRT 고급형 | 지상 | 151 | 35 | 6 |
+| BRT 저급형 | 지상 | 24 | 5 | 3 |
+| 복선전철 | 지하 | 4,439 | 1,022 | 14 |
+| 복선전철 | 고가 | 2,557 | 589 | 14 |
+
+(2025년 환산 억원. 도시철도는 지하비율 모델, 나머지는 전체 표본 모델 + 구조 보정)
+
+- **역당 단가는 0 이다.** 역수는 연장을 역간격으로 나눈 값과 거의 같아 분리되지 않는다
+  (추정치 -223±225 억원). **정차역 수를 바꿔도 비용이 변하지 않는다** — 확정 비용식의 역수 항은
+  현재 작동하지 않는다. 문헌값(예타 지침 정거장 단가)으로 채우는 것이 향후 과제
+- 실제 27개 노선과 대조하면 **평균 21% 틀린다.** 광주 2호선 1단계(저심도) 1.83배,
+  대구 1호선 하양연장(기존선 병행) 1.71배, 7호선 청라연장 0.49배가 가장 큰 오차
+- 트램 2건·BRT 저급형 3건은 표본 부족 — SQL `source` 에 표시
 
 ### 비용 회귀의 현재 정확도
 
@@ -377,8 +411,9 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 - 제안서 (docs/)
 - 데이터 수집·정규화 ETL — 381건 (A 31 / B 39 / C 69 / D 242)
 - 물가 환산 (`price_index.csv` → `total_cost_2025`)
-- Spring Boot 뼈대 — 엔티티 11개, JWT·소셜 로그인, 시나리오 CRUD.
-  **컴파일 검증 안 됨** (이 PC에 Java 8뿐, Maven 없음). 계산 로직은 아직 없다
+- 비용 회귀 (`cost_model.py` → `S5__cost_standard.sql`, 10행)
+- Spring Boot 뼈대 — 엔티티 11개, JWT·소셜 로그인, 시나리오 CRUD. 컴파일 확인됨.
+  계산 로직(비용·수요·B/C)은 아직 없다
 - 지하철·경전철·트램 비용 사례 시드 (`metro_seed.csv`, 제안서 인용 사례 포함)
 - `reference_line` / `type_mapping` / `price_index` / `mode_capacity` DDL + 시드
 - Docker Compose (MySQL, Redis)
@@ -386,13 +421,11 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
   (개발 환경에 Docker가 없어 문법·기동 검증 미완)
 
 ### 다음 할 일 (우선순위 순)
-1. **비용 회귀식 도출** — `data_grade IN ('A','B') AND cost_status='DISCLOSED' AND NOT is_outlier`
-   로 수단별 고정비·변동단가 추정. 결과를 `cost_standard`에 적재
-2. **지하 비율 확대** — 회귀 오차를 가장 크게 줄이는 변수. 현재 29건만 있고 전부 추정치
-3. React + MapLibre 지도 화면
-4. SGIS API 연동 (수요 추정) — 집계구 인구 기준, 아래 '인구 데이터' 참고
-5. 도시철도 역 좌표 수집 → 기존 노선 활용 확인 기능
-6. 표정속도 실측 — `speed_kmh` 가정값 교체
+1. **지하 비율 확대** — 회귀 오차를 가장 크게 줄이는 변수. 현재 29건만 있고 전부 추정치
+2. React + MapLibre 지도 화면
+3. SGIS API 연동 (수요 추정) — 집계구 인구 기준, 아래 '인구 데이터' 참고
+4. 도시철도 역 좌표 수집 → 기존 노선 활용 확인 기능
+5. 표정속도 실측 — `speed_kmh` 가정값 교체
 
 ### 알려진 데이터 공백
 - D등급 244건 대부분이 철도건설현황 csv — 금액은 있으나 연장이 없음.
@@ -403,6 +436,7 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 - 복선전철 역간격 미수집 — 광역철도 운영현황에 역수가 없다. 장거리 대안으로 쓰려면 필요
 - 기존 노선의 역 좌표 없음 — 지도 위에서 기존 노선과 겹치는지 판정할 수 없다
 - `speed_kmh`는 전 수단 가정값
+- 역당 단가 없음 — 정차역 수가 비용에 반영되지 않는다
 - `underground_ratio`는 metro_seed 29건만 있고 전부 추정치. 나머지는 비어 있다.
   회귀에 가장 효과가 큰 변수인데 값이 추정이라, 표본을 늘릴수록 추정이 결과를 좌우한다
 - `restricted_zone` 12건은 근사 좌표 — 공식 경계 데이터로 교체 필요
