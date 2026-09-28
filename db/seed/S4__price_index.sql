@@ -1,0 +1,40 @@
+-- 자동 생성 파일 — data/seed/price_index.csv 를 고치고 etl.py 를 다시 실행할 것
+
+TRUNCATE TABLE price_index;
+
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1990, 41.698, 2.7587, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1991, 45.477, 2.5295, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1992, 49.0, 2.3476, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1993, 52.066, 2.2094, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1994, 56.281, 2.0439, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1995, 60.238, 1.9096, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1996, 62.637, 1.8365, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1997, 65.056, 1.7682, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1998, 67.982, 1.6921, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (1999, 67.063, 1.7153, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2000, 67.689, 1.6994, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2001, 70.086, 1.6413, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2002, 72.195, 1.5934, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2003, 74.769, 1.5385, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2004, 77.207, 1.4899, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2005, 78.085, 1.4732, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2006, 77.958, 1.4756, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2007, 79.915, 1.4394, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2008, 82.264, 1.3983, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2009, 85.145, 1.351, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2010, 87.46, 1.3153, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2011, 88.575, 1.2987, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2012, 89.719, 1.2821, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2013, 90.686, 1.2685, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2014, 91.639, 1.2553, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2015, 94.598, 1.216, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2016, 96.549, 1.1914, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2017, 98.498, 1.1679, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2018, 99.056, 1.1613, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2019, 98.438, 1.1686, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2020, 100.0, 1.1503, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2021, 103.181, 1.1149, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2022, 105.046, 1.0951, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2023, 107.187, 1.0732, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2024, 111.546, 1.0313, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');
+INSERT INTO price_index (base_year, deflator, factor_to_2025, source) VALUES (2025, 115.033, 1.0, 'World Bank NY.GDP.DEFL.ZS (KOR 2020=100)');

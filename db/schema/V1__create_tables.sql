@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS reference_line (
     -- 비용 (억원으로 통일)
     total_cost        BIGINT                COMMENT '총사업비 (억원)',
     base_year         SMALLINT              COMMENT '불변가 기준연도',
+    base_year_status  ENUM('STATED','ASSUMED') NOT NULL DEFAULT 'ASSUMED'
+                      COMMENT 'STATED=출처에 명시, ASSUMED=사업 종료·개통연도로 대체',
     total_cost_2025   BIGINT                COMMENT '2025년 환산액 (억원)',
     cost_status       ENUM('DISCLOSED','ESTIMATED','UNDISCLOSED')
                       NOT NULL DEFAULT 'UNDISCLOSED'

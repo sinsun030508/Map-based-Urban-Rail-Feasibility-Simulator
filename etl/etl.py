@@ -34,7 +34,7 @@ SQL_COLUMNS = [
     'line_name', 'section_name', 'operator',
     'rail_class', 'mode_type', 'region_class', 'raw_type_text',
     'length_km', 'station_count', 'underground_ratio',
-    'total_cost', 'base_year', 'cost_status',
+    'total_cost', 'base_year', 'base_year_status', 'total_cost_2025', 'cost_status',
     'period_start', 'period_end', 'opened_year',
     'source_name', 'is_outlier', 'note',
 ]
@@ -521,6 +521,8 @@ REGIONAL_OPS = '국토교통부 광역철도 운영현황'
 
 SAME_PROJECT = [
     ('김포도시철도 건설사업', HISTORY, '김포도시철도'),
+    ('별내선', REGIONAL_OPS, '별내선(8호선 연장)'),
+    ('하남선', REGIONAL_OPS, '하남선(5호선 연장)'),
     ('당고개~진접', HISTORY, '진접선'),
     ('진접선', REGIONAL_OPS, '진접선'),
     ('충청권 광역철도 옥천연장(대전~옥천)', HISTORY, '충청권 광역철도(옥천연장)'),
@@ -555,6 +557,49 @@ def flag_known_outliers(df):
         empty_note = df.loc[mask, 'note'].isna()
         df.loc[mask & empty_note, 'note'] = reason
     return df
+
+
+# ---------------------------------------------------------------
+# 물가 환산 — 기준연도가 제각각이라 그대로 회귀하면 옛 사업이 싸게 잡힌다.
+# 기준연도가 명시된 건은 그 값을, 없으면 사업 종료연도 → 개통연도 → 착공연도 순으로
+# 대체하고 base_year_status='ASSUMED' 로 구분한다.
+# ---------------------------------------------------------------
+
+def load_price_index(path):
+    df = pd.read_csv(path)
+    base = df.loc[df.base_year == df.base_year.max(), 'deflator'].iloc[0]
+    df['factor_to_2025'] = (base / df['deflator']).round(4)
+    return df
+
+
+def apply_price_index(df, px):
+    factor = dict(zip(px.base_year, px.factor_to_2025))
+    lo, hi = px.base_year.min(), px.base_year.max()
+
+    stated = df['base_year'].notna()
+    fallback = df['period_end'].fillna(df['opened_year']).fillna(df['period_start'])
+    df['base_year'] = df['base_year'].fillna(fallback)
+    df['base_year_status'] = stated.map({True: 'STATED', False: 'ASSUMED'})
+    df.loc[df['base_year'].isna(), 'base_year_status'] = None
+
+    # 표에 없는 연도는 양 끝 값으로 자른다 (2026년 준공 예정 사업 등)
+    yr = df['base_year'].clip(lower=lo, upper=hi)
+    df['total_cost_2025'] = (df['total_cost'] * yr.map(factor)).round()
+    return df
+
+
+def price_index_sql(px, path):
+    lines = [
+        '-- 자동 생성 파일 — data/seed/price_index.csv 를 고치고 etl.py 를 다시 실행할 것',
+        '',
+        'TRUNCATE TABLE price_index;',
+        '',
+    ]
+    for _, r in px.iterrows():
+        lines.append(
+            'INSERT INTO price_index (base_year, deflator, factor_to_2025, source) '
+            f"VALUES ({int(r.base_year)}, {r.deflator}, {r.factor_to_2025}, '{r.source}');")
+    Path(path).write_text(chr(10).join(lines), encoding='utf-8')
 
 
 # ---------------------------------------------------------------
@@ -604,6 +649,7 @@ def build():
             .reset_index(drop=True))
     df = flag_known_outliers(df)
     df = drop_same_projects(df)
+    df = apply_price_index(df, load_price_index(SEED / 'price_index.csv'))
     return df
 
 
@@ -662,12 +708,15 @@ if __name__ == '__main__':
     df = build()
     df.to_csv(BUILD / 'reference_line.csv', index=False, encoding='utf-8-sig')
     to_sql(df, DB_SEED / 'S2__reference_line.sql')
+    price_index_sql(load_price_index(SEED / 'price_index.csv'), DB_SEED / 'S4__price_index.sql')
 
     print(f'총 {len(df)}건\n')
     print('[완결성 등급]')
     print(df['data_grade'].value_counts().sort_index().to_string(), '\n')
     print('[유형별 km당 단가 — 회귀 학습 가능 표본]')
     m = df[df['cost_per_km'].notna() & ~df['is_outlier']]
+    print(f"기준연도 명시 {(m.base_year_status == 'STATED').sum()}건 /"
+          f" 추정 {(m.base_year_status == 'ASSUMED').sum()}건")
     print(m.groupby(['rail_class', 'mode_type'])['cost_per_km']
             .agg(n='count', 평균='mean', 최소='min', 최대='max')
             .round(0).to_string(), '\n')

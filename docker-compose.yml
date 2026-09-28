@@ -19,6 +19,7 @@ services:
       - ./db/seed/S1__mode_capacity.sql:/docker-entrypoint-initdb.d/03_mode_capacity.sql:ro
       - ./db/seed/S2__reference_line.sql:/docker-entrypoint-initdb.d/04_reference_line.sql:ro
       - ./db/seed/S3__restricted_zone.sql:/docker-entrypoint-initdb.d/05_restricted_zone.sql:ro
+      - ./db/seed/S4__price_index.sql:/docker-entrypoint-initdb.d/06_price_index.sql:ro
 
   redis:
     image: redis:7-alpine
