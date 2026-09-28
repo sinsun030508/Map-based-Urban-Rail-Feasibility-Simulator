@@ -42,9 +42,11 @@ data/
   build/
     reference_line.csv    # ETL 산출물 (자동 생성)
 db/
-  schema/V1__create_tables.sql
+  schema/V1__create_tables.sql          # 마스터 — reference_line, mode_capacity 등
+  schema/V2__create_service_tables.sql  # 서비스 — user, scenario, 결과, 정차역
   seed/S1__mode_capacity.sql
   seed/S2__reference_line.sql
+  seed/S3__restricted_zone.sql          # 문화재·상수원·군사 구역 (근사 좌표)
 etl/
   etl.py
   requirements.txt
@@ -61,7 +63,7 @@ python etl/etl.py                                  # raw + seed → build csv + 
 docker compose down -v && docker compose up -d     # 볼륨 초기화 후 재적재
 ```
 MySQL `docker-entrypoint-initdb.d`는 **하위 폴더를 읽지 않고, 볼륨이 비어야만 실행**된다.
-그래서 compose에서 SQL을 파일 단위로 `01_` `02_` `03_` 접두사 붙여 마운트한다.
+그래서 compose에서 SQL을 파일 단위로 `01_`~`05_` 접두사 붙여 마운트한다 (스키마 → 시드 순).
 
 ---
 
@@ -177,6 +179,56 @@ MySQL `docker-entrypoint-initdb.d`는 **하위 폴더를 읽지 않고, 볼륨�
 상한을 넘는 실제 노선도 있다 — 순환선이라 끝에서 끝까지 타는 통행이 적기 때문이며,
 상한은 금지선이 아니라 경고선이다.
 
+### 서비스 스키마와 ERD 그림의 차이
+
+`docs/erd.png`는 `SCENARIO` 한 행에 수단 하나와 그 결과를 담는다. 그러면
+"전 수단 비교표"를 저장할 수 없고 같은 좌표가 수단 수만큼 중복된다. 그래서 V2는
+
+- `scenario` — 노선(좌표·길이·인구)만
+- `scenario_result` — 수단별 비용·수요·B/C·경고 (시나리오 1 : 수단 N)
+- `station` — `scenario_result`에 매달린다 (역간격이 수단마다 다르므로)
+
+**ERD 그림은 아직 이 구조가 아니다.** 제안서 수정 시 함께 고칠 것.
+
+### 구조 형식 (지하 / 고가 / 지상)
+
+**수단보다 비용을 더 크게 가르는 변수다.** 같은 경전철도 고가면 401억/km(용인),
+지하면 637~836억/km(김포·인천 2호선)이다. 그래서 `cost_standard`는 "수단 × 구조" 조합으로 둔다.
+
+- 기본값: 수도권 도심은 `UNDERGROUND`, 그 외는 `ELEVATED`. 사용자가 바꿀 수 있다
+  (`scenario.preferred_structure`)
+- **어떤 구조도 막지 않는다.** 지방에서 지하를 골라도 계산해 주고, 대신 고가 대비
+  얼마가 더 드는지 숫자로 안내한다 (예: "지하 선택 시 고가 대비 +4,200억, B/C 0.82→0.41").
+  선택을 막는 대신 대가를 보여주는 것이 이 서비스의 방식이다
+- 트램은 `AT_GRADE` 전용
+- 비교표는 기본 구조만 펼치고 나머지 조합은 접어 둔다 (5수단 × 3구조 = 최대 15행)
+- `reference_line.underground_ratio`로 회귀 설명변수를 만든다.
+  **`metro_seed.csv`의 지하 비율 17건은 전부 추정치다** — 노선별 지하 구간 비율은 공식 미공표
+
+### 규제 구역 (restricted_zone)
+
+지하 시공이 막히거나 심의를 받아야 하는 구역. **좌표·반경 모두 근사치**이므로
+통과 가부를 단정하지 않고 "확인 필요"로만 안내한다.
+
+- `REVIEW` 문화재(경복궁·창덕궁·덕수궁·경주·공주·부여), 상수원(팔당·잠실·대청호)
+- `BLOCKED` 군사 통제보호구역(파주·철원 민통선, 진해)
+- **철도보호지구는 넣지 않는다** — 철도안전법상 신고·협의 대상이지 금지가 아니다.
+  30m 버퍼를 금지로 넣으면 도심 대부분이 막혀 시뮬레이터가 무의미해진다
+- 정식 경계는 국가문화유산포털·물환경정보시스템·국토정보플랫폼에서 받아 교체할 것
+
+### 경고 문구 (scenario_result.warning)
+
+**경고는 계산을 막지 않는다.** 결과는 항상 보여주고, 판단 근거만 덧붙인다.
+유일한 탈락 조건은 수송능력 초과(`is_feasible=FALSE`)이며 이때도 행은 남긴다.
+
+| 상황 | 문구 |
+|---|---|
+| 연장 > `max_length_km` | 권장 연장 초과 — 복선전철 대안 참고 |
+| 첨두 수요 > `pphpd_max` | 수송능력 초과 (`is_feasible=FALSE`) |
+| 첨두 수요 < `pphpd_min` | 수송능력 대비 과잉 투자 |
+| 지하를 고른 경우 | 고가 대비 +N억 / B/C 변화 |
+| `restricted_zone` 반경 내 통과 | 규제구역 인접 — 확인 필요 |
+
 ### 기존 노선 활용 확인
 
 새로 짓는 것만 답이 아니다. 예타도 기존 시설 활용안과 비교한다.
@@ -278,19 +330,19 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 - 지하철·경전철·트램 비용 사례 시드 (`metro_seed.csv`, 제안서 인용 사례 포함)
 - `reference_line` / `type_mapping` / `price_index` / `mode_capacity` DDL + 시드
 - Docker Compose (MySQL, Redis)
+- 서비스 테이블 DDL (`V2__create_service_tables.sql`) + 규제 구역 시드 (`S3`) — **아직 실행해 보지 못했다**
+  (개발 환경에 Docker가 없어 문법·기동 검증 미완)
 
 ### 다음 할 일 (우선순위 순)
-1. **서비스 테이블 DDL 추가** — `user`, `scenario`, `route_point`, `station`, `cost_standard`,
-   `benefit_parameter` (docs/erd.png 참고). V2 마이그레이션 파일로 분리
-2. **Spring Boot 뼈대** — 엔티티, 리포지토리, JWT 인증, 시나리오 CRUD
-3. **비용 회귀식 도출** — `data_grade IN ('A','B') AND cost_status='DISCLOSED' AND NOT is_outlier`
+1. **Spring Boot 뼈대** — 엔티티, 리포지토리, JWT 인증, 시나리오 CRUD
+2. **비용 회귀식 도출** — `data_grade IN ('A','B') AND cost_status='DISCLOSED' AND NOT is_outlier`
    로 수단별 고정비·변동단가 추정. 결과를 `cost_standard`에 적재
-4. **`price_index` 채우기** — 한국은행 GDP 디플레이터. 현재 비어 있어
+3. **`price_index` 채우기** — 한국은행 GDP 디플레이터. 현재 비어 있어
    `total_cost_2025`가 전부 NULL이고, 기준연도 2001~2025의 물가차가 오차로 남아 있다
-5. React + MapLibre 지도 화면
-6. SGIS API 연동 (수요 추정) — 집계구 인구 기준, 아래 '인구 데이터' 참고
-7. 도시철도 역 좌표 수집 → 기존 노선 활용 확인 기능
-8. 표정속도 실측 — `speed_kmh` 가정값 교체
+4. React + MapLibre 지도 화면
+5. SGIS API 연동 (수요 추정) — 집계구 인구 기준, 아래 '인구 데이터' 참고
+6. 도시철도 역 좌표 수집 → 기존 노선 활용 확인 기능
+7. 표정속도 실측 — `speed_kmh` 가정값 교체
 
 ### 알려진 데이터 공백
 - D등급 244건 대부분이 철도건설현황 csv — 금액은 있으나 연장이 없음.
@@ -301,3 +353,5 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 - 복선전철 역간격 미수집 — 광역철도 운영현황에 역수가 없다. 장거리 대안으로 쓰려면 필요
 - 기존 노선의 역 좌표 없음 — 지도 위에서 기존 노선과 겹치는지 판정할 수 없다
 - `speed_kmh`는 전 수단 가정값
+- `underground_ratio`는 metro_seed 17건만 있고 전부 추정치. 나머지 355건은 비어 있다
+- `restricted_zone` 12건은 근사 좌표 — 공식 경계 데이터로 교체 필요

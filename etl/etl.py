@@ -33,7 +33,7 @@ def latest(pattern):
 SQL_COLUMNS = [
     'line_name', 'section_name', 'operator',
     'rail_class', 'mode_type', 'region_class', 'raw_type_text',
-    'length_km', 'station_count',
+    'length_km', 'station_count', 'underground_ratio',
     'total_cost', 'base_year', 'cost_status',
     'period_start', 'period_end', 'opened_year',
     'source_name', 'is_outlier', 'note',
@@ -473,6 +473,7 @@ def load_metro_seed(path):
             'raw_type_text': None,
             'length_km': to_number(r.get('length_km')),
             'station_count': int(to_number(r['station_count'])),
+            'underground_ratio': to_number(r.get('underground_ratio')),
             'total_cost': to_number(r.get('total_cost')),
             'base_year': to_int(r.get('base_year')),
             'cost_status': 'DISCLOSED',
@@ -570,6 +571,8 @@ def build():
     ]
     df = pd.concat(frames, ignore_index=True)
     df['is_outlier'] = df.get('is_outlier', False).fillna(False).astype(bool)
+    if 'underground_ratio' not in df.columns:
+        df['underground_ratio'] = None
     if 'note' not in df.columns:
         df['note'] = None
 

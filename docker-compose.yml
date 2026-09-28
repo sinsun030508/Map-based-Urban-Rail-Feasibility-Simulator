@@ -15,8 +15,10 @@ services:
       - db-data:/var/lib/mysql
       # initdb.d 는 하위 폴더를 읽지 않으므로 파일 단위로 마운트 (알파벳 순 실행)
       - ./db/schema/V1__create_tables.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./db/seed/S1__mode_capacity.sql:/docker-entrypoint-initdb.d/02_mode_capacity.sql:ro
-      - ./db/seed/S2__reference_line.sql:/docker-entrypoint-initdb.d/03_reference_line.sql:ro
+      - ./db/schema/V2__create_service_tables.sql:/docker-entrypoint-initdb.d/02_schema_service.sql:ro
+      - ./db/seed/S1__mode_capacity.sql:/docker-entrypoint-initdb.d/03_mode_capacity.sql:ro
+      - ./db/seed/S2__reference_line.sql:/docker-entrypoint-initdb.d/04_reference_line.sql:ro
+      - ./db/seed/S3__restricted_zone.sql:/docker-entrypoint-initdb.d/05_restricted_zone.sql:ro
 
   redis:
     image: redis:7-alpine
