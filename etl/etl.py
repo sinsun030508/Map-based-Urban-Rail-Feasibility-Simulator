@@ -548,6 +548,44 @@ def drop_same_projects(df):
     return df.reset_index(drop=True)
 
 
+# ---------------------------------------------------------------
+# 역수 보강 — 사업계획(txt)에는 역수 열이 없어 광역·일반철도가 전부 B등급에 머문다.
+# 공개 자료에서 찾은 정거장 수를 노선명+구간으로 맞춰 채운다 (rail_station_seed.csv).
+# BRT 는 정류장 집계 기준이 제각각(신설·기존 공유 혼재)이라 넣지 않는다.
+# ---------------------------------------------------------------
+
+def grade(r):
+    has_cost = pd.notna(r['total_cost'])
+    has_len = pd.notna(r['length_km'])
+    has_st = pd.notna(r['station_count'])
+    if has_cost and has_len and has_st:
+        return 'A'
+    if has_cost and has_len:
+        return 'B'
+    if has_len and has_st:
+        return 'C'
+    return 'D'
+
+
+def fill_station_counts(df, path):
+    seed = pd.read_csv(path)
+    for _, r in seed.iterrows():
+        mask = ((df['line_name'] == clean_text(r['line_name']))
+                & (df['section_name'] == clean_text(r['section_name'])))
+        if mask.sum() != 1:
+            raise ValueError(f"역수 보강 매칭 실패: {r['line_name']} {r['section_name']}")
+        if df.loc[mask, 'station_count'].notna().all():
+            continue                      # 원본에 이미 있으면 건드리지 않는다
+        df.loc[mask, 'station_count'] = int(r['station_count'])
+        if pd.isna(df.loc[mask, 'underground_ratio']).all():
+            df.loc[mask, 'underground_ratio'] = float(r['underground_ratio'])
+        memo = (f"역수 출처: {clean_text(r['source_name'])}"
+                ' / 지하비율 추정치 (공식 미공표)')
+        old = df.loc[mask, 'note'].iloc[0]
+        df.loc[mask, 'note'] = f'{old} / {memo}' if pd.notna(old) else memo
+    return df
+
+
 def flag_known_outliers(df):
     for (name, section), reason in KNOWN_OUTLIERS.items():
         mask = (df['line_name'] == name) & (df['section_name'] == section)
@@ -626,18 +664,6 @@ def build():
     df['avg_spacing_km'] = (df['length_km'] / df['station_count']).round(3)
 
     # 완결성 등급
-    def grade(r):
-        has_cost = pd.notna(r['total_cost'])
-        has_len = pd.notna(r['length_km'])
-        has_st = pd.notna(r['station_count'])
-        if has_cost and has_len and has_st:
-            return 'A'
-        if has_cost and has_len:
-            return 'B'
-        if has_len and has_st:
-            return 'C'
-        return 'D'
-
     df['data_grade'] = df.apply(grade, axis=1)
 
     # 중복 제거 (노선명+구간 기준, 정보가 더 많은 쪽 유지)
@@ -649,6 +675,10 @@ def build():
             .reset_index(drop=True))
     df = flag_known_outliers(df)
     df = drop_same_projects(df)
+    df = fill_station_counts(df, SEED / 'rail_station_seed.csv')
+    # 역수가 채워졌으니 역수에 딸린 파생값을 다시 계산한다
+    df['avg_spacing_km'] = (df['length_km'] / df['station_count']).round(3)
+    df['data_grade'] = df.apply(grade, axis=1)
     df = apply_price_index(df, load_price_index(SEED / 'price_index.csv'))
     return df
 
