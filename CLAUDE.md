@@ -53,11 +53,30 @@ etl/
   etl.py
   requirements.txt
 docs/                     # 제안서 docx/pdf, erd.png
-backend/                  # Spring Boot (미착수)
+backend/                  # Spring Boot (Maven, Java 17)
+  pom.xml
+  src/main/java/com/railfeas/
+    common/               # 공통 enum, 예외
+    user/                 # User 엔티티·리포지토리
+    auth/                 # JWT, 시큐리티 설정, 회원가입·로그인, 소셜 로그인
+    scenario/             # 시나리오 CRUD (엔티티·서비스·컨트롤러)
+    reference/            # 기준 데이터 엔티티 (읽기 전용)
+    geo/                  # Haversine 거리 계산
+  src/main/resources/application.yml
 frontend/                 # React (미착수)
 ```
 
 `data/raw/`는 파싱 규칙을 바꿨을 때 다시 돌려야 하므로 손대지 않는다.
+
+### 백엔드 실행
+```bash
+cd backend && mvn spring-boot:run        # Java 17 이상 필요
+```
+- **스키마는 JPA가 만들지 않는다.** `ddl-auto=validate` 로 고정하고 `db/schema/*.sql` 이 만든다.
+  엔티티를 고치면 DDL도 같이 고치고 `docker compose down -v` 로 다시 올려야 한다
+- 인증은 JWT. 소셜 로그인은 `/oauth2/authorization/google`, `/oauth2/authorization/kakao` 로
+  시작해 성공하면 `OAUTH2_REDIRECT_URI` 에 `?token=` 을 붙여 리다이렉트한다
+- `@AuthenticationPrincipal Long userId` 로 사용자 id 가 주입된다 (JwtAuthenticationFilter 가 넣음)
 
 ### 적재 흐름
 ```bash
@@ -358,6 +377,8 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 - 제안서 (docs/)
 - 데이터 수집·정규화 ETL — 381건 (A 31 / B 39 / C 69 / D 242)
 - 물가 환산 (`price_index.csv` → `total_cost_2025`)
+- Spring Boot 뼈대 — 엔티티 11개, JWT·소셜 로그인, 시나리오 CRUD.
+  **컴파일 검증 안 됨** (이 PC에 Java 8뿐, Maven 없음). 계산 로직은 아직 없다
 - 지하철·경전철·트램 비용 사례 시드 (`metro_seed.csv`, 제안서 인용 사례 포함)
 - `reference_line` / `type_mapping` / `price_index` / `mode_capacity` DDL + 시드
 - Docker Compose (MySQL, Redis)
@@ -365,14 +386,13 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
   (개발 환경에 Docker가 없어 문법·기동 검증 미완)
 
 ### 다음 할 일 (우선순위 순)
-1. **Spring Boot 뼈대** — 엔티티, 리포지토리, JWT 인증, 시나리오 CRUD
-2. **비용 회귀식 도출** — `data_grade IN ('A','B') AND cost_status='DISCLOSED' AND NOT is_outlier`
+1. **비용 회귀식 도출** — `data_grade IN ('A','B') AND cost_status='DISCLOSED' AND NOT is_outlier`
    로 수단별 고정비·변동단가 추정. 결과를 `cost_standard`에 적재
-3. **지하 비율 확대** — 회귀 오차를 가장 크게 줄이는 변수. 현재 29건만 있고 전부 추정치
-4. React + MapLibre 지도 화면
-5. SGIS API 연동 (수요 추정) — 집계구 인구 기준, 아래 '인구 데이터' 참고
-6. 도시철도 역 좌표 수집 → 기존 노선 활용 확인 기능
-7. 표정속도 실측 — `speed_kmh` 가정값 교체
+2. **지하 비율 확대** — 회귀 오차를 가장 크게 줄이는 변수. 현재 29건만 있고 전부 추정치
+3. React + MapLibre 지도 화면
+4. SGIS API 연동 (수요 추정) — 집계구 인구 기준, 아래 '인구 데이터' 참고
+5. 도시철도 역 좌표 수집 → 기존 노선 활용 확인 기능
+6. 표정속도 실측 — `speed_kmh` 가정값 교체
 
 ### 알려진 데이터 공백
 - D등급 244건 대부분이 철도건설현황 csv — 금액은 있으나 연장이 없음.
