@@ -24,3 +24,6 @@ Thumbs.db
 
 # 전달용 압축본
 *.zip
+
+# 로컬 실행 로그
+backend/*.log
