@@ -73,8 +73,19 @@ frontend/                 # React (미착수)
 
 ### 백엔드 실행
 ```bash
-cd backend && ./mvnw spring-boot:run     # Maven 설치 불필요 (래퍼가 받아 온다)
+docker compose up -d                                  # DB(호스트 3307) + Redis
+cd backend && ./mvnw package -DskipTests              # Maven 설치 불필요 (래퍼가 받아 온다)
+java -jar target/railfeas-0.1.0.jar                   # JDK 17 이상으로 실행할 것
 ```
+- **DB 는 호스트 3307 로 노출한다** — 개발 PC 에 MySQL 이 이미 3306 을 쓰고 있어서다.
+  백엔드는 `DB_PORT` 환경변수로 맞춘다
+- **`mvnw spring-boot:run` 은 이 환경에서 클래스패스 오류가 난다** (SpringApplication NoClassDefFound).
+  `package` 후 `java -jar` 로 띄운다. 원인 미파악
+- `java` 가 PATH 에서 옛 JDK 로 잡히는 경우가 있다. 기동 실패 시 java -version 부터 확인
+- **SQL 파일은 첫 줄에 `SET NAMES utf8mb4;` 를 둔다.** MySQL initdb 가 파일을 latin1 로 읽어
+  한글이 이중 인코딩되어 저장된다 (`복선전철` → `ë³µì„ ì „ì² `). 자동 생성 SQL 은 생성기에도 넣어야 한다
+- **소셜 로그인 설정은 `application-social.yml` 에 있다.** 클라이언트 키가 비어 있으면 기동이
+  막혀서 기본 프로파일에서 뺐다. 키를 채우고 `SPRING_PROFILES_ACTIVE=social` 로 켠다
 - **JDK 23 이상에서 빌드할 때 주의** — javac 가 클래스패스의 애너테이션 프로세서를 기본으로
   돌리지 않아 Lombok getter 가 생성되지 않는다. `pom.xml` 의 `annotationProcessorPaths` 에
   Lombok 을 명시해 두었고 Lombok 도 1.18.38 로 올렸다 (Boot 3.3 기본값 1.18.34 는 JDK 24 에서 실패)
@@ -405,6 +416,9 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 - 스키마를 바꾸면 엔티티·DTO·리포지토리·`etl.py`의 `SQL_COLUMNS`까지 함께 수정
   (과거에 DDL만 옛날 버전으로 남아 seed가 재현 불가능한 고아가 된 사고가 있었다)
 - `S2__reference_line.sql`은 손으로 고치지 않는다. `etl.py`를 고치고 재실행
+- **`cost_standard`는 TRUNCATE 가 막힌다** — `scenario_result` 가 FK 로 참조한다. `DELETE` 를 쓴다
+- 엔티티 타입이 DDL 과 어긋나면 기동이 실패한다. 예: `data_grade CHAR(1)` 은
+  `columnDefinition = "char(1)"` 을 명시해야 한다
 - `data_grade`도 DB 생성 컬럼이다. ETL 판정과 어긋나지 않도록 DB를 기준으로 삼는다
 - ETL 재실행 시 중복 방지를 위해 `S2__reference_line.sql` 앞에 TRUNCATE 포함
 - `docker-entrypoint-initdb.d`는 볼륨이 비어야 실행됨 → 스키마 변경 시 `docker compose down -v`
@@ -419,8 +433,10 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 - 데이터 수집·정규화 ETL — 381건 (A 31 / B 39 / C 69 / D 242)
 - 물가 환산 (`price_index.csv` → `total_cost_2025`)
 - 비용 회귀 (`cost_model.py` → `S5__cost_standard.sql`, 10행)
-- Spring Boot 뼈대 — 엔티티 11개, JWT·소셜 로그인, 시나리오 CRUD. 컴파일 확인됨.
-  계산 로직(비용·수요·B/C)은 아직 없다
+- Spring Boot 뼈대 — 엔티티 11개, JWT·소셜 로그인, 시나리오 CRUD. 계산 로직은 아직 없다
+- **전 구간 실행 확인 완료** — DB 적재(스키마 2 + 시드 5), 백엔드 기동(`ddl-auto=validate` 통과로
+  엔티티와 DDL 일치 확인), 회원가입→JWT→시나리오 저장(Haversine 8.793km)→조회,
+  토큰 없는 요청 403 까지 실제 호출로 검증
 - 지하철·경전철·트램 비용 사례 시드 (`metro_seed.csv`, 제안서 인용 사례 포함)
 - `reference_line` / `type_mapping` / `price_index` / `mode_capacity` DDL + 시드
 - Docker Compose (MySQL, Redis)

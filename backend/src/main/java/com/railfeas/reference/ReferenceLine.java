@@ -86,6 +86,8 @@ public class ReferenceLine {
     @Column(name = "avg_spacing_km", insertable = false, updatable = false)
     private BigDecimal avgSpacingKm;
 
-    @Column(name = "data_grade", insertable = false, updatable = false)
+    // DDL 이 CHAR(1) 이라 columnDefinition 을 명시해야 ddl-auto=validate 를 통과한다
+    @Column(name = "data_grade", columnDefinition = "char(1)",
+            insertable = false, updatable = false)
     private String dataGrade;
 }

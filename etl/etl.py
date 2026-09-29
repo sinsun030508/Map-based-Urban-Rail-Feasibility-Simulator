@@ -629,6 +629,7 @@ def apply_price_index(df, px):
 def price_index_sql(px, path):
     lines = [
         '-- 자동 생성 파일 — data/seed/price_index.csv 를 고치고 etl.py 를 다시 실행할 것',
+        'SET NAMES utf8mb4;',
         '',
         'TRUNCATE TABLE price_index;',
         '',
@@ -711,6 +712,7 @@ def to_sql(df, path):
 
     lines = [
         '-- 자동 생성 파일 — 직접 수정하지 말고 etl/etl.py 를 다시 실행할 것',
+        'SET NAMES utf8mb4;   -- initdb 클라이언트가 latin1 로 읽어 한글이 깨지는 것 방지',
         f'-- 생성 시각: {pd.Timestamp.now():%Y-%m-%d %H:%M}',
         f'-- 총 {len(df)}건'
         f" (A {(df.data_grade == 'A').sum()} /"

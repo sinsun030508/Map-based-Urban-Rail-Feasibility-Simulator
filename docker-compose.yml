@@ -10,7 +10,8 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     ports:
-      - "3306:3306"
+      # 로컬에 MySQL 이 이미 3306 을 쓰고 있어 호스트 쪽만 3307 로 옮겼다
+      - "3307:3306"
     volumes:
       - db-data:/var/lib/mysql
       # initdb.d 는 하위 폴더를 읽지 않으므로 파일 단위로 마운트 (알파벳 순 실행)

@@ -1,12 +1,14 @@
 package com.railfeas.auth;
 
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -31,8 +33,20 @@ public class SecurityConfig {
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
     }
 
+    /**
+     * 소셜 로그인은 클라이언트 키가 있을 때만 켠다.
+     * 키 없이 oauth2Login 을 걸면 ClientRegistrationRepository 가 없어 기동이 막힌다.
+     * 키를 채운 뒤 SPRING_PROFILES_ACTIVE=social 로 실행하면 활성화된다.
+     */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+                                           ObjectProvider<ClientRegistrationRepository> clients)
+            throws Exception {
+        if (clients.getIfAvailable() != null) {
+            http.oauth2Login(oauth -> oauth
+                    .userInfoEndpoint(u -> u.userService(oAuth2UserService))
+                    .successHandler(oAuth2SuccessHandler));
+        }
         http
             .csrf(csrf -> csrf.disable())          // JWT 라 세션 쿠키를 쓰지 않는다
             .cors(cors -> cors.configurationSource(corsSource()))
@@ -42,9 +56,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/reference/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
-            .oauth2Login(oauth -> oauth
-                .userInfoEndpoint(u -> u.userService(oAuth2UserService))
-                .successHandler(oAuth2SuccessHandler))
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

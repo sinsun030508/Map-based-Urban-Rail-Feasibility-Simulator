@@ -6,8 +6,10 @@
 -- 역수 탄력성 0.272 — 역수가 표준 역간격보다 많으면 비용이 오른다
 -- 값은 2025년 환산 기준(억원). 단일 값이 아니라 범위로 제시할 것.
 -- =====================================================
+SET NAMES utf8mb4;
 
-TRUNCATE TABLE cost_standard;
+-- scenario_result 가 FK 로 참조해 TRUNCATE 가 막힌다. DELETE 로 비운다
+DELETE FROM cost_standard;
 
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('HEAVY_METRO', 'UNDERGROUND', 1869, 859, 388, 2025, TRUE, 'A등급 모델 n=13');
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('HEAVY_METRO', 'ELEVATED', 1114, 512, 231, 2025, TRUE, 'A등급 모델 n=13');

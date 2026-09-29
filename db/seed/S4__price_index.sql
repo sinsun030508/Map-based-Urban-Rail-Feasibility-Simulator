@@ -1,4 +1,5 @@
 -- 자동 생성 파일 — data/seed/price_index.csv 를 고치고 etl.py 를 다시 실행할 것
+SET NAMES utf8mb4;
 
 TRUNCATE TABLE price_index;
 

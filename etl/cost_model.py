@@ -180,8 +180,10 @@ def to_sql(rows, model, path):
         f'-- 역수 탄력성 {model["beta"][model["names"].index("log(역수)")]:.3f} — 역수가 표준 역간격보다 많으면 비용이 오른다',
         '-- 값은 2025년 환산 기준(억원). 단일 값이 아니라 범위로 제시할 것.',
         '-- =====================================================',
+        'SET NAMES utf8mb4;',
         '',
-        'TRUNCATE TABLE cost_standard;',
+        '-- scenario_result 가 FK 로 참조해 TRUNCATE 가 막힌다. DELETE 로 비운다',
+        'DELETE FROM cost_standard;',
         '',
     ]
     for mode, structure, fixed, per_km, per_st, note in rows:

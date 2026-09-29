@@ -1,0 +1,24 @@
+# 소셜 로그인 설정. 키가 비어 있으면 기동이 막히므로 별도 프로파일로 뺐다.
+# 사용: SPRING_PROFILES_ACTIVE=social (환경변수에 클라이언트 키를 채운 뒤)
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: profile, email
+          kakao:
+            client-id: ${KAKAO_CLIENT_ID:}
+            client-secret: ${KAKAO_CLIENT_SECRET:}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            client-authentication-method: client_secret_post
+            scope: profile_nickname, account_email
+        provider:
+          kakao:
+            authorization-uri: https://kauth.kakao.com/oauth/authorize
+            token-uri: https://kauth.kakao.com/oauth/token
+            user-info-uri: https://kapi.kakao.com/v2/user/me
+            user-name-attribute: id
