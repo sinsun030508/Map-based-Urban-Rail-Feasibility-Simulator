@@ -32,9 +32,11 @@ async function request(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 401 || res.status === 403) {
+  // 401 만 세션 만료로 본다. 403 을 함께 묶으면 서버의 다른 오류까지
+  // "로그인이 필요합니다"로 보여 원인을 못 찾는다
+  if (res.status === 401) {
     clearSession();
-    throw new Error('로그인이 필요합니다');
+    throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요');
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

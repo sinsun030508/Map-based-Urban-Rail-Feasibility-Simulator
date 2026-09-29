@@ -52,6 +52,8 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsSource()))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // /error 를 막으면 400·500 이 전부 403 으로 바뀌어 원인을 알 수 없게 된다
+                .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/auth/**", "/oauth2/**", "/login/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/reference/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
