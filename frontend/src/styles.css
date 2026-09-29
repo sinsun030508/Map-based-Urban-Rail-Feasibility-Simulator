@@ -71,3 +71,15 @@ button.link.danger { color: #b3261e; }
 .login p { margin: 4px 0 18px; font-size: 13px; }
 .login button[type='submit'] { width: 100%; background: var(--accent); color: #fff; border-color: var(--accent); }
 .login button.link { display: block; width: 100%; margin-top: 10px; text-align: center; }
+
+button.calc { width: 100%; margin-top: 8px; }
+
+table.cost { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+table.cost th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 2px; border-bottom: 1px solid var(--line); }
+table.cost td { padding: 5px 2px; border-bottom: 1px solid var(--line); }
+table.cost td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.cost tr.cheapest td { font-weight: 700; }
+table.cost tr.selected { background: #fff4f3; }
+
+.note { margin: 10px 0 4px; }
+.warn { color: #8a6100; margin: 4px 0; }

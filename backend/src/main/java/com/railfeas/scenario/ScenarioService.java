@@ -1,14 +1,24 @@
 package com.railfeas.scenario;
 
+import com.railfeas.calc.CostCalculator;
 import com.railfeas.common.ApiException;
+import com.railfeas.common.ModeType;
 import com.railfeas.common.PointType;
 import com.railfeas.geo.Haversine;
+import com.railfeas.reference.CostStandard;
+import com.railfeas.reference.CostStandardRepository;
+import com.railfeas.reference.ModeCapacity;
+import com.railfeas.reference.ModeCapacityRepository;
+import com.railfeas.reference.RestrictedZoneRepository;
 import com.railfeas.user.User;
 import com.railfeas.user.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,10 +28,36 @@ public class ScenarioService {
 
     private final ScenarioRepository scenarios;
     private final UserRepository users;
+    private final CostStandardRepository standards;
+    private final ModeCapacityRepository capacities;
+    private final RestrictedZoneRepository zones;
+    private final CostCalculator calculator;
 
-    public ScenarioService(ScenarioRepository scenarios, UserRepository users) {
+    public ScenarioService(ScenarioRepository scenarios, UserRepository users,
+                           CostStandardRepository standards, ModeCapacityRepository capacities,
+                           RestrictedZoneRepository zones, CostCalculator calculator) {
         this.scenarios = scenarios;
         this.users = users;
+        this.standards = standards;
+        this.capacities = capacities;
+        this.zones = zones;
+        this.calculator = calculator;
+    }
+
+    /** 수단×구조별 건설비를 계산해 저장한다. 수요·B/C 는 SGIS 연동 후에 채운다. */
+    @Transactional
+    public ScenarioDto.DetailResponse calculate(Long userId, Long scenarioId) {
+        Scenario scenario = loadOwned(userId, scenarioId);
+        List<CostStandard> active = standards.findByActiveTrue();
+        if (active.isEmpty()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "비용 기준값이 없습니다 — db/seed/S5__cost_standard.sql 적재를 확인하세요");
+        }
+        Map<ModeType, ModeCapacity> byMode = capacities.findAll().stream()
+                .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
+        scenario.replaceResults(
+                calculator.calculate(scenario, active, byMode, zones.findAll()));
+        return ScenarioDto.DetailResponse.of(scenario);
     }
 
     @Transactional

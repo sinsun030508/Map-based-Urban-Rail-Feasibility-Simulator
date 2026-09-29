@@ -1,4 +1,5 @@
 import { totalLengthKm } from '../geo/haversine';
+import CostTable from './CostTable';
 
 const STRUCTURES = [
   ['UNDERGROUND', '지하'],
@@ -8,7 +9,8 @@ const STRUCTURES = [
 
 export default function ScenarioPanel({
   points, title, structure, scenarios, saving, error, savedLength,
-  onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete,
+  savedId, results, calculating,
+  onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
 }) {
   const length = totalLengthKm(points);
   const canSave = points.length >= 2 && title.trim().length > 0;
@@ -56,7 +58,17 @@ export default function ScenarioPanel({
         <button className="primary" onClick={onSave} disabled={!canSave || saving}>
           {saving ? '저장 중…' : '시나리오 저장'}
         </button>
+        <button
+          className="calc"
+          onClick={onCalculate}
+          disabled={!savedId || calculating}
+          title={savedId ? '' : '먼저 저장해야 계산할 수 있습니다'}
+        >
+          {calculating ? '계산 중…' : '비용 비교하기'}
+        </button>
       </section>
+
+      <CostTable results={results} structure={structure} />
 
       <section>
         <h2>내 시나리오 ({scenarios.length})</h2>

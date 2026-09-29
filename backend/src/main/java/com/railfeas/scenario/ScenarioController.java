@@ -41,6 +41,12 @@ public class ScenarioController {
         return scenarioService.update(userId, id, request);
     }
 
+    @PostMapping("/{id}/calculate")
+    public ScenarioDto.DetailResponse calculate(@AuthenticationPrincipal Long userId,
+                                                @PathVariable Long id) {
+        return scenarioService.calculate(userId, id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal Long userId, @PathVariable Long id) {

@@ -88,6 +88,12 @@ public class Scenario {
         this.recommendedMode = null;
     }
 
+    /** 다시 계산하면 이전 결과는 버린다 — 옛 결과가 새 노선에 붙어 있으면 안 된다 */
+    public void replaceResults(List<ScenarioResult> newResults) {
+        this.results.clear();
+        this.results.addAll(newResults);
+    }
+
     public void rename(String title) {
         this.title = title;
     }

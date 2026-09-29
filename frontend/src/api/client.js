@@ -53,5 +53,6 @@ export const api = {
   listScenarios: () => request('/scenarios'),
   getScenario: (id) => request(`/scenarios/${id}`),
   createScenario: (body) => request('/scenarios', { method: 'POST', body }),
+  calculate: (id) => request(`/scenarios/${id}/calculate`, { method: 'POST' }),
   deleteScenario: (id) => request(`/scenarios/${id}`, { method: 'DELETE' }),
 };

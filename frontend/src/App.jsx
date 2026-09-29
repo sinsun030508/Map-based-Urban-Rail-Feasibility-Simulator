@@ -15,6 +15,9 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [savedLength, setSavedLength] = useState(null);
+  const [savedId, setSavedId] = useState(null);
+  const [results, setResults] = useState([]);
+  const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -34,6 +37,8 @@ export default function App() {
         points: points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })),
       });
       setSavedLength(Number(saved.totalLengthKm));
+      setSavedId(saved.id);
+      setResults(saved.results || []);
       setScenarios(await api.listScenarios());
     } catch (e) {
       setError(e.message);
@@ -50,8 +55,23 @@ export default function App() {
       setTitle(s.title);
       setStructure(s.preferredStructure || 'UNDERGROUND');
       setSavedLength(Number(s.totalLengthKm));
+      setSavedId(s.id);
+      setResults(s.results || []);
     } catch (e) {
       setError(e.message);
+    }
+  }
+
+  async function calculate() {
+    setCalculating(true);
+    setError(null);
+    try {
+      const detail = await api.calculate(savedId);
+      setResults(detail.results || []);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCalculating(false);
     }
   }
 
@@ -88,6 +108,8 @@ export default function App() {
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);
             setSavedLength(null);
+            setSavedId(null);
+            setResults([]);
           }}
         />
         <ScenarioPanel
@@ -98,11 +120,15 @@ export default function App() {
           saving={saving}
           error={error}
           savedLength={savedLength}
+          savedId={savedId}
+          results={results}
+          calculating={calculating}
           onTitle={setTitle}
           onStructure={setStructure}
-          onUndo={() => { setPoints((p) => p.slice(0, -1)); setSavedLength(null); }}
-          onClear={() => { setPoints([]); setSavedLength(null); }}
+          onUndo={() => { setPoints((p) => p.slice(0, -1)); setSavedLength(null); setSavedId(null); setResults([]); }}
+          onClear={() => { setPoints([]); setSavedLength(null); setSavedId(null); setResults([]); }}
           onSave={save}
+          onCalculate={calculate}
           onLoad={load}
           onDelete={remove}
         />
