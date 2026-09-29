@@ -1,0 +1,73 @@
+:root {
+  --line: #d9dde3;
+  --muted: #6b7280;
+  --accent: #e2483a;
+  --bg: #f6f7f9;
+  font-family: 'Pretendard', 'Malgun Gothic', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; color: #1f2430; background: var(--bg); }
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--line);
+}
+header .spacer { flex: 1; }
+
+main { flex: 1; display: flex; min-height: 0; }
+
+.map { flex: 1; }
+
+.panel {
+  width: 340px; padding: 16px; overflow-y: auto;
+  background: #fff; border-left: 1px solid var(--line);
+}
+.panel section { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.panel section:last-child { border-bottom: none; }
+.panel h2 { font-size: 15px; margin: 0 0 8px; }
+
+label { display: block; margin-bottom: 10px; font-size: 13px; color: var(--muted); }
+input, select {
+  width: 100%; margin-top: 4px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 6px; font-size: 14px;
+}
+
+button {
+  padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px;
+  background: #fff; font-size: 13px; cursor: pointer;
+}
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { width: 100%; background: var(--accent); color: #fff; border-color: var(--accent); }
+button.link { border: none; background: none; padding: 2px; color: #1a56db; text-align: left; }
+button.link.danger { color: #b3261e; }
+
+.row { display: flex; gap: 8px; }
+.metric { font-size: 14px; margin: 8px 0; }
+.metric span { font-size: 26px; font-weight: 700; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.error { color: #b3261e; font-size: 13px; }
+
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.list li button.link:first-child { flex: 1; }
+
+.route-marker {
+  display: grid; place-items: center;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
+  border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+
+.login { display: grid; place-items: center; height: 100vh; }
+.login .card {
+  width: 320px; padding: 28px; background: #fff;
+  border: 1px solid var(--line); border-radius: 10px;
+}
+.login h1 { margin: 0; font-size: 22px; }
+.login p { margin: 4px 0 18px; font-size: 13px; }
+.login button[type='submit'] { width: 100%; background: var(--accent); color: #fff; border-color: var(--accent); }
+.login button.link { display: block; width: 100%; margin-top: 10px; text-align: center; }
