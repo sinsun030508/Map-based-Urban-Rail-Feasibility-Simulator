@@ -27,3 +27,6 @@ Thumbs.db
 
 # 로컬 실행 로그
 backend/*.log
+
+# API 응답 캐시
+data/cache/

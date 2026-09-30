@@ -22,6 +22,7 @@ services:
       - ./db/seed/S3__restricted_zone.sql:/docker-entrypoint-initdb.d/05_restricted_zone.sql:ro
       - ./db/seed/S4__price_index.sql:/docker-entrypoint-initdb.d/06_price_index.sql:ro
       - ./db/seed/S5__cost_standard.sql:/docker-entrypoint-initdb.d/07_cost_standard.sql:ro
+      - ./db/seed/S6__demand_model.sql:/docker-entrypoint-initdb.d/08_demand_model.sql:ro
 
   redis:
     image: redis:7-alpine
