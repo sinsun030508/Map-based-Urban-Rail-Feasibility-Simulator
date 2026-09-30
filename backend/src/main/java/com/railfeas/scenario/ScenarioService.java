@@ -12,6 +12,7 @@ import com.railfeas.reference.ModeCapacityRepository;
 import com.railfeas.reference.RestrictedZoneRepository;
 import com.railfeas.user.User;
 import com.railfeas.user.UserRepository;
+import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -32,16 +33,19 @@ public class ScenarioService {
     private final ModeCapacityRepository capacities;
     private final RestrictedZoneRepository zones;
     private final CostCalculator calculator;
+    private final EntityManager entityManager;
 
     public ScenarioService(ScenarioRepository scenarios, UserRepository users,
                            CostStandardRepository standards, ModeCapacityRepository capacities,
-                           RestrictedZoneRepository zones, CostCalculator calculator) {
+                           RestrictedZoneRepository zones, CostCalculator calculator,
+                           EntityManager entityManager) {
         this.scenarios = scenarios;
         this.users = users;
         this.standards = standards;
         this.capacities = capacities;
         this.zones = zones;
         this.calculator = calculator;
+        this.entityManager = entityManager;
     }
 
     /** 수단×구조별 건설비를 계산해 저장한다. 수요·B/C 는 SGIS 연동 후에 채운다. */
@@ -71,7 +75,10 @@ public class ScenarioService {
                 .preferredStructure(request.preferredStructure())
                 .build();
         scenario.replacePoints(toPoints(request.points()), lengthOf(request.points()));
-        return ScenarioDto.DetailResponse.of(scenarios.save(scenario));
+        Scenario saved = scenarios.save(scenario);
+        // created_at/updated_at 은 DB DEFAULT 로 채워져 insert 직후 엔티티엔 반영되지 않는다 — refresh 로 읽어온다
+        entityManager.refresh(saved);
+        return ScenarioDto.DetailResponse.of(saved);
     }
 
     @Transactional(readOnly = true)

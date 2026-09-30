@@ -31,12 +31,12 @@ DB_SEED = ROOT / 'db' / 'seed'
 # 구조별 지하 비율 대표값 — 계수를 적용할 때 쓴다
 STRUCTURE_UG = {'UNDERGROUND': 1.0, 'ELEVATED': 0.1, 'AT_GRADE': 0.0}
 
-# 수단별로 실제로 존재하는 구조만 만든다 (트램은 노면, BRT 는 지하로 짓지 않는다)
+# 수단별로 실제로 존재하는 구조만 만든다 (트램·BRT 는 지상 전용 — CLAUDE.md 비용 모델 표와 일치시킨다)
 MODE_STRUCTURES = {
     'HEAVY_METRO': ['UNDERGROUND', 'ELEVATED'],
     'LIGHT_RAIL':  ['UNDERGROUND', 'ELEVATED'],
     'TRAM':        ['AT_GRADE'],
-    'BRT_HIGH':    ['AT_GRADE', 'ELEVATED'],
+    'BRT_HIGH':    ['AT_GRADE'],
     'BRT_LOW':     ['AT_GRADE'],
     'DOUBLE_ELEC': ['UNDERGROUND', 'ELEVATED'],
 }

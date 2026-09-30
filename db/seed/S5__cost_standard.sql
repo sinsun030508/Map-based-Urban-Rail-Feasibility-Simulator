@@ -17,7 +17,6 @@ INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, c
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('LIGHT_RAIL', 'ELEVATED', 703, 323, 146, 2025, TRUE, 'A등급 모델 n=12');
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('TRAM', 'AT_GRADE', 579, 267, 98, 2025, TRUE, 'A등급 모델 n=2 — 표본 부족, 참고용');
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('BRT_HIGH', 'AT_GRADE', 150, 23, 13, 2025, TRUE, '전체표본 모델+보정 n=6 (역수 표본 없음)');
-INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('BRT_HIGH', 'ELEVATED', 159, 25, 14, 2025, TRUE, '전체표본 모델+보정 n=6 (역수 표본 없음)');
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('BRT_LOW', 'AT_GRADE', 23, 4, 2, 2025, TRUE, '전체표본 모델+보정 n=3 (역수 표본 없음) — 표본 부족, 참고용');
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('DOUBLE_ELEC', 'UNDERGROUND', 1229, 561, 1176, 2025, TRUE, 'A등급 모델 n=11');
 INSERT INTO cost_standard (mode_type, structure_type, fixed_cost, cost_per_km, cost_per_station, base_year, is_active, source) VALUES ('DOUBLE_ELEC', 'ELEVATED', 732, 335, 701, 2025, TRUE, 'A등급 모델 n=11');
