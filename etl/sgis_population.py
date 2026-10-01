@@ -217,6 +217,17 @@ def main():
         workers.update(workers_of_sgg(token, sgg))
     print(f'종사자 자료 {len(workers)}개 동', flush=True)
 
+    # 동 단위 종사자에 좌표를 붙인다 — 집계구 코드 앞 8자리가 동 코드다.
+    # 백엔드가 임의 노선의 주간인구를 추정할 때 쓴다
+    census['dong'] = census.adm_cd.str[:8]
+    dong_xy = census.groupby('dong')[['latitude', 'longitude']].mean()
+    dong_rows = [{'dong_code': code, 'latitude': xy.latitude,
+                  'longitude': xy.longitude, 'workers': workers[code]}
+                 for code, xy in dong_xy.iterrows() if code in workers]
+    pd.DataFrame(dong_rows).to_csv(BUILD / 'dong_workers.csv',
+                                   index=False, encoding='utf-8-sig')
+    print(f'동별 종사자 {len(dong_rows)}개 → dong_workers.csv', flush=True)
+
     # 환승 노선 수 — 같은 역명이 여러 노선에 나오면 환승역이다
     transfers = stations.groupby('station_name').line_name.nunique()
 

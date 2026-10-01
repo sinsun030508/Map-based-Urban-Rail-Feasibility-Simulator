@@ -17,6 +17,7 @@ export default function App() {
   const [savedLength, setSavedLength] = useState(null);
   const [savedId, setSavedId] = useState(null);
   const [results, setResults] = useState([]);
+  const [population, setPopulation] = useState(null);
   const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
@@ -26,6 +27,14 @@ export default function App() {
   }, [user]);
 
   if (!user) return <LoginPage onLogin={setUser} />;
+
+  /** 노선이 바뀌면 이전 계산 결과는 더 이상 맞지 않는다 */
+  function reset() {
+    setSavedLength(null);
+    setSavedId(null);
+    setResults([]);
+    setPopulation(null);
+  }
 
   async function save() {
     setSaving(true);
@@ -39,6 +48,7 @@ export default function App() {
       setSavedLength(Number(saved.totalLengthKm));
       setSavedId(saved.id);
       setResults(saved.results || []);
+      setPopulation(saved.population1km ?? null);
       setScenarios(await api.listScenarios());
     } catch (e) {
       setError(e.message);
@@ -57,6 +67,7 @@ export default function App() {
       setSavedLength(Number(s.totalLengthKm));
       setSavedId(s.id);
       setResults(s.results || []);
+      setPopulation(s.population1km ?? null);
     } catch (e) {
       setError(e.message);
     }
@@ -68,6 +79,7 @@ export default function App() {
     try {
       const detail = await api.calculate(savedId);
       setResults(detail.results || []);
+      setPopulation(detail.population1km ?? null);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -107,9 +119,7 @@ export default function App() {
           zones={zones}
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);
-            setSavedLength(null);
-            setSavedId(null);
-            setResults([]);
+            reset();
           }}
         />
         <ScenarioPanel
@@ -123,10 +133,11 @@ export default function App() {
           savedId={savedId}
           results={results}
           calculating={calculating}
+          population={population}
           onTitle={setTitle}
           onStructure={setStructure}
-          onUndo={() => { setPoints((p) => p.slice(0, -1)); setSavedLength(null); setSavedId(null); setResults([]); }}
-          onClear={() => { setPoints([]); setSavedLength(null); setSavedId(null); setResults([]); }}
+          onUndo={() => { setPoints((p) => p.slice(0, -1)); reset(); }}
+          onClear={() => { setPoints([]); reset(); }}
           onSave={save}
           onCalculate={calculate}
           onLoad={load}

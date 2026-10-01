@@ -13,6 +13,9 @@ spring:
       hibernate.dialect: org.hibernate.dialect.MySQLDialect
     open-in-view: false
 app:
+  # ETL 산출물을 그대로 읽는다. 없으면 수요·B/C 가 비고 결과에 경고가 붙는다
+  census-file: ${CENSUS_FILE:../data/build/census_population.csv}
+  worker-file: ${WORKER_FILE:../data/build/dong_workers.csv}
   jwt:
     # 개발용 기본값 — 운영에서는 반드시 환경변수로 교체할 것 (HS256 이므로 32바이트 이상)
     secret: ${JWT_SECRET:railfeas-local-dev-secret-key-change-me-32bytes}

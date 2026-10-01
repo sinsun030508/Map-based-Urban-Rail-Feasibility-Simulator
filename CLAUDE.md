@@ -19,13 +19,16 @@ MySQL 8 + Redis / Docker Compose, GitHub Actions, AWS EC2 프리티어
 ```
 data/raw/        받은 원본 — 수정 금지 (데이터.txt, 철도건설현황 csv, 도시철도노선정보 xlsx)
 data/seed/       수기 정리분 — brt_seed / metro_seed / price_index / rail_station_seed
-data/build/      ETL 산출물 (reference_line.csv)
+data/build/      ETL 산출물 — reference_line / census_population / dong_workers /
+                 station_master / station_ridership / station_population
 db/schema/       V1 마스터(reference_line·mode_capacity 등) / V2 서비스(user·scenario 등)
 db/seed/         S1 mode_capacity, S2 reference_line*, S3 restricted_zone,
-                 S4 price_index*, S5 cost_standard*      (*는 자동 생성 — 직접 수정 금지)
-etl/             etl.py (raw→reference_line), cost_model.py (→ S5)
-backend/         Spring Boot — common / user / auth / scenario / reference / geo
-frontend/        React (미착수)
+                 S4 price_index*, S5 cost_standard*, S6 demand_model*, S7 benefit_parameter
+                 (*는 자동 생성 — 직접 수정 금지)
+etl/             etl.py (raw→reference_line), cost_model.py (→S5), demand_model.py (→S6),
+                 seoul_ridership.py·sgis_population.py (수요 모델 입력 수집)
+backend/         Spring Boot — common / user / auth / scenario / reference / geo / calc
+frontend/        React + MapLibre — map / scenario / auth / api / geo
 docs/            제안서 docx·pdf, erd.png
 ```
 
@@ -144,6 +147,24 @@ ETL이 S4와 `total_cost_2025`를 만든다. 기준연도는 명시값 → 사�
 - SGIS 는 자체 행정구역 코드를 쓴다 (11110 = 노원구). 인구·종사자 API 가 같은 체계라 이어 붙는다
 - 인구가 적은 집계구는 `N/A` 로 가려서 온다. 0 으로 채우지 말고 제외해야 합산이 왜곡되지 않는다
 
+## B/C 산출 (`backend/.../calc`)
+
+`PopulationIndex`가 집계구 인구·행정동 종사자 CSV를 0.01° 버킷에 올려 노선 반경 1km를 합산하고,
+`BenefitCalculator`가 수요 모델로 일이용객 → 첨두 수요 → 통행시간 절감편익을 매긴다.
+`CostCalculator`가 수단×구조 전부를 돌려 비교표(`scenario_result`)를 만들고 B/C 최대안을 추천한다.
+
+- 편익 = (기준 수단 소요시간 − 해당 수단 소요시간) × 이용객 × 시간가치, 분석기간 할인 합계.
+  **기준 속도보다 느리면 편익 0** — BRT 저급형(18km/h)이 `baseline_speed_kmh`(18.0)와 같아
+  B/C가 0.00으로 찍힌다. 기준 속도를 실측으로 바꿀 때 함께 풀린다
+- **`benefit_parameter` 7개 값은 전부 자리표시자**(시간가치 9,000원/시, 첨두율 0.12,
+  방향률 0.6, 할인율 0.045, 분석기간 30년). 교통시설 투자평가지침 원단위로 교체 전까지
+  **B/C 절대값을 인용하면 안 된다** — 화면에도 같은 경고를 띄운다
+- 자리표시자 탓에 첨두 수요가 과소 추정돼 "수송능력 대비 과잉 투자" 경고가 쉽게 붙고,
+  BRT 고급형 B/C가 10배까지 튄다(실사업은 10을 넘지 않는다). 수단 간 **순위**는 의미가 있다
+- 수요는 모든 수단에 동일하게 적용한다 (수단별 수요 탄성 모델이 없다)
+- 인구 CSV 경로는 `app.census-file`·`app.worker-file`. 파일이 없으면 기동은 되고
+  "인구 자료 없음" 경고만 남는다 — 계산을 막지 않는다
+
 ## 추천 알고리즘 기준값
 
 **역간격(중앙값)** 중전철 1.06km(표본 21) / 경전철 1.06km(7) / 트램 0.45~0.86km(2) /
@@ -245,14 +266,16 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 
 ## 현재 상태
 
-**완료** 제안서 / ETL 381건 / 물가 환산 / 비용 회귀(S5 10행) / V1·V2 스키마와 시드 5종 /
-Spring Boot(엔티티 11, JWT·소셜, 시나리오 CRUD) / Docker Compose.
-**전 구간 실행 검증 완료** — DB 적재, 백엔드 기동(`validate` 통과 = 엔티티와 DDL 일치),
-회원가입→JWT→시나리오 저장(Haversine 8.793km)→조회, 미인증 403까지 실제 호출로 확인.
-계산 로직(수요·B/C·추천)과 프론트엔드는 미착수.
+**완료** 제안서 / ETL 381건 / 물가 환산 / 비용 회귀(S5) / 수요 회귀(S6) / V1·V2 스키마와 시드 7종 /
+Spring Boot(JWT·소셜, 시나리오 CRUD, 비용·수요·B/C 계산) / React + MapLibre 지도와 비교표 /
+Docker Compose.
+**전 구간 실행 검증 완료** — 13.5km 노선을 그려 저장하고 수단×구조 9안의 건설비·수요·B/C가
+표로 나오는 것까지 실제로 확인했다 (BRT 고급형 10.32 ~ 지하철 지하 0.54 — 자리표시자 기준).
+제안서가 말한 "BRT면 충분한 구간에 지하철을 지으면 B/C가 떨어진다"가 숫자로 재현된다.
 
-**다음 할 일** ① 지하 비율 확대와 공법 변수 추가 ② React + MapLibre 지도 화면
-③ SGIS 집계구 연동 ④ 도시철도 역 좌표 수집 ⑤ 표정속도 실측
+**다음 할 일** ① **투자평가지침 원단위로 `benefit_parameter` 교체**(B/C 인용의 전제)
+② 표정속도 실측 ③ 지하 비율 확대와 공법 변수 ④ 도시철도 역 좌표 수집(기존 노선 활용)
+⑤ 정차역 자동 배치 ⑥ 시나리오 비교·관리자 페이지 ⑦ 3D 시각화
 
 **데이터 공백**
 - D등급 242건 대부분이 철도건설현황 csv — 금액은 있으나 연장 없음. 자동 조인은 오매칭 위험이 커서

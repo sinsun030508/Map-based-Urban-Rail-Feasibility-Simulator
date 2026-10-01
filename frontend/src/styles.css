@@ -81,5 +81,10 @@ table.cost td.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.cost tr.cheapest td { font-weight: 700; }
 table.cost tr.selected { background: #fff4f3; }
 
+table.cost tr.infeasible td { color: var(--muted); text-decoration: line-through; }
+table.cost .tag { display: block; font-size: 10px; color: #b3261e; text-decoration: none; }
+
 .note { margin: 10px 0 4px; }
 .warn { color: #8a6100; margin: 4px 0; }
+.metric.small { font-size: 12px; margin: 6px 0 2px; }
+.metric.small strong { font-size: 13px; }
