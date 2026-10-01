@@ -60,7 +60,11 @@ public class ScenarioService {
         Map<ModeType, ModeCapacity> byMode = capacities.findAll().stream()
                 .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
         var outcome = calculator.calculate(scenario, active, byMode, zones.findAll());
-        scenario.replaceResults(outcome.results(), outcome.population1km(),
+        // 유니크 제약(scenario+수단+구조) 때문에 옛 결과 DELETE 를 새 INSERT 보다 먼저 내보낸다.
+        // 한 flush 에 맡기면 Hibernate 가 INSERT 를 앞에 보내 재계산이 1062 로 실패한다
+        scenario.clearResults();
+        entityManager.flush();
+        scenario.applyResults(outcome.results(), outcome.population1km(),
                 outcome.recommendedMode());
         return ScenarioDto.DetailResponse.of(scenario);
     }

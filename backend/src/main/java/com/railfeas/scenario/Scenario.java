@@ -88,10 +88,22 @@ public class Scenario {
         this.recommendedMode = null;
     }
 
-    /** 다시 계산하면 이전 결과는 버린다 — 옛 결과가 새 노선에 붙어 있으면 안 된다 */
-    public void replaceResults(List<ScenarioResult> newResults, Long population1km,
-                               ModeType recommendedMode) {
+    /**
+     * 다시 계산하기 전에 옛 결과를 버린다 — 옛 결과가 새 노선에 붙어 있으면 안 된다.
+     *
+     * `uk_result_mode(scenario_id, mode_type, structure_type)` 유니크 제약이 있어
+     * **옛 행 DELETE 가 새 행 INSERT 보다 먼저 나가야 한다.** Hibernate 는 한 flush 안에서
+     * INSERT 를 DELETE 보다 앞에 보내므로, 호출부에서 이 메서드 뒤에 flush 를 끼워
+     * 두 단계로 끊어야 한다 (`ScenarioService.calculate`).
+     */
+    public void clearResults() {
         this.results.clear();
+        this.recommendedMode = null;
+    }
+
+    /** 계산 결과를 붙인다. 반드시 {@link #clearResults()} + flush 뒤에 호출한다 */
+    public void applyResults(List<ScenarioResult> newResults, Long population1km,
+                             ModeType recommendedMode) {
         this.results.addAll(newResults);
         this.population1km = population1km;
         this.recommendedMode = recommendedMode;
