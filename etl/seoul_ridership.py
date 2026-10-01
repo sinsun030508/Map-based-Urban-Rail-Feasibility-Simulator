@@ -109,7 +109,7 @@ def collect_ridership(key, days):
         try:
             rows = fetch_all(key, 'CardSubwayStatsNew', ymd)
         except RuntimeError as e:
-            print(f'  {ymd} 건너뜀 — {e}')
+            print(f'  {ymd} 건너뜀 - {e}')
             day -= timedelta(days=1)
             continue
         if not rows:
