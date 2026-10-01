@@ -42,6 +42,17 @@ cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
 
 **이 환경에서 밟은 함정들**
 - DB는 **호스트 3307**로 노출한다 (개발 PC의 로컬 MySQL이 3306 사용 중). 백엔드는 `DB_PORT`로 맞춘다
+- **root 비밀번호는 `.env`의 `DB_PASSWORD`다** — compose 의 기본값 `railfeas` 가 아니다.
+  `mysql -prailfeas` 로 붙으면 `Access denied` 가 난다. 값을 출력하지 말고 이렇게 넘긴다
+
+  ```bash
+  PW=$(grep '^DB_PASSWORD=' .env | cut -d= -f2-)
+  docker compose exec -T -e MYSQL_PWD="$PW" db mysql -uroot railfeas -e "SELECT 1;"
+  ```
+- **시드를 고치면 `down -v` 가 필요하다** — initdb 는 볼륨이 빈 경우에만 돌아서
+  SQL 만 바꿔도 반영되지 않는다. 볼륨을 지우면 **가입한 계정과 시나리오도 사라진다**
+- **실행 중인 백엔드를 끄지 않으면 `package` 가 실패한다** — jar 를 잡고 있어
+  `Unable to rename ... to railfeas-0.1.0.jar.original` 이 난다
 - **SQL 파일 첫 줄에 `SET NAMES utf8mb4;`** — initdb가 latin1로 읽어 한글이 이중 인코딩된다
   (`복선전철` → `ë³µì„ ì „ì² `). 자동 생성 SQL은 생성기에도 넣어야 한다
 - **`cost_standard`는 TRUNCATE 불가** — `scenario_result`가 FK로 참조. `DELETE`를 쓴다
