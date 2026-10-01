@@ -59,8 +59,9 @@ public class ScenarioService {
         }
         Map<ModeType, ModeCapacity> byMode = capacities.findAll().stream()
                 .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
-        scenario.replaceResults(
-                calculator.calculate(scenario, active, byMode, zones.findAll()));
+        var outcome = calculator.calculate(scenario, active, byMode, zones.findAll());
+        scenario.replaceResults(outcome.results(), outcome.population1km(),
+                outcome.recommendedMode());
         return ScenarioDto.DetailResponse.of(scenario);
     }
 

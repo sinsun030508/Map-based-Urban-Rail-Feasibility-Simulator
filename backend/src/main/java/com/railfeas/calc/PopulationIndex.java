@@ -1,0 +1,146 @@
+package com.railfeas.calc;
+
+import com.railfeas.geo.Haversine;
+import jakarta.annotation.PostConstruct;
+import java.io.BufferedReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+/**
+ * 집계구 인구·동별 종사자를 메모리에 올려 노선 주변 인구를 센다.
+ *
+ * 왜 파일인가
+ *   SGIS 를 요청마다 부르면 느리고 호출 제한도 있다. ETL 이 이미 받아 둔
+ *   data/build/*.csv 를 그대로 읽는다. 전국이 아니라 **수집한 77개 시군구(수도권 위주)만**
+ *   담겨 있어, 그 밖 지역은 인구가 0 으로 나온다 — 결과에 경고로 표시할 것.
+ *   나중에 SGIS 실시간 호출 + Redis 캐싱으로 바꾼다.
+ */
+@Component
+public class PopulationIndex {
+
+    private static final Logger log = LoggerFactory.getLogger(PopulationIndex.class);
+    private static final double CELL = 0.01;      // 약 1.1km — 버킷 한 변
+
+    private final Path censusFile;
+    private final Path workerFile;
+
+    private final Map<Long, List<double[]>> census = new HashMap<>();   // [lat, lng, 인구]
+    private final Map<Long, List<double[]>> workers = new HashMap<>();  // [lat, lng, 종사자]
+
+    public PopulationIndex(@Value("${app.census-file}") String censusFile,
+                           @Value("${app.worker-file}") String workerFile) {
+        this.censusFile = Path.of(censusFile);
+        this.workerFile = Path.of(workerFile);
+    }
+
+    @PostConstruct
+    void load() {
+        load(censusFile, census, "population");
+        load(workerFile, workers, "workers");
+        log.info("인구 격자 {}칸, 종사자 격자 {}칸 적재", census.size(), workers.size());
+    }
+
+    private void load(Path path, Map<Long, List<double[]>> into, String valueColumn) {
+        if (!Files.exists(path)) {
+            // 없으면 인구 0 으로 계산되고 결과에 경고가 붙는다 — 기동은 막지 않는다
+            log.warn("{} 없음 — 수요 추정이 비활성화된다 (etl/sgis_population.py 실행 필요)", path);
+            return;
+        }
+        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            String header = reader.readLine();
+            if (header == null) {
+                return;
+            }
+            String[] columns = header.replace("﻿", "").split(",");
+            int latIdx = indexOf(columns, "latitude");
+            int lngIdx = indexOf(columns, "longitude");
+            int valIdx = indexOf(columns, valueColumn);
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] f = line.split(",");
+                if (f.length <= Math.max(valIdx, Math.max(latIdx, lngIdx))) {
+                    continue;
+                }
+                double lat = Double.parseDouble(f[latIdx]);
+                double lng = Double.parseDouble(f[lngIdx]);
+                double value = Double.parseDouble(f[valIdx]);
+                into.computeIfAbsent(cellKey(lat, lng), k -> new ArrayList<>())
+                        .add(new double[]{lat, lng, value});
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException(path + " 를 읽지 못했습니다", e);
+        }
+    }
+
+    private int indexOf(String[] columns, String name) {
+        for (int i = 0; i < columns.length; i++) {
+            if (columns[i].trim().equals(name)) {
+                return i;
+            }
+        }
+        throw new IllegalStateException(name + " 컬럼이 없습니다");
+    }
+
+    private long cellKey(double lat, double lng) {
+        return (long) Math.floor(lat / CELL) * 100_000L + (long) Math.floor(lng / CELL);
+    }
+
+    public long populationNear(List<double[]> points, double radiusKm) {
+        return sumNear(census, points, radiusKm);
+    }
+
+    public long workersNear(List<double[]> points, double radiusKm) {
+        return sumNear(workers, points, radiusKm);
+    }
+
+    public boolean covers(List<double[]> points) {
+        return !census.isEmpty() && populationNear(points, 3.0) > 0;
+    }
+
+    /**
+     * 좌표 목록 중 하나라도 반경 안에 들면 더한다.
+     * 같은 칸을 두 번 더하지 않도록 식별자로 걸러낸다 — 노선 위 점들이 겹치기 때문이다.
+     */
+    private long sumNear(Map<Long, List<double[]>> index, List<double[]> points, double radiusKm) {
+        if (index.isEmpty()) {
+            return 0;
+        }
+        int span = (int) Math.ceil(radiusKm / 100.0 / CELL) + 1;
+        Set<double[]> counted = new HashSet<>();
+        double total = 0;
+        for (double[] p : points) {
+            long baseLat = (long) Math.floor(p[0] / CELL);
+            long baseLng = (long) Math.floor(p[1] / CELL);
+            for (long dLat = -span; dLat <= span; dLat++) {
+                for (long dLng = -span; dLng <= span; dLng++) {
+                    List<double[]> bucket = index.get((baseLat + dLat) * 100_000L + baseLng + dLng);
+                    if (bucket == null) {
+                        continue;
+                    }
+                    for (double[] cell : bucket) {
+                        if (counted.contains(cell)) {
+                            continue;
+                        }
+                        if (Haversine.distanceKm(p[0], p[1], cell[0], cell[1]) <= radiusKm) {
+                            counted.add(cell);
+                            total += cell[2];
+                        }
+                    }
+                }
+            }
+        }
+        return Math.round(total);
+    }
+}

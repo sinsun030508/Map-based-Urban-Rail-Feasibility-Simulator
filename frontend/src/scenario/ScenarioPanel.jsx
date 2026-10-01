@@ -9,7 +9,7 @@ const STRUCTURES = [
 
 export default function ScenarioPanel({
   points, title, structure, scenarios, saving, error, savedLength,
-  savedId, results, calculating,
+  savedId, results, calculating, population,
   onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
 }) {
   const length = totalLengthKm(points);
@@ -68,7 +68,7 @@ export default function ScenarioPanel({
         </button>
       </section>
 
-      <CostTable results={results} structure={structure} />
+      <CostTable results={results} structure={structure} population={population} />
 
       <section>
         <h2>내 시나리오 ({scenarios.length})</h2>
