@@ -21,7 +21,8 @@ import org.springframework.stereotype.Component;
  * 계수 출처
  *   비용  cost_standard (etl/cost_model.py, 교차검증 1.25배)
  *   수요  benefit_parameter demand_* (etl/demand_model.py, 교차검증 1.75배)
- *   편익  benefit_parameter — **원단위 미확정** (S7 참고)
+ *   편익  benefit_parameter (S7) — 시간가치·할인율은 투자평가지침 제7판,
+ *         첨두율·기준속도는 지침에 원단위가 없어 가정값이다
  *
  * 정차역 수는 실제 배치가 아니라 수단별 표준 역간격으로 나눈 추정값이다.
  */
@@ -85,7 +86,8 @@ public class CostCalculator {
                     .peakPphpd(peak)
                     .travelTimeMin(travelTimeMin(lengthKm, speed))
                     .benefitTotal(benefit)
-                    .bcRatio(benefits.bcRatio(benefit, cost))
+                    // B/C 는 양쪽 다 현재가치로 본다. total_cost 에는 명목 총액을 남긴다
+                    .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
                     .warning(warning(lengthKm, peak, capacity, zoneWarning, people))
                     .build());
