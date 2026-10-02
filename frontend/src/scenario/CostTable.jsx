@@ -1,3 +1,4 @@
+import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
 
 const MODE_LABEL = {
@@ -10,9 +11,6 @@ const MODE_LABEL = {
 };
 
 const STRUCTURE_LABEL = { UNDERGROUND: '지하', ELEVATED: '고가', AT_GRADE: '지상' };
-
-/** 수단×구조가 한 행 — 선택 상태를 이 키로 들고 다닌다 */
-export const key = (r) => `${r.modeType}-${r.structureType}`;
 
 /** 억원 → 읽기 쉬운 단위. 1조가 넘으면 조 단위로 끊는다 */
 function money(eok) {
@@ -79,15 +77,15 @@ export default function CostTable({ results, structure, population, selected, st
         <tbody>
           {sorted.map((r) => (
             <tr
-              key={key(r)}
+              key={resultKey(r)}
               className={[
                 r === best ? 'cheapest' : '',
-                key(r) === (selected || key(best)) ? 'picked' : '',
+                resultKey(r) === (selected || resultKey(best)) ? 'picked' : '',
                 r.structureType === structure ? 'selected' : '',
                 r.feasible === false ? 'infeasible' : '',
               ].join(' ')}
               title={r.warning || ''}
-              onClick={() => onSelect?.(key(r))}
+              onClick={() => onSelect?.(resultKey(r))}
             >
               <td>{MODE_LABEL[r.modeType] || r.modeType}</td>
               <td>{STRUCTURE_LABEL[r.structureType]}</td>

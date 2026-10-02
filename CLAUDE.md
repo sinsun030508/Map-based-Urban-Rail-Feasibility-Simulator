@@ -41,6 +41,10 @@ docker compose down -v && docker compose up -d   # DB 재적재 (볼륨이 비�
 cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
 ```
 
+**비밀값은 `.env` 에만.** `.env.example` 은 저장소에 올라간다 — 자리표시자만 둔다.
+서울 열린데이터광장 키를 여기 적었다가 공개 저장소에 그대로 올라간 적이 있다(`dbf8c6a`).
+히스토리에 남으므로 이런 일이 생기면 **키를 재발급**하는 것 말고는 되돌릴 방법이 없다.
+
 **이 환경에서 밟은 함정들**
 - DB는 **호스트 3307**로 노출한다 (개발 PC의 로컬 MySQL이 3306 사용 중). 백엔드는 `DB_PORT`로 맞춘다
 - **root 비밀번호는 `.env`의 `DB_PASSWORD`다** — compose 의 기본값 `railfeas` 가 아니다.

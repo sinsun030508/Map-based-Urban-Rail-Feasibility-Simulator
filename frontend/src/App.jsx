@@ -7,7 +7,7 @@ import { usingVWorld } from './map/mapStyle';
 import ComparePage from './scenario/ComparePage';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
-import { key as resultKey } from './scenario/CostTable';
+import { resultKey } from './scenario/resultKey';
 
 export default function App() {
   const [user, setUser] = useState(getUser);
