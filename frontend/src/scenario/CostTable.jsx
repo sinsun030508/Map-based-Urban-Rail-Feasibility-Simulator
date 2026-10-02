@@ -97,6 +97,10 @@ export default function CostTable({ results, structure, population, selected, st
               <td className="num">
                 {r.bcRatio == null ? '—' : Number(r.bcRatio).toFixed(2)}
                 {r.feasible === false && <span className="tag">수송능력 초과</span>}
+                {/* 0.00 은 계산 실패가 아니라 "전환 전 수단보다 느려 절감이 없다"는 결과다 */}
+                {r.benefitTotal === 0 && (
+                  <span className="tag note">기준 속도 이하 — 절감 시간 없음</span>
+                )}
               </td>
             </tr>
           ))}

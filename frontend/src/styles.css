@@ -134,3 +134,5 @@ table.admin-table.compare td { text-align: right; }
 table.admin-table.compare td.name,
 table.admin-table.compare th:first-child { text-align: left; }
 table.admin-table.compare td.top { background: #f0f6ff; font-weight: 700; }
+
+table.cost .tag.note { color: var(--muted); }
