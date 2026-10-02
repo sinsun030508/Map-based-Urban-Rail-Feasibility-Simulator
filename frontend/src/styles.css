@@ -106,3 +106,6 @@ table.cost .tag { display: block; font-size: 10px; color: #b3261e; text-decorati
 table.cost tbody tr { cursor: pointer; }
 table.cost tr.picked td { box-shadow: inset 0 0 0 9999px rgba(26,86,219,.07); }
 table.cost tr.picked td:first-child { box-shadow: inset 3px 0 0 #1a56db, inset 0 0 0 9999px rgba(26,86,219,.07); }
+
+button.toggle { border-radius: 999px; padding: 5px 12px; }
+button.toggle.on { background: #1a56db; color: #fff; border-color: #1a56db; }

@@ -1,3 +1,10 @@
+server:
+  compression:
+    # 인구 집계구 응답이 수 MB 라 압축이 필요하다 (JSON 배열이라 잘 줄어든다)
+    enabled: true
+    mime-types: application/json
+    min-response-size: 8KB
+
 spring:
   application:
     name: railfeas

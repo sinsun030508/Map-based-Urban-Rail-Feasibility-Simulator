@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapStyle, INITIAL_VIEW } from './mapStyle';
+import usePopulation3D from './usePopulation3D';
 
 const ROUTE_SOURCE = 'route';
 
@@ -9,8 +10,9 @@ const ROUTE_SOURCE = 'route';
  * 지도와 노선 표시. 좌표 상태는 App 이 들고 있고 여기서는 그리기만 한다.
  * onPick(lngLat) — 지도를 클릭하면 좌표를 올려보낸다.
  * stations — 자동 배치된 정차역. 수단마다 다르므로 비교표에서 고른 안의 것을 받는다.
+ * show3D — 인구밀도 3D 레이어. 켜면 지도가 기울고 집계구 인구가 높이로 선다.
  */
-export default function MapView({ points, zones, stations, onPick }) {
+export default function MapView({ points, zones, stations, show3D, onPick }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -47,6 +49,8 @@ export default function MapView({ points, zones, stations, onPick }) {
     mapRef.current = map;
     return () => map.remove();
   }, []);
+
+  usePopulation3D(mapRef, show3D);
 
   // 좌표가 바뀌면 선과 마커를 다시 그린다
   useEffect(() => {
