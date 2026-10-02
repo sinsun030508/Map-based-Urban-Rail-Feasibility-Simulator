@@ -192,6 +192,25 @@ def main():
     print(f'\n방향 쏠림  중앙값 {share.median():.3f}'
           f' / 범위 {share.min():.3f}~{share.max():.3f} (가정값 0.6 보다 크다)')
     print('→ line_congestion.csv')
+    light_rail_floor(daily, clean.k_factor.median())
+
+
+def light_rail_floor(daily, k):
+    """
+    경전철 하한의 근거. 혼잡도 자료가 1~8호선뿐이라 경전철은 실측할 수 없다.
+    실제 운영 중인 경전철의 일 승하차에 첨두율·환산계수를 적용해 단면을 추정한다.
+    추정이지만 "실제로 지어진 경전철이 이 정도"라는 근거는 된다.
+    """
+    print('\n경전철 추정 단면 (혼잡도 자료가 없어 K 로 환산)')
+    for line in ('우이신설선', '신림선'):
+        total = daily.get(line)
+        if total is None:
+            print(f'  {line} 승하차 자료 없음')
+            continue
+        section = total * PEAK_HOUR_RATIO * k
+        print(f'  {line:8s} 일 승하차 {int(total):,}명 → 단면 {section:,.0f}명/시')
+    print('  mode_capacity 의 경전철 pphpd_min 5,000 보다 낮다 -'
+          ' 실제 경전철도 과잉 투자로 판정된다')
 
 
 if __name__ == '__main__':
