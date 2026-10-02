@@ -81,11 +81,18 @@ public class StationPlanner {
         return out;
     }
 
-    /** 창 안을 훑어 반경 인구가 가장 많은 거리를 고른다. 동점이면 이상 위치에 가까운 쪽 */
+    /**
+     * 창 안을 훑어 반경 인구가 가장 많은 거리를 고른다. 동점이면 이상 위치에 가까운 쪽.
+     *
+     * 점수는 반경 안 인구의 **합**이라 계단 함수다 — 봉우리가 이미 반경에 들어오면 더
+     * 다가가도 점수가 그대로다. 그래서 동점이 흔하고, 그때는 역간격을 지키는 쪽이 낫다.
+     * 이상 위치를 먼저 재 두는 이유도 같다. 훑는 간격이 0.1km 라 격자가 이상 위치를
+     * 비껴가면 인구가 없는 구간에서도 역이 수십 m 씩 밀린다.
+     */
     private double bestWithin(List<double[]> route, List<Double> cum, double from, double to) {
         double mid = (from + to) / 2;
         double best = mid;
-        long bestScore = -1;
+        long bestScore = score(pointAt(route, cum, mid));
         for (double d = from; d <= to + 1e-9; d += STEP_KM) {
             double[] p = pointAt(route, cum, d);
             long score = score(p);
