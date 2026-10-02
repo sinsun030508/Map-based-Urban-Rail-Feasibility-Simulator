@@ -28,8 +28,8 @@ db/seed/         S1 mode_capacity, S2 reference_line*, S3 restricted_zone,
                  (*는 자동 생성 — 직접 수정 금지)
 etl/             etl.py (raw→reference_line), cost_model.py (→S5), demand_model.py (→S6),
                  seoul_ridership.py·sgis_population.py (수요 모델 입력 수집)
-backend/         Spring Boot — common / user / auth / scenario / reference / geo / calc
-frontend/        React + MapLibre + deck.gl — map / scenario / auth / api / geo
+backend/         Spring Boot — common / user / auth / scenario / reference / geo / calc / admin
+frontend/        React + MapLibre + deck.gl — map / scenario / auth / admin / api / geo
 docs/            제안서 docx·pdf, erd.png
 ```
 
@@ -338,6 +338,18 @@ NULL 이면 경고를 띄우지 않는다. **근거 없이 경고하지 않는�
 - 응답 압축을 `application.yml` 에서 켰다 (`server.compression`)
 - 끄면 pitch 가 0 으로 돌아가고 레이어도 떼어 낸다
 
+**관리자 기준값 CRUD(`/api/admin/**`, ROLE_ADMIN)** 편익 원단위(`benefit_parameter`)와
+수단 기준값(`mode_capacity`)을 화면에서 고친다. 저장 즉시 다음 계산부터 적용된다.
+
+- **근거(`source`)를 반드시 함께 받는다.** 비우면 400 이고 화면에서도 저장 버튼이 막힌다.
+  이 프로젝트에서 값보다 중요한 것이 출처다 — 숫자만 바꾸면 나중에 어디서 온 값인지 모른다
+- 추가·삭제는 없다. 목록은 ETL·시드가 만들고, 행이 사라지면 계산이 바로 멈춘다
+  (`BenefitCalculator.Params` 가 없는 키에 예외를 던진다). 바꿀 수 있는 건 값과 근거뿐이다
+- **수단 기준값은 빈 칸이 "안 바꿈"이 아니라 "지움"이다.** `pphpd_min` 은 근거가 없을 때
+  NULL 로 두는 것이 정상이라 그렇게 만들었다
+- `demand_*` 는 회귀 결과다. 손으로 고치면 모델과 어긋나므로 화면에 경고를 띄운다
+- 하한 > 상한이면 400 으로 막는다
+
 **기존 노선 활용** 예타도 기존 시설 활용안과 비교한다. 출발·도착점이 기존 역에서 1km 이내이고
 노선 대부분이 기존 노선 버퍼 안이면 "기존 ○○선 활용(연장·급행화 검토)"을 먼저 안내한다.
 **역 좌표 데이터가 아직 없다** — 공공데이터포털 도시철도 역사 정보(위경도)를 받아야 한다.
@@ -404,14 +416,14 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 **완료** 제안서 / ETL 381건 / 물가 환산 / 비용 회귀(S5) / 수요 회귀(S6) / V1·V2 스키마와 시드 7종 /
 Spring Boot(JWT·소셜, 시나리오 CRUD, 비용·수요·B/C 계산, 정차역 자동 배치) /
 React + MapLibre 지도·비교표·정차역 표시·인구밀도 3D / Docker Compose.
-**제안서 핵심 기능 7개를 모두 구현했다.** 남은 것은 기능 8번(시나리오 비교·대시보드·
-관리자 기준값 CRUD)과, 아직 가정값인 BRT 표정속도다.
+**제안서 핵심 기능 7개와 관리자 기준값 CRUD 를 구현했다.** 남은 것은 시나리오 비교·
+대시보드와, 아직 가정값인 BRT 표정속도다.
 **전 구간 실행 검증 완료** — 13.5km 노선을 그려 저장하고 수단×구조 9안의 건설비·수요·B/C가
 표로 나오는 것까지 실제로 확인했다 (BRT 고급형 10.32 ~ 지하철 지하 0.54 — 자리표시자 기준).
 제안서가 말한 "BRT면 충분한 구간에 지하철을 지으면 B/C가 떨어진다"가 숫자로 재현된다.
 
-**다음 할 일** ① 관리자 기준값 CRUD(제안서 기능 8) ② 시나리오 비교·대시보드
-③ BRT 표정속도(편익 0 문제의 마지막 원인) ④ GTX급 급행 수단 분리
+**다음 할 일** ① 시나리오 비교·대시보드(제안서 기능 8의 남은 절반)
+② BRT 표정속도(편익 0 문제의 마지막 원인) ③ GTX급 급행 수단 분리
 ⑤ 환산계수를 연장 함수로(평일 첨두율 분리 필요) ⑥ 복선전철 하한 — 광역철도 승하차를
 노선 단위로 합산해야 한다 ⑦ 도시철도 역 좌표 수집(기존 노선 활용)
 ⑧ 지하 비율 확대와 공법 변수

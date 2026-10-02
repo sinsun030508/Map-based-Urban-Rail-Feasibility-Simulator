@@ -59,4 +59,11 @@ export const api = {
   createScenario: (body) => request('/scenarios', { method: 'POST', body }),
   calculate: (id) => request(`/scenarios/${id}/calculate`, { method: 'POST' }),
   deleteScenario: (id) => request(`/scenarios/${id}`, { method: 'DELETE' }),
+  // 관리자 기준값 — 서버가 ROLE_ADMIN 을 요구한다
+  adminParameters: () => request('/admin/parameters'),
+  updateParameter: (name, body) =>
+    request(`/admin/parameters/${encodeURIComponent(name)}`, { method: 'PUT', body }),
+  adminModes: () => request('/admin/modes'),
+  updateMode: (modeType, body) =>
+    request(`/admin/modes/${modeType}`, { method: 'PUT', body }),
 };
