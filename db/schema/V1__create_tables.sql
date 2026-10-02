@@ -112,5 +112,8 @@ CREATE TABLE IF NOT EXISTS mode_capacity (
     spacing_km      DECIMAL(4,2) COMMENT '표준 역간격 (중앙값)',
     speed_kmh       DECIMAL(4,1) COMMENT '표정속도 — 편익(통행시간 절감) 계산용',
     max_length_km   DECIMAL(5,1) COMMENT '권장 최대 연장. 넘으면 전철을 후보에 추가하고 이 수단은 경고 표시',
-    source          VARCHAR(150)
+    source          VARCHAR(150),
+    updated_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    ON UPDATE CURRENT_TIMESTAMP
+                    COMMENT '관리자가 기준값을 고친 시각 — 저장된 계산 결과가 낡았는지 판단한다'
 ) COMMENT='수단 추천 시 후보 필터링에 사용';

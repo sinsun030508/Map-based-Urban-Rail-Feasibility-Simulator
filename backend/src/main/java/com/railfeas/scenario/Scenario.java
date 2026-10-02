@@ -59,6 +59,10 @@ public class Scenario {
     @Column(name = "updated_at", insertable = false, updatable = false)
     private LocalDateTime updatedAt;
 
+    /** 마지막 계산 시각. 기준값이 이 뒤에 바뀌었으면 저장된 결과는 낡은 것이다 */
+    @Column(name = "calculated_at")
+    private LocalDateTime calculatedAt;
+
     @OneToMany(mappedBy = "scenario", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("sequence asc")
     private List<RoutePoint> points = new ArrayList<>();
@@ -107,6 +111,8 @@ public class Scenario {
         this.results.addAll(newResults);
         this.population1km = population1km;
         this.recommendedMode = recommendedMode;
+        // 기준값이 이 시각 뒤에 바뀌면 저장된 결과는 낡은 것이다 (화면에서 알린다)
+        this.calculatedAt = LocalDateTime.now();
     }
 
     public void rename(String title) {

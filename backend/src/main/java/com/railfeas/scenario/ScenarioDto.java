@@ -62,11 +62,12 @@ public class ScenarioDto {
 
     public record SummaryResponse(Long id, String title, BigDecimal totalLengthKm,
                                   RegionClass regionClass, ModeType recommendedMode,
-                                  StructureType preferredStructure, LocalDateTime createdAt) {
+                                  StructureType preferredStructure, LocalDateTime createdAt,
+                                  LocalDateTime calculatedAt) {
         static SummaryResponse of(Scenario s) {
             return new SummaryResponse(s.getId(), s.getTitle(), s.getTotalLengthKm(),
                     s.getRegionClass(), s.getRecommendedMode(), s.getPreferredStructure(),
-                    s.getCreatedAt());
+                    s.getCreatedAt(), s.getCalculatedAt());
         }
     }
 
@@ -74,11 +75,13 @@ public class ScenarioDto {
                                  RegionClass regionClass, Long population1km,
                                  ModeType recommendedMode, StructureType preferredStructure,
                                  String existingLine, LocalDateTime createdAt,
+                                 LocalDateTime calculatedAt,
                                  List<PointResponse> points, List<ResultResponse> results) {
         static DetailResponse of(Scenario s) {
             return new DetailResponse(s.getId(), s.getTitle(), s.getTotalLengthKm(),
                     s.getRegionClass(), s.getPopulation1km(), s.getRecommendedMode(),
                     s.getPreferredStructure(), s.getExistingLine(), s.getCreatedAt(),
+                    s.getCalculatedAt(),
                     s.getPoints().stream().map(PointResponse::of).toList(),
                     s.getResults().stream().map(ResultResponse::of).toList());
         }

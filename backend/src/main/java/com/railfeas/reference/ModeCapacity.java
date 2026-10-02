@@ -3,6 +3,7 @@ package com.railfeas.reference;
 import com.railfeas.common.ModeType;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.AccessLevel;
@@ -46,6 +47,10 @@ public class ModeCapacity {
     private BigDecimal maxLengthKm;
 
     private String source;
+
+    /** 관리자가 고친 시각 — 저장된 계산 결과가 낡았는지 판단한다 */
+    @Column(name = "updated_at", insertable = false, updatable = false)
+    private LocalDateTime updatedAt;
 
     /**
      * 관리자 페이지에서 기준값을 고친다. null 은 "안 바꿈"이 아니라 **지운다**는 뜻이다 —

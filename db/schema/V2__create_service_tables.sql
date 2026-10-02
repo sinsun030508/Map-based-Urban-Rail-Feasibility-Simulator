@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS scenario (
     created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
                      ON UPDATE CURRENT_TIMESTAMP,
+    calculated_at    DATETIME     NULL
+                     COMMENT '마지막 계산 시각 — 기준값이 그 뒤에 바뀌면 결과가 낡은 것이다',
 
     CONSTRAINT fk_scenario_user FOREIGN KEY (user_id)
         REFERENCES user (user_id) ON DELETE CASCADE,
