@@ -9,7 +9,7 @@ const STRUCTURES = [
 
 export default function ScenarioPanel({
   points, title, structure, scenarios, saving, error, savedLength,
-  savedId, results, calculating, population, selectedResult, stale,
+  savedId, results, calculating, population, selectedResult, stale, editingId,
   onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
   onSelectResult,
 }) {
@@ -56,9 +56,15 @@ export default function ScenarioPanel({
           구조는 비용을 가장 크게 가르는 변수입니다. 지하는 고가의 약 1.8배입니다.
         </p>
         {error && <p className="error">{error}</p>}
-        <button className="primary" onClick={onSave} disabled={!canSave || saving}>
-          {saving ? '저장 중…' : '시나리오 저장'}
+        {/* 불러온 시나리오를 고치는 중이면 덮어쓴다 — 안 그러면 같은 제목이 하나 더 생긴다 */}
+        <button className="primary" onClick={() => onSave(false)} disabled={!canSave || saving}>
+          {saving ? '저장 중…' : editingId ? '수정 저장' : '시나리오 저장'}
         </button>
+        {editingId && (
+          <button className="calc" onClick={() => onSave(true)} disabled={!canSave || saving}>
+            새 시나리오로 저장
+          </button>
+        )}
         <button
           className="calc"
           onClick={onCalculate}

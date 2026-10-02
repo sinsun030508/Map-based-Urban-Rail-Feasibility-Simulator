@@ -121,10 +121,6 @@ public class PopulationIndex {
         return sumNear(workers, points, radiusKm);
     }
 
-    public boolean covers(List<double[]> points) {
-        return !census.isEmpty() && populationNear(points, 3.0) > 0;
-    }
-
     /**
      * 좌표 목록 중 하나라도 반경 안에 들면 더한다.
      * 같은 칸을 두 번 더하지 않도록 식별자로 걸러낸다 — 노선 위 점들이 겹치기 때문이다.

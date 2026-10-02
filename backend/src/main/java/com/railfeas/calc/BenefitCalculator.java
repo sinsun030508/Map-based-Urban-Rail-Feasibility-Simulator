@@ -5,7 +5,6 @@ import com.railfeas.reference.BenefitParameterRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
@@ -160,10 +159,6 @@ public class BenefitCalculator {
 
         public boolean hasDemandModel() {
             return values.containsKey("demand_intercept");
-        }
-
-        public Function<String, Double> asFunction() {
-            return this::get;
         }
     }
 }
