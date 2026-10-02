@@ -87,4 +87,9 @@ public class ScenarioResult {
         this.feasible = feasible == null || feasible;
         this.warning = warning;
     }
+
+    /** 배치된 정차역을 붙인다. 결과가 지워지면 cascade 로 함께 지워진다 */
+    public void addStation(Station station) {
+        this.stations.add(station);
+    }
 }

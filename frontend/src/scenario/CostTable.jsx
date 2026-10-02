@@ -9,6 +9,9 @@ const MODE_LABEL = {
 
 const STRUCTURE_LABEL = { UNDERGROUND: '지하', ELEVATED: '고가', AT_GRADE: '지상' };
 
+/** 수단×구조가 한 행 — 선택 상태를 이 키로 들고 다닌다 */
+export const key = (r) => `${r.modeType}-${r.structureType}`;
+
 /** 억원 → 읽기 쉬운 단위. 1조가 넘으면 조 단위로 끊는다 */
 function money(eok) {
   if (eok >= 10000) {
@@ -24,7 +27,7 @@ function people(n) {
   return n >= 10000 ? `${(n / 10000).toFixed(1)}만` : n.toLocaleString();
 }
 
-export default function CostTable({ results, structure, population }) {
+export default function CostTable({ results, structure, population, selected, onSelect }) {
   if (!results.length) return null;
 
   const hasDemand = results.some((r) => r.bcRatio != null);
@@ -49,6 +52,7 @@ export default function CostTable({ results, structure, population }) {
     <section>
       <h2>수단별 비교</h2>
       <p className="muted small">
+        행을 누르면 그 수단의 정차역이 지도에 표시됩니다.
         역수는 수단별 표준 역간격으로 추정했습니다.
         {hasDemand
           ? ' B/C가 높은 순입니다.'
@@ -72,13 +76,15 @@ export default function CostTable({ results, structure, population }) {
         <tbody>
           {sorted.map((r) => (
             <tr
-              key={`${r.modeType}-${r.structureType}`}
+              key={key(r)}
               className={[
                 r === best ? 'cheapest' : '',
+                key(r) === (selected || key(best)) ? 'picked' : '',
                 r.structureType === structure ? 'selected' : '',
                 r.feasible === false ? 'infeasible' : '',
               ].join(' ')}
               title={r.warning || ''}
+              onClick={() => onSelect?.(key(r))}
             >
               <td>{MODE_LABEL[r.modeType] || r.modeType}</td>
               <td>{STRUCTURE_LABEL[r.structureType]}</td>

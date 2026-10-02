@@ -88,3 +88,21 @@ table.cost .tag { display: block; font-size: 10px; color: #b3261e; text-decorati
 .warn { color: #8a6100; margin: 4px 0; }
 .metric.small { font-size: 12px; margin: 6px 0 2px; }
 .metric.small strong { font-size: 13px; }
+
+/* 자동 배치된 정차역 — 노선 꼭짓점 마커보다 작게, 이름을 옆에 붙인다 */
+.station-dot {
+  display: flex; align-items: center; gap: 4px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #fff; border: 2.5px solid #1a56db;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+.station-dot.terminal { border-color: var(--accent); }
+.station-dot span {
+  margin-left: 12px; padding: 1px 5px; white-space: nowrap;
+  font-size: 11px; font-weight: 600; color: #1f2430;
+  background: rgba(255,255,255,.85); border-radius: 3px;
+}
+
+table.cost tbody tr { cursor: pointer; }
+table.cost tr.picked td { box-shadow: inset 0 0 0 9999px rgba(26,86,219,.07); }
+table.cost tr.picked td:first-child { box-shadow: inset 3px 0 0 #1a56db, inset 0 0 0 9999px rgba(26,86,219,.07); }

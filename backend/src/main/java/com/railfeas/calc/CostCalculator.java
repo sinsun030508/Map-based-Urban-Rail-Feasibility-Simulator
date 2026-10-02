@@ -8,9 +8,11 @@ import com.railfeas.reference.RestrictedZone;
 import com.railfeas.scenario.RoutePoint;
 import com.railfeas.scenario.Scenario;
 import com.railfeas.scenario.ScenarioResult;
+import com.railfeas.scenario.Station;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
@@ -35,10 +37,13 @@ public class CostCalculator {
 
     private final PopulationIndex population;
     private final BenefitCalculator benefits;
+    private final StationPlanner planner;
 
-    public CostCalculator(PopulationIndex population, BenefitCalculator benefits) {
+    public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
+                          StationPlanner planner) {
         this.population = population;
         this.benefits = benefits;
+        this.planner = planner;
     }
 
     public Outcome calculate(Scenario scenario,
@@ -63,6 +68,8 @@ public class CostCalculator {
         Integer peak = benefits.peakPphpd(params, dailyRiders);
 
         List<ScenarioResult> results = new ArrayList<>();
+        // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
+        Map<ModeType, List<StationPlanner.Placed>> placedByMode = new HashMap<>();
         for (CostStandard std : standards) {
             ModeCapacity capacity = capacities.get(std.getModeType());
             int stations = estimateStations(lengthKm, capacity);
@@ -75,7 +82,7 @@ public class CostCalculator {
             Long benefit = speed == null ? null
                     : benefits.benefitTotal(params, dailyRiders, lengthKm, speed);
 
-            results.add(ScenarioResult.builder()
+            ScenarioResult result = ScenarioResult.builder()
                     .scenario(scenario)
                     .modeType(std.getModeType())
                     .structureType(std.getStructureType())
@@ -90,9 +97,42 @@ public class CostCalculator {
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
                     .warning(warning(lengthKm, peak, capacity, zoneWarning, people))
-                    .build());
+                    .build();
+            List<StationPlanner.Placed> placed = placedByMode.computeIfAbsent(
+                    std.getModeType(),
+                    mode -> planner.plan(points, stations, spacingOf(capacity)));
+            attachStations(result, placed, dailyRiders);
+            results.add(result);
         }
         return new Outcome(results, people, recommended(results));
+    }
+
+    /**
+     * 배치된 역을 결과에 붙이고, 예상 이용객을 역세권 인구 비율로 나눠 준다.
+     * 노선 전체 이용객을 인구 가중으로 쪼개는 근사다 — 역별 회귀를 따로 돌리지 않는다.
+     */
+    private void attachStations(ScenarioResult result, List<StationPlanner.Placed> placed,
+                                Integer dailyRiders) {
+        long scoreSum = placed.stream().mapToLong(StationPlanner.Placed::score).sum();
+        for (int i = 0; i < placed.size(); i++) {
+            StationPlanner.Placed p = placed.get(i);
+            Integer users = dailyRiders == null || scoreSum <= 0 ? null
+                    : (int) Math.round((double) dailyRiders * p.score() / scoreSum);
+            result.addStation(Station.builder()
+                    .result(result)
+                    .sequence(i)
+                    .name(p.name())
+                    .latitude(BigDecimal.valueOf(p.lat()).setScale(7, RoundingMode.HALF_UP))
+                    .longitude(BigDecimal.valueOf(p.lng()).setScale(7, RoundingMode.HALF_UP))
+                    .estimatedDailyUsers(users)
+                    .recommended(true)
+                    .build());
+        }
+    }
+
+    private double spacingOf(ModeCapacity capacity) {
+        return capacity == null || capacity.getSpacingKm() == null
+                ? 1.0 : capacity.getSpacingKm().doubleValue();
     }
 
     /** 수송능력을 넘으면 그 수단으로는 못 나른다 — 유일한 탈락 조건 */

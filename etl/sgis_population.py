@@ -12,7 +12,7 @@ SGIS 집계구 인구 수집 — 역 반경 1km 인구를 구해 수요 회귀�
   4) 좌표를 UTM-K(EPSG:5179) → WGS84 로 바꾸고 역 반경 1km 인구를 합산한다
 
 출력
-  data/build/census_population.csv  집계구 중심점 + 인구
+  data/build/census_population.csv  집계구 중심점 + 인구 + 행정동명(정차역 이름용)
   data/build/station_population.csv 역별 반경 1km 인구
 
 주의
@@ -155,7 +155,10 @@ def population_of_sgg(token, sgg_cd):
 
 
 def centroids_of_dong(token, dong_cd):
-    """행정동 → [(집계구코드, 위도, 경도)]. 경계의 무게중심을 대표점으로 쓴다."""
+    """
+    행정동 → [(집계구코드, 위도, 경도, 행정동명)]. 경계의 무게중심을 대표점으로 쓴다.
+    행정동명(`adm_nm`)은 경계 응답에 이미 들어 있다 — 정차역 이름에 쓴다.
+    """
     body = call(token, 'boundary/statsarea.geojson',
                 {'year': YEAR, 'adm_cd': dong_cd}, f'bnd_{dong_cd}')
     out = []
@@ -167,7 +170,8 @@ def centroids_of_dong(token, dong_cd):
         x = sum(p[0] for p in points) / len(points)
         y = sum(p[1] for p in points) / len(points)
         lng, lat = TO_WGS84.transform(x, y)
-        out.append((feature['properties'].get('adm_cd'), lat, lng))
+        out.append((feature['properties'].get('adm_cd'), lat, lng,
+                    feature['properties'].get('adm_nm')))
     return out
 
 
@@ -201,10 +205,11 @@ def main():
     for i, sgg in enumerate(sorted(sggs), 1):
         pops = population_of_sgg(token, sgg)
         for dong in dong_list(token, sgg):
-            for adm_cd, lat, lng in centroids_of_dong(token, dong):
+            for adm_cd, lat, lng, dong_nm in centroids_of_dong(token, dong):
                 if adm_cd in pops:
                     cells.append({'adm_cd': adm_cd, 'latitude': lat,
-                                  'longitude': lng, 'population': pops[adm_cd]})
+                                  'longitude': lng, 'population': pops[adm_cd],
+                                  'dong_name': dong_nm})
         print(f'  [{i}/{len(sggs)}] {sgg} — 누적 집계구 {len(cells)}', flush=True)
 
     census = pd.DataFrame(cells).drop_duplicates('adm_cd')
