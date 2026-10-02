@@ -69,6 +69,11 @@ cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
   `package` 후 `java -jar`로 띄운다 (원인 미파악). `java`가 옛 JDK로 잡히는지도 확인할 것
 - `initdb.d`는 하위 폴더를 읽지 않아 compose에서 `01_`~`07_` 접두사로 파일 단위 마운트
 
+**시나리오 수정은 `PUT /api/scenarios/{id}`**다. 프론트는 불러온 시나리오의 id를
+`editingId`로 들고 있다가 덮어쓴다. 노선을 고치면 계산 결과는 지우지만 **`editingId`는
+남겨야 한다** — 같이 지우면 저장할 때 같은 제목의 시나리오가 하나 더 생긴다.
+별개로 남기고 싶을 때만 "새 시나리오로 저장"을 쓴다.
+
 **스키마는 JPA가 만들지 않는다.** `ddl-auto=validate` 고정, `db/schema/*.sql`이 만든다.
 인증은 JWT (`@AuthenticationPrincipal Long userId`로 주입). 소셜 로그인은
 `/oauth2/authorization/{google|kakao}` → 성공 시 `OAUTH2_REDIRECT_URI`에 `?token=` 붙여 리다이렉트.

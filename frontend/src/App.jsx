@@ -20,6 +20,8 @@ export default function App() {
   const [error, setError] = useState(null);
   const [savedLength, setSavedLength] = useState(null);
   const [savedId, setSavedId] = useState(null);
+  // 불러온(또는 방금 만든) 시나리오. 노선을 고쳐도 유지돼야 '수정 저장'을 할 수 있다
+  const [editingId, setEditingId] = useState(null);
   const [results, setResults] = useState([]);
   const [population, setPopulation] = useState(null);
   const [selectedResult, setSelectedResult] = useState(null);
@@ -41,7 +43,11 @@ export default function App() {
   if (admin) return <AdminPage onClose={() => setAdmin(false)} />;
   if (compare) return <ComparePage onClose={() => setCompare(false)} />;
 
-  /** 노선이 바뀌면 이전 계산 결과는 더 이상 맞지 않는다 */
+  /**
+   * 노선이 바뀌면 이전 계산 결과는 더 이상 맞지 않는다.
+   * 다만 **어느 시나리오를 고치는 중인지(editingId)는 남긴다** — 이걸 같이 지우면
+   * 불러와서 노선을 손본 뒤 저장할 때 같은 제목의 시나리오가 하나 더 생긴다.
+   */
   function reset() {
     setSavedLength(null);
     setSavedId(null);
@@ -51,23 +57,36 @@ export default function App() {
     setCalculatedAt(null);
   }
 
+  /** 새 노선을 그리기 시작한다 — 고치던 시나리오와의 연결도 끊는다 */
+  function clearAll() {
+    setPoints([]);
+    setTitle('');
+    setEditingId(null);
+    reset();
+  }
+
   /** 비교표에서 고른 안의 정차역. 안 골랐으면 B/C 가 가장 높은 안을 보여 준다 */
   const shown = results.length
     ? results.find((r) => resultKey(r) === selectedResult)
       || [...results].sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
     : null;
 
-  async function save() {
+  /** @param asNew true 면 고치던 시나리오와 별개로 하나 더 만든다 */
+  async function save(asNew = false) {
     setSaving(true);
     setError(null);
     try {
-      const saved = await api.createScenario({
+      const body = {
         title: title.trim(),
         preferredStructure: structure,
         points: points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })),
-      });
+      };
+      const saved = editingId && !asNew
+        ? await api.updateScenario(editingId, body)
+        : await api.createScenario(body);
       setSavedLength(Number(saved.totalLengthKm));
       setSavedId(saved.id);
+      setEditingId(saved.id);
       setResults(saved.results || []);
       setPopulation(saved.population1km ?? null);
       setCalculatedAt(saved.calculatedAt ?? null);
@@ -88,6 +107,7 @@ export default function App() {
       setStructure(s.preferredStructure || 'UNDERGROUND');
       setSavedLength(Number(s.totalLengthKm));
       setSavedId(s.id);
+      setEditingId(s.id);
       setResults(s.results || []);
       setPopulation(s.population1km ?? null);
       setCalculatedAt(s.calculatedAt ?? null);
@@ -114,6 +134,7 @@ export default function App() {
   async function remove(id) {
     try {
       await api.deleteScenario(id);
+      if (editingId === id) clearAll();
       setScenarios(await api.listScenarios());
     } catch (e) {
       setError(e.message);
@@ -176,8 +197,9 @@ export default function App() {
           onSelectResult={setSelectedResult}
           onTitle={setTitle}
           onStructure={setStructure}
+          editingId={editingId}
           onUndo={() => { setPoints((p) => p.slice(0, -1)); reset(); }}
-          onClear={() => { setPoints([]); reset(); }}
+          onClear={clearAll}
           onSave={save}
           onCalculate={calculate}
           onLoad={load}
