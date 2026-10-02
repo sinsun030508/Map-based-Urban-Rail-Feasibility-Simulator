@@ -37,7 +37,7 @@ public class ModeCapacity {
     @Column(name = "spacing_km")
     private BigDecimal spacingKm;
 
-    /** 표정속도 — 편익 계산용. 현재 값은 실측이 아니라 가정값이다 */
+    /** 표정속도 — 편익 계산용. BRT 2종만 가정값이고 나머지는 실측이다 (S1 주석 참고) */
     @Column(name = "speed_kmh")
     private BigDecimal speedKmh;
 
@@ -46,4 +46,19 @@ public class ModeCapacity {
     private BigDecimal maxLengthKm;
 
     private String source;
+
+    /**
+     * 관리자 페이지에서 기준값을 고친다. null 은 "안 바꿈"이 아니라 **지운다**는 뜻이다 —
+     * `pphpd_min` 은 근거가 없을 때 NULL 로 두는 것이 정상이기 때문이다(S1 주석).
+     * 근거(`source`)는 반드시 함께 남긴다.
+     */
+    public void changeBounds(Integer pphpdMin, Integer pphpdMax, BigDecimal spacingKm,
+                             BigDecimal speedKmh, BigDecimal maxLengthKm, String source) {
+        this.pphpdMin = pphpdMin;
+        this.pphpdMax = pphpdMax;
+        this.spacingKm = spacingKm;
+        this.speedKmh = speedKmh;
+        this.maxLengthKm = maxLengthKm;
+        this.source = source;
+    }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getUser, clearSession } from './api/client';
+import AdminPage from './admin/AdminPage';
 import LoginPage from './auth/LoginPage';
 import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
@@ -21,6 +22,7 @@ export default function App() {
   const [population, setPopulation] = useState(null);
   const [selectedResult, setSelectedResult] = useState(null);
   const [show3D, setShow3D] = useState(false);
+  const [admin, setAdmin] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
@@ -30,6 +32,7 @@ export default function App() {
   }, [user]);
 
   if (!user) return <LoginPage onLogin={setUser} />;
+  if (admin) return <AdminPage onClose={() => setAdmin(false)} />;
 
   /** 노선이 바뀌면 이전 계산 결과는 더 이상 맞지 않는다 */
   function reset() {
@@ -119,6 +122,9 @@ export default function App() {
           {usingVWorld ? 'VWorld 지도' : 'OpenFreeMap 지도 (VWorld 키 미설정)'}
         </span>
         <span className="spacer" />
+        {user.role === 'ADMIN' && (
+          <button className="link" onClick={() => setAdmin(true)}>기준값 관리</button>
+        )}
         <button
           className={show3D ? 'toggle on' : 'toggle'}
           onClick={() => setShow3D((v) => !v)}
