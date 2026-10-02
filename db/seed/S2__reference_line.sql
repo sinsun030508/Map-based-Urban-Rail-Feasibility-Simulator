@@ -1,6 +1,5 @@
 -- 자동 생성 파일 — 직접 수정하지 말고 etl/etl.py 를 다시 실행할 것
 SET NAMES utf8mb4;   -- initdb 클라이언트가 latin1 로 읽어 한글이 깨지는 것 방지
--- 생성 시각: 2026-09-29 14:42
 -- 총 381건 (A 42 / B 28 / C 69 / D 242)
 
 TRUNCATE TABLE reference_line;
