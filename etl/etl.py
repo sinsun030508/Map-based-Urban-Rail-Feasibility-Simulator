@@ -713,7 +713,8 @@ def to_sql(df, path):
     lines = [
         '-- 자동 생성 파일 — 직접 수정하지 말고 etl/etl.py 를 다시 실행할 것',
         'SET NAMES utf8mb4;   -- initdb 클라이언트가 latin1 로 읽어 한글이 깨지는 것 방지',
-        f'-- 생성 시각: {pd.Timestamp.now():%Y-%m-%d %H:%M}',
+        # 생성 시각은 넣지 않는다 — 데이터가 그대로인데도 재생성할 때마다 diff 가 생겨
+        # 진짜 변경을 가린다. 언제 만들었는지는 git 이 안다
         f'-- 총 {len(df)}건'
         f" (A {(df.data_grade == 'A').sum()} /"
         f" B {(df.data_grade == 'B').sum()} /"
