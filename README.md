@@ -87,4 +87,5 @@ cd backend && ./mvnw test       # 계산 로직 14건 (실행 중인 백엔드�
 ## 문서
 
 - `CLAUDE.md` — 설계 결정, 데이터 규칙, 기준값과 그 출처 (개발 시 필독)
-- `docs/` — 제안서, ERD
+- `docs/erd.md` — **실제 스키마 ERD**. `docs/erd.png` 은 제안서에 낸 그림이라 다르다
+- `docs/` — 제안서(docx·pdf)
