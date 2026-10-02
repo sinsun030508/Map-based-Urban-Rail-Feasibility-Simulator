@@ -1,3 +1,5 @@
+import { STALE_MESSAGE } from './stale';
+
 const MODE_LABEL = {
   HEAVY_METRO: '지하철',
   LIGHT_RAIL: '경전철',
@@ -27,7 +29,7 @@ function people(n) {
   return n >= 10000 ? `${(n / 10000).toFixed(1)}만` : n.toLocaleString();
 }
 
-export default function CostTable({ results, structure, population, selected, onSelect }) {
+export default function CostTable({ results, structure, population, selected, stale, onSelect }) {
   if (!results.length) return null;
 
   const hasDemand = results.some((r) => r.bcRatio != null);
@@ -51,6 +53,7 @@ export default function CostTable({ results, structure, population, selected, on
   return (
     <section>
       <h2>수단별 비교</h2>
+      {stale && <p className="error">{STALE_MESSAGE}</p>}
       <p className="muted small">
         행을 누르면 그 수단의 정차역이 지도에 표시됩니다.
         역수는 수단별 표준 역간격으로 추정했습니다.

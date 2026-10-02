@@ -124,3 +124,13 @@ table.admin-table td.name { font-weight: 600; white-space: nowrap; }
 table.admin-table input { margin-top: 0; padding: 5px 7px; font-size: 13px; }
 table.admin-table input.narrow { width: 90px; }
 table.admin-table tr.just-saved td { background: #f0f7ee; }
+
+.pick-list { list-style: none; margin: 0; padding: 0; columns: 2; }
+.pick-list li { break-inside: avoid; padding: 3px 0; }
+.pick-list label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: inherit; }
+.pick-list input { width: auto; margin: 0; }
+
+table.admin-table.compare td { text-align: right; }
+table.admin-table.compare td.name,
+table.admin-table.compare th:first-child { text-align: left; }
+table.admin-table.compare td.top { background: #f0f6ff; font-weight: 700; }

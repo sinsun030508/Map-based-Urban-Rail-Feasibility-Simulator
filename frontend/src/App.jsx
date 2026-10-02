@@ -4,6 +4,8 @@ import AdminPage from './admin/AdminPage';
 import LoginPage from './auth/LoginPage';
 import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
+import ComparePage from './scenario/ComparePage';
+import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
 import { key as resultKey } from './scenario/CostTable';
 
@@ -23,16 +25,21 @@ export default function App() {
   const [selectedResult, setSelectedResult] = useState(null);
   const [show3D, setShow3D] = useState(false);
   const [admin, setAdmin] = useState(false);
+  const [compare, setCompare] = useState(false);
+  const [calculatedAt, setCalculatedAt] = useState(null);
+  const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     api.listScenarios().then(setScenarios).catch((e) => setError(e.message));
     api.zones().then(setZones).catch(() => {});
+    api.referenceUpdatedAt().then(setReferenceUpdatedAt).catch(() => {});
   }, [user]);
 
   if (!user) return <LoginPage onLogin={setUser} />;
   if (admin) return <AdminPage onClose={() => setAdmin(false)} />;
+  if (compare) return <ComparePage onClose={() => setCompare(false)} />;
 
   /** 노선이 바뀌면 이전 계산 결과는 더 이상 맞지 않는다 */
   function reset() {
@@ -41,6 +48,7 @@ export default function App() {
     setResults([]);
     setPopulation(null);
     setSelectedResult(null);
+    setCalculatedAt(null);
   }
 
   /** 비교표에서 고른 안의 정차역. 안 골랐으면 B/C 가 가장 높은 안을 보여 준다 */
@@ -62,6 +70,7 @@ export default function App() {
       setSavedId(saved.id);
       setResults(saved.results || []);
       setPopulation(saved.population1km ?? null);
+      setCalculatedAt(saved.calculatedAt ?? null);
       setScenarios(await api.listScenarios());
     } catch (e) {
       setError(e.message);
@@ -81,6 +90,7 @@ export default function App() {
       setSavedId(s.id);
       setResults(s.results || []);
       setPopulation(s.population1km ?? null);
+      setCalculatedAt(s.calculatedAt ?? null);
     } catch (e) {
       setError(e.message);
     }
@@ -93,6 +103,7 @@ export default function App() {
       const detail = await api.calculate(savedId);
       setResults(detail.results || []);
       setPopulation(detail.population1km ?? null);
+      setCalculatedAt(detail.calculatedAt ?? null);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -122,6 +133,7 @@ export default function App() {
           {usingVWorld ? 'VWorld 지도' : 'OpenFreeMap 지도 (VWorld 키 미설정)'}
         </span>
         <span className="spacer" />
+        <button className="link" onClick={() => setCompare(true)}>시나리오 비교</button>
         {user.role === 'ADMIN' && (
           <button className="link" onClick={() => setAdmin(true)}>기준값 관리</button>
         )}
@@ -159,6 +171,7 @@ export default function App() {
           results={results}
           calculating={calculating}
           population={population}
+          stale={isStale(calculatedAt, referenceUpdatedAt)}
           selectedResult={selectedResult}
           onSelectResult={setSelectedResult}
           onTitle={setTitle}
