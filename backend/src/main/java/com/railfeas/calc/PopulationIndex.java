@@ -35,8 +35,12 @@ public class PopulationIndex {
     private final Path censusFile;
     private final Path workerFile;
 
-    private final Map<Long, List<double[]>> census = new HashMap<>();   // [lat, lng, 인구]
-    private final Map<Long, List<double[]>> workers = new HashMap<>();  // [lat, lng, 종사자]
+    /** 집계구 한 칸. 이름은 행정동명으로, 정차역 이름을 만들 때 쓴다 (종사자 자료엔 없다) */
+    public record Cell(double lat, double lng, double value, String name) {
+    }
+
+    private final Map<Long, List<Cell>> census = new HashMap<>();
+    private final Map<Long, List<Cell>> workers = new HashMap<>();
 
     public PopulationIndex(@Value("${app.census-file}") String censusFile,
                            @Value("${app.worker-file}") String workerFile) {
@@ -51,7 +55,7 @@ public class PopulationIndex {
         log.info("인구 격자 {}칸, 종사자 격자 {}칸 적재", census.size(), workers.size());
     }
 
-    private void load(Path path, Map<Long, List<double[]>> into, String valueColumn) {
+    private void load(Path path, Map<Long, List<Cell>> into, String valueColumn) {
         if (!Files.exists(path)) {
             // 없으면 인구 0 으로 계산되고 결과에 경고가 붙는다 — 기동은 막지 않는다
             log.warn("{} 없음 — 수요 추정이 비활성화된다 (etl/sgis_population.py 실행 필요)", path);
@@ -66,6 +70,7 @@ public class PopulationIndex {
             int latIdx = indexOf(columns, "latitude");
             int lngIdx = indexOf(columns, "longitude");
             int valIdx = indexOf(columns, valueColumn);
+            int nameIdx = optionalIndexOf(columns, "dong_name");
 
             String line;
             while ((line = reader.readLine()) != null) {
@@ -76,12 +81,23 @@ public class PopulationIndex {
                 double lat = Double.parseDouble(f[latIdx]);
                 double lng = Double.parseDouble(f[lngIdx]);
                 double value = Double.parseDouble(f[valIdx]);
+                String name = nameIdx >= 0 && f.length > nameIdx ? f[nameIdx].trim() : null;
                 into.computeIfAbsent(cellKey(lat, lng), k -> new ArrayList<>())
-                        .add(new double[]{lat, lng, value});
+                        .add(new Cell(lat, lng, value, name));
             }
         } catch (Exception e) {
             throw new IllegalStateException(path + " 를 읽지 못했습니다", e);
         }
+    }
+
+    /** 없을 수도 있는 컬럼 — 옛 CSV 에는 dong_name 이 없다 */
+    private int optionalIndexOf(String[] columns, String name) {
+        for (int i = 0; i < columns.length; i++) {
+            if (columns[i].trim().equals(name)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private int indexOf(String[] columns, String name) {
@@ -113,34 +129,48 @@ public class PopulationIndex {
      * 좌표 목록 중 하나라도 반경 안에 들면 더한다.
      * 같은 칸을 두 번 더하지 않도록 식별자로 걸러낸다 — 노선 위 점들이 겹치기 때문이다.
      */
-    private long sumNear(Map<Long, List<double[]>> index, List<double[]> points, double radiusKm) {
+    private long sumNear(Map<Long, List<Cell>> index, List<double[]> points, double radiusKm) {
         if (index.isEmpty()) {
             return 0;
         }
-        int span = (int) Math.ceil(radiusKm / 100.0 / CELL) + 1;
-        Set<double[]> counted = new HashSet<>();
+        Set<Cell> counted = new HashSet<>();
         double total = 0;
         for (double[] p : points) {
-            long baseLat = (long) Math.floor(p[0] / CELL);
-            long baseLng = (long) Math.floor(p[1] / CELL);
-            for (long dLat = -span; dLat <= span; dLat++) {
-                for (long dLng = -span; dLng <= span; dLng++) {
-                    List<double[]> bucket = index.get((baseLat + dLat) * 100_000L + baseLng + dLng);
-                    if (bucket == null) {
-                        continue;
-                    }
-                    for (double[] cell : bucket) {
-                        if (counted.contains(cell)) {
-                            continue;
-                        }
-                        if (Haversine.distanceKm(p[0], p[1], cell[0], cell[1]) <= radiusKm) {
-                            counted.add(cell);
-                            total += cell[2];
-                        }
-                    }
+            for (Cell cell : near(index, p[0], p[1], radiusKm)) {
+                if (counted.add(cell)) {
+                    total += cell.value();
                 }
             }
         }
         return Math.round(total);
+    }
+
+    /** 한 점 반경 안의 집계구. 정차역 배치가 이걸로 인구 피크를 찾는다 */
+    public List<Cell> censusNear(double lat, double lng, double radiusKm) {
+        return near(census, lat, lng, radiusKm);
+    }
+
+    private List<Cell> near(Map<Long, List<Cell>> index, double lat, double lng, double radiusKm) {
+        if (index.isEmpty()) {
+            return List.of();
+        }
+        int span = (int) Math.ceil(radiusKm / 100.0 / CELL) + 1;
+        long baseLat = (long) Math.floor(lat / CELL);
+        long baseLng = (long) Math.floor(lng / CELL);
+        List<Cell> found = new ArrayList<>();
+        for (long dLat = -span; dLat <= span; dLat++) {
+            for (long dLng = -span; dLng <= span; dLng++) {
+                List<Cell> bucket = index.get((baseLat + dLat) * 100_000L + baseLng + dLng);
+                if (bucket == null) {
+                    continue;
+                }
+                for (Cell cell : bucket) {
+                    if (Haversine.distanceKm(lat, lng, cell.lat(), cell.lng()) <= radiusKm) {
+                        found.add(cell);
+                    }
+                }
+            }
+        }
+        return found;
     }
 }

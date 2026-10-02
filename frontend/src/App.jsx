@@ -4,6 +4,7 @@ import LoginPage from './auth/LoginPage';
 import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
 import ScenarioPanel from './scenario/ScenarioPanel';
+import { key as resultKey } from './scenario/CostTable';
 
 export default function App() {
   const [user, setUser] = useState(getUser);
@@ -18,6 +19,7 @@ export default function App() {
   const [savedId, setSavedId] = useState(null);
   const [results, setResults] = useState([]);
   const [population, setPopulation] = useState(null);
+  const [selectedResult, setSelectedResult] = useState(null);
   const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
@@ -34,7 +36,14 @@ export default function App() {
     setSavedId(null);
     setResults([]);
     setPopulation(null);
+    setSelectedResult(null);
   }
+
+  /** 비교표에서 고른 안의 정차역. 안 골랐으면 B/C 가 가장 높은 안을 보여 준다 */
+  const shown = results.length
+    ? results.find((r) => resultKey(r) === selectedResult)
+      || [...results].sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
+    : null;
 
   async function save() {
     setSaving(true);
@@ -117,6 +126,7 @@ export default function App() {
         <MapView
           points={points}
           zones={zones}
+          stations={shown?.stations}
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);
             reset();
@@ -134,6 +144,8 @@ export default function App() {
           results={results}
           calculating={calculating}
           population={population}
+          selectedResult={selectedResult}
+          onSelectResult={setSelectedResult}
           onTitle={setTitle}
           onStructure={setStructure}
           onUndo={() => { setPoints((p) => p.slice(0, -1)); reset(); }}

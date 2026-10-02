@@ -36,15 +36,27 @@ public class ScenarioDto {
         }
     }
 
+    public record StationResponse(int sequence, String name, BigDecimal latitude,
+                                  BigDecimal longitude, Integer estimatedDailyUsers,
+                                  boolean recommended) {
+        static StationResponse of(Station s) {
+            return new StationResponse(s.getSequence(), s.getName(), s.getLatitude(),
+                    s.getLongitude(), s.getEstimatedDailyUsers(),
+                    Boolean.TRUE.equals(s.getRecommended()));
+        }
+    }
+
     public record ResultResponse(ModeType modeType, StructureType structureType,
                                  int stationCount, long totalCost, Integer estimatedRidership,
                                  Integer peakPphpd, BigDecimal travelTimeMin, Long benefitTotal,
-                                 BigDecimal bcRatio, boolean feasible, String warning) {
+                                 BigDecimal bcRatio, boolean feasible, String warning,
+                                 List<StationResponse> stations) {
         static ResultResponse of(ScenarioResult r) {
             return new ResultResponse(r.getModeType(), r.getStructureType(), r.getStationCount(),
                     r.getTotalCost(), r.getEstimatedRidership(), r.getPeakPphpd(),
                     r.getTravelTimeMin(), r.getBenefitTotal(), r.getBcRatio(),
-                    Boolean.TRUE.equals(r.getFeasible()), r.getWarning());
+                    Boolean.TRUE.equals(r.getFeasible()), r.getWarning(),
+                    r.getStations().stream().map(StationResponse::of).toList());
         }
     }
 
