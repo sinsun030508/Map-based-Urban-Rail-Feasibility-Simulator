@@ -20,6 +20,7 @@ export default function App() {
   const [results, setResults] = useState([]);
   const [population, setPopulation] = useState(null);
   const [selectedResult, setSelectedResult] = useState(null);
+  const [show3D, setShow3D] = useState(false);
   const [calculating, setCalculating] = useState(false);
 
   useEffect(() => {
@@ -118,6 +119,13 @@ export default function App() {
           {usingVWorld ? 'VWorld 지도' : 'OpenFreeMap 지도 (VWorld 키 미설정)'}
         </span>
         <span className="spacer" />
+        <button
+          className={show3D ? 'toggle on' : 'toggle'}
+          onClick={() => setShow3D((v) => !v)}
+          title="집계구 인구를 육각형 높이로 표시합니다"
+        >
+          인구 3D {show3D ? '끄기' : '보기'}
+        </button>
         <span className="muted">{user.nickname}</span>
         <button className="link" onClick={logout}>로그아웃</button>
       </header>
@@ -127,6 +135,7 @@ export default function App() {
           points={points}
           zones={zones}
           stations={shown?.stations}
+          show3D={show3D}
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);
             reset();

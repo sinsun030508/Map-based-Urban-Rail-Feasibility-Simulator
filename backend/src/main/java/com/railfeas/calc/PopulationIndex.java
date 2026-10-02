@@ -145,6 +145,27 @@ public class PopulationIndex {
         return Math.round(total);
     }
 
+    /**
+     * 사각 범위 안의 집계구를 [위도, 경도, 인구] 로 돌려준다 — 3D 인구밀도 표시용.
+     * 전체가 5만 칸이라 그대로 내보내면 응답이 커진다. 화면 범위로 자르고 상한을 둔다.
+     */
+    public List<double[]> cellsWithin(double minLat, double minLng,
+                                      double maxLat, double maxLng, int limit) {
+        List<double[]> out = new ArrayList<>();
+        for (List<Cell> bucket : census.values()) {
+            for (Cell c : bucket) {
+                if (c.lat() >= minLat && c.lat() <= maxLat
+                        && c.lng() >= minLng && c.lng() <= maxLng) {
+                    out.add(new double[]{c.lat(), c.lng(), c.value()});
+                    if (out.size() >= limit) {
+                        return out;
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
     /** 한 점 반경 안의 집계구. 정차역 배치가 이걸로 인구 피크를 찾는다 */
     public List<Cell> censusNear(double lat, double lng, double radiusKm) {
         return near(census, lat, lng, radiusKm);

@@ -50,6 +50,10 @@ export const api = {
   login: (body) => request('/auth/login', { method: 'POST', body }),
   modes: () => request('/reference/modes'),
   zones: () => request('/reference/zones'),
+  // 3D 인구밀도 — 화면 범위만 받는다. 전국을 다 받으면 응답이 수 MB 다
+  population: ({ minLat, minLng, maxLat, maxLng }) =>
+    request(`/reference/population?minLat=${minLat}&minLng=${minLng}`
+      + `&maxLat=${maxLat}&maxLng=${maxLng}`),
   listScenarios: () => request('/scenarios'),
   getScenario: (id) => request(`/scenarios/${id}`),
   createScenario: (body) => request('/scenarios', { method: 'POST', body }),
