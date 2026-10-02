@@ -137,7 +137,9 @@ public class CostCalculator {
             if (capacity.getPphpdMax() != null && peak > capacity.getPphpdMax()) {
                 notes.add("수송능력 초과");
             } else if (capacity.getPphpdMin() != null && peak < capacity.getPphpdMin()) {
-                notes.add("수송능력 대비 과잉 투자");
+                // 하한은 수송능력이 아니라 **실제 운영 노선의 최저 단면**이다 (S1 주석 참고)
+                notes.add("과잉 투자 검토 — 실제 운영 노선 최저 수준("
+                        + String.format("%,d", capacity.getPphpdMin()) + "명/시)보다 낮다");
             }
         }
         if (people <= 0) {

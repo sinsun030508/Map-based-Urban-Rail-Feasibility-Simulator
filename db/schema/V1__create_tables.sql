@@ -105,8 +105,8 @@ CREATE TABLE IF NOT EXISTS price_index (
 CREATE TABLE IF NOT EXISTS mode_capacity (
     mode_type       VARCHAR(20) PRIMARY KEY,
     display_name    VARCHAR(50) NOT NULL,
-    pphpd_min       INT         COMMENT '시간당 최대수송인원 하한',
-    pphpd_max       INT         COMMENT '시간당 최대수송인원 상한',
+    pphpd_min       INT         COMMENT '수요 하한 — 첨두 단면이 이보다 낮으면 과잉 투자 경고. NULL 이면 경고 안 함',
+    pphpd_max       INT         COMMENT '시간당 방향별 수송능력 상한 — 넘으면 탈락',
     cost_per_km_min INT         COMMENT '억원',
     cost_per_km_max INT,
     spacing_km      DECIMAL(4,2) COMMENT '표준 역간격 (중앙값)',
