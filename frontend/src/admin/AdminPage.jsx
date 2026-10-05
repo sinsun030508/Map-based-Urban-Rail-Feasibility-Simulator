@@ -26,6 +26,12 @@ const MODE_FIELDS = [
 /** 빈 칸은 '안 바꿈'이 아니라 '지움'이다 — 수요 하한은 근거가 없으면 비우는 게 정상이다 */
 const toNumber = (v) => (v === '' || v == null ? null : Number(v));
 
+/**
+ * 편익 원단위는 비울 수 없다. `Number('')` 가 0 이라 그대로 두면 빈 칸을 저장했을 때
+ * 할인율 같은 값이 **조용히 0 으로 덮어써진다.**
+ */
+const isNumber = (v) => v !== '' && v != null && Number.isFinite(Number(v));
+
 export default function AdminPage({ onClose }) {
   const [parameters, setParameters] = useState([]);
   const [modes, setModes] = useState([]);
@@ -126,7 +132,12 @@ export default function AdminPage({ onClose }) {
                     />
                   </td>
                   <td>
-                    <button onClick={() => saveParameter(p)} disabled={!source.trim()}>저장</button>
+                    <button
+                      onClick={() => saveParameter(p)}
+                      disabled={!source.trim() || !isNumber(d.value ?? p.value)}
+                    >
+                      저장
+                    </button>
                   </td>
                 </tr>
               );

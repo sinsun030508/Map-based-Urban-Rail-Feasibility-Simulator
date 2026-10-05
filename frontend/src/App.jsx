@@ -32,15 +32,24 @@ export default function App() {
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   const [calculating, setCalculating] = useState(false);
 
+  /** 기준값이 마지막으로 바뀐 시각 — 저장된 결과가 낡았는지 판단하는 기준이다 */
+  function refreshReference() {
+    api.referenceUpdatedAt().then(setReferenceUpdatedAt).catch(() => {});
+  }
+
   useEffect(() => {
     if (!user) return;
     api.listScenarios().then(setScenarios).catch((e) => setError(e.message));
     api.zones().then(setZones).catch(() => {});
-    api.referenceUpdatedAt().then(setReferenceUpdatedAt).catch(() => {});
+    refreshReference();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   if (!user) return <LoginPage onLogin={setUser} />;
-  if (admin) return <AdminPage onClose={() => setAdmin(false)} />;
+  if (admin) {
+    // 관리자가 기준값을 고쳤을 수 있다. 다시 받지 않으면 낡은 결과를 알릴 수 없다
+    return <AdminPage onClose={() => { setAdmin(false); refreshReference(); }} />;
+  }
   if (compare) return <ComparePage onClose={() => setCompare(false)} />;
 
   /**
