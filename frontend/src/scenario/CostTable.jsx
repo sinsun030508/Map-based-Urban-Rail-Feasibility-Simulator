@@ -1,3 +1,4 @@
+import BcChart from './BcChart';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
 
@@ -70,6 +71,8 @@ export default function CostTable({
           <strong>{people(riders)}명/일</strong> · 첨두 <strong>{people(peak)}명/시</strong>
         </div>
       )}
+
+      <BcChart results={sorted} selected={selected || resultKey(best)} onSelect={onSelect} />
 
       <table className="cost">
         <thead>
