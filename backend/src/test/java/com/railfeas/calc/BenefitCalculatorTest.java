@@ -29,6 +29,7 @@ class BenefitCalculatorTest {
         v.put("discount_rate", 0.045);
         v.put("discount_rate_late", 0.035);
         v.put("discount_switch_year", 30.0);
+        v.put("weekday_factor", 1.1);
         v.put("peak_hour_ratio", 0.1);
         v.put("peak_direction_ratio", 0.3);
         return new BenefitCalculator.Params(v);
@@ -84,10 +85,11 @@ class BenefitCalculatorTest {
     }
 
     @Test
-    @DisplayName("첨두 단면은 일 이용객 × 첨두율 × 환산계수다")
+    @DisplayName("첨두 단면은 평일 보정·첨두율·단면 환산을 모두 곱한다")
     void peakIsConvertedFromDailyRiders() {
-        // 역 승하차 합계를 최대 단면 방향 통행량으로 바꾸는 계수(혼잡도 실측)
-        assertThat(calculator().peakPphpd(params(), 100_000)).isEqualTo(3_000);
+        // 수요 모델은 주말 섞인 일 평균을 내놓는다 — 평일 설계 첨두까지 세 번 보정한다
+        // 100,000 × 1.1 × 0.1 × 0.3 = 3,300
+        assertThat(calculator().peakPphpd(params(), 100_000)).isEqualTo(3_300);
         assertThat(calculator().peakPphpd(params(), null)).isNull();
     }
 

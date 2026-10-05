@@ -47,7 +47,11 @@ SERVICE = 'subwConfusion'
 PAGE = 1000
 
 CAPACITY_PER_CAR = 160      # 혼잡도 100% 기준 1량 정원 (좌석 54 + 통로 54 + 출입문 52)
-PEAK_HOUR_RATIO = 0.0987    # etl/seoul_peak.py 실측 — S7 과 같은 값을 써야 한다
+# 평일 설계 첨두까지의 보정 — S7 과 같은 값을 써야 한다.
+# 혼잡도는 평일 자료인데 승하차는 주말 섞인 평균이라, 두 보정을 곱해 분모를 맞춘다
+# (etl/seoul_weekday_peak.py 실측). 이렇게 해야 K 가 **순수 단면 변환**만 남는다.
+WEEKDAY_FACTOR = 1.1041     # 평일 일수요 ÷ 전체 평균
+PEAK_HOUR_RATIO = 0.1159    # 평일 첨두 1시간 비중
 
 # **직결 운행 노선은 K 가 과대로 나온다.** 다른 운영기관 구간에서 승차한 승객이
 # 단면에는 실리지만 분모(서울교통공사 역 승하차)에는 없다. 계수 산출에서 뺀다.
@@ -164,7 +168,8 @@ def main():
             'max_pphpd': round(top.pphpd),
             'direction_share': round(share, 3) if share else None,
             'daily_total': int(total) if total else None,
-            'k_factor': round(top.pphpd / (total * PEAK_HOUR_RATIO), 4) if total else None,
+            'k_factor': round(top.pphpd / (total * WEEKDAY_FACTOR * PEAK_HOUR_RATIO), 4)
+            if total else None,
         })
     res = pd.DataFrame(out).sort_values('max_pphpd', ascending=False)
 
@@ -187,8 +192,8 @@ def main():
     corr = np.corrcoef(clean.k_factor, 1 / clean.length_km)[0, 1]
     print(f'  K 는 연장에 반비례한다 (r={corr:.2f}) - 단거리 노선은 과소 추정된다')
     print(f'\n실측 최대 단면 {res.max_pphpd.min():,}~{res.max_pphpd.max():,}명/시')
-    print(f'  6·8호선이 {res.max_pphpd.min():,}명/시로, 실제 운영 중인 중전철인데도'
-          ' mode_capacity 의 pphpd_min 40,000 에 못 미친다')
+    print(f'  가장 낮은 6·8호선이 {res.max_pphpd.min():,}명/시다 -'
+          ' mode_capacity 의 중전철 pphpd_min 은 이 실측에서 가져왔다')
     print(f'\n방향 쏠림  중앙값 {share.median():.3f}'
           f' / 범위 {share.min():.3f}~{share.max():.3f} (가정값 0.6 보다 크다)')
     print('→ line_congestion.csv')
@@ -207,10 +212,9 @@ def light_rail_floor(daily, k):
         if total is None:
             print(f'  {line} 승하차 자료 없음')
             continue
-        section = total * PEAK_HOUR_RATIO * k
+        section = total * WEEKDAY_FACTOR * PEAK_HOUR_RATIO * k
         print(f'  {line:8s} 일 승하차 {int(total):,}명 → 단면 {section:,.0f}명/시')
-    print('  mode_capacity 의 경전철 pphpd_min 5,000 보다 낮다 -'
-          ' 실제 경전철도 과잉 투자로 판정된다')
+    print('  mode_capacity 의 경전철 pphpd_min 3,000 은 이 추정에서 가져왔다')
 
 
 if __name__ == '__main__':

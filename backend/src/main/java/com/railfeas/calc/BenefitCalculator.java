@@ -62,13 +62,24 @@ public class BenefitCalculator {
         return (int) Math.round(Math.exp(log));
     }
 
-    /** 첨두시 한 방향 최대 이용객. 수송능력 판정에 쓴다. */
+    /**
+     * 평일 첨두시 한 방향 최대 단면 통행량. 수송능력 판정에 쓴다.
+     *
+     * 수요 모델이 내놓는 것은 **주말이 섞인 일 평균**이라 세 번 보정한다.
+     *   ① 평일 일수요 배율 — 주말이 평일의 69% 라서 평균이 낮게 잡힌다
+     *   ② 평일 첨두율 — 평일은 8시·18시에 몰리고 주말은 16시에 완만하다
+     *   ③ 역 승하차 → 단면 변환 — 한 통행을 승차·하차로 두 번 세고, 모두가 최대 단면을
+     *      지나지도 않는다 (혼잡도 실측에서 역산)
+     * 셋을 따로 재 두지 않으면 하나만 고쳐도 나머지가 조용히 어긋난다.
+     */
     public Integer peakPphpd(Params p, Integer dailyRiders) {
         if (dailyRiders == null) {
             return null;
         }
         return (int) Math.round(dailyRiders
-                * p.get("peak_hour_ratio") * p.get("peak_direction_ratio"));
+                * p.get("weekday_factor")
+                * p.get("peak_hour_ratio")
+                * p.get("peak_direction_ratio"));
     }
 
     /**
