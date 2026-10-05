@@ -196,9 +196,11 @@ export default function ComparePage({ onClose }) {
                 </thead>
                 <tbody>
                   {modeRows.map((key) => {
-                    // 그 수단에서 B/C 가 가장 높은 노선을 굵게 — 어느 노선에 맞는 수단인지 보인다
-                    const best = Math.max(
-                      ...chosen.map((d) => cellOf(d, key)?.bcRatio ?? -1));
+                    // 그 수단에서 B/C 가 가장 높은 노선을 굵게 — 어느 노선에 맞는 수단인지 보인다.
+                    // 노선이 하나뿐이면 전부 1등이라 강조가 의미를 잃는다
+                    const best = chosen.length > 1
+                      ? Math.max(...chosen.map((d) => cellOf(d, key)?.bcRatio ?? -1))
+                      : null;
                     const [mode, structure] = key.split('-');
                     return (
                       <tr key={key}>
@@ -207,7 +209,8 @@ export default function ComparePage({ onClose }) {
                         </td>
                         {chosen.map((d) => {
                           const r = cellOf(d, key);
-                          const top = r && r.bcRatio != null && Number(r.bcRatio) === best;
+                          const top = best != null && r && r.bcRatio != null
+                            && Number(r.bcRatio) === best;
                           return (
                             <td key={d.id} className={top ? 'top' : ''}>
                               {r?.bcRatio == null ? '—' : Number(r.bcRatio).toFixed(2)}
