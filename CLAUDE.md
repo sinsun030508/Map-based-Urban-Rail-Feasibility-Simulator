@@ -76,6 +76,10 @@ cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
   Lombok 명시 필요 (Lombok도 1.18.38로 상향). `mvnw spring-boot:run`은 클래스패스 오류가 나서
   `package` 후 `java -jar`로 띄운다 (원인 미파악). `java`가 옛 JDK로 잡히는지도 확인할 것
 - `initdb.d`는 하위 폴더를 읽지 않아 compose에서 `01_`~`07_` 접두사로 파일 단위 마운트
+- **MapLibre 지도에는 `ResizeObserver` 가 필요하다.** 만들 때 컨테이너 크기를 못 재면
+  400×300 으로 잡아 두고 그대로 둔다 — 지도 일부만 그려지고 **빈 영역을 클릭하면 좌표까지
+  어긋난다.** 실제로 684×716 컨테이너에 캔버스가 400×300 으로 남아 있었다.
+  노선을 찍는 게 첫 동작이라 조용히 지나가면 안 되는 버그다
 
 **시나리오 수정은 `PUT /api/scenarios/{id}`**다. 프론트는 불러온 시나리오의 id를
 `editingId`로 들고 있다가 덮어쓴다. 노선을 고치면 계산 결과는 지우지만 **`editingId`는
