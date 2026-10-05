@@ -54,6 +54,14 @@ cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
   PW=$(grep '^DB_PASSWORD=' .env | cut -d= -f2-)
   docker compose exec -T -e MYSQL_PWD="$PW" db mysql -uroot railfeas -e "SELECT 1;"
   ```
+- **DB 에 테스트로 값을 넣었으면 시드를 다시 적용해 되돌린다.** 관리자 API 로 값을
+  바꿔 보고 그대로 두면 DB 와 시드 파일이 어긋난 채 계산에 쓰인다. 실제로
+  `discount_rate` 의 근거가 `stale check` 로 남아 있었다. 한 행만 손으로 고치지 말고
+  시드를 통째로 다시 넣으면 확실하다 (볼륨을 지우지 않아도 된다)
+
+  ```bash
+  docker compose exec -T -e MYSQL_PWD="$PW" db mysql -uroot railfeas < db/seed/S7__benefit_parameter.sql
+  ```
 - **시드를 고치면 `down -v` 가 필요하다** — initdb 는 볼륨이 빈 경우에만 돌아서
   SQL 만 바꿔도 반영되지 않는다. 볼륨을 지우면 **가입한 계정과 시나리오도 사라진다**
 - **실행 중인 백엔드를 끄지 않으면 `package` 가 실패한다** — jar 를 잡고 있어
