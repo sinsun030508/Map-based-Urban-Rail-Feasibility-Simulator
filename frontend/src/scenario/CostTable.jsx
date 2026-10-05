@@ -27,7 +27,9 @@ function people(n) {
   return n >= 10000 ? `${(n / 10000).toFixed(1)}만` : n.toLocaleString();
 }
 
-export default function CostTable({ results, structure, population, selected, stale, onSelect }) {
+export default function CostTable({
+  results, structure, population, selected, stale, existingLine, onSelect,
+}) {
   if (!results.length) return null;
 
   const hasDemand = results.some((r) => r.bcRatio != null);
@@ -52,6 +54,8 @@ export default function CostTable({ results, structure, population, selected, st
     <section>
       <h2>수단별 비교</h2>
       {stale && <p className="error">{STALE_MESSAGE}</p>}
+      {/* 이미 전철이 다니는 길이면 신설안이 1위여도 쓸모가 없다 — 표보다 먼저 알린다 */}
+      {existingLine && <p className="warn"><strong>⚠ {existingLine}</strong></p>}
       <p className="muted small">
         행을 누르면 그 수단의 정차역이 지도에 표시됩니다.
         역수는 수단별 표준 역간격으로 추정했습니다.

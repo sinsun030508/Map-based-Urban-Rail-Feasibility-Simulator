@@ -105,6 +105,11 @@ public class Scenario {
         this.recommendedMode = null;
     }
 
+    /** 겹치는 기존 노선 안내. 없으면 null 로 지운다 */
+    public void noteExistingLine(String existingLine) {
+        this.existingLine = existingLine;
+    }
+
     /** 계산 결과를 붙인다. 반드시 {@link #clearResults()} + flush 뒤에 호출한다 */
     public void applyResults(List<ScenarioResult> newResults, Long population1km,
                              ModeType recommendedMode) {

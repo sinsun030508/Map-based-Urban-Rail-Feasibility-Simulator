@@ -38,12 +38,14 @@ public class CostCalculator {
     private final PopulationIndex population;
     private final BenefitCalculator benefits;
     private final StationPlanner planner;
+    private final ExistingLineFinder existingLines;
 
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
-                          StationPlanner planner) {
+                          StationPlanner planner, ExistingLineFinder existingLines) {
         this.population = population;
         this.benefits = benefits;
         this.planner = planner;
+        this.existingLines = existingLines;
     }
 
     public Outcome calculate(Scenario scenario,
@@ -104,7 +106,10 @@ public class CostCalculator {
             attachStations(result, placed, dailyRiders);
             results.add(result);
         }
-        return new Outcome(results, people, recommended(results));
+        // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 먼저 알린다
+        ExistingLineFinder.Match existing = existingLines.find(points);
+        return new Outcome(results, people, recommended(results),
+                existing == null ? null : existing.message());
     }
 
     /**
@@ -212,6 +217,6 @@ public class CostCalculator {
 
     /** 계산 결과와 함께 시나리오에 기록할 값들 */
     public record Outcome(List<ScenarioResult> results, long population1km,
-                          ModeType recommendedMode) {
+                          ModeType recommendedMode, String existingLine) {
     }
 }

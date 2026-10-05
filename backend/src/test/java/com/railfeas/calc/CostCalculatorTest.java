@@ -57,8 +57,12 @@ class CostCalculatorTest {
                         "value", BigDecimal.valueOf(e.getValue())))
                 .toList());
 
+        // 역 좌표 파일을 주지 않으면 기존 노선 안내는 비활성 — 계산기만 떼어 본다
+        ExistingLineFinder existingLines = new ExistingLineFinder("없는파일.csv");
+        existingLines.load();
+
         return new CostCalculator(index, new BenefitCalculator(parameters),
-                new StationPlanner(index));
+                new StationPlanner(index), existingLines);
     }
 
     private static <T> T newInstance(Class<T> type, Object... nameValues) {
