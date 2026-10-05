@@ -66,6 +66,7 @@ public class ScenarioService {
         entityManager.flush();
         scenario.applyResults(outcome.results(), outcome.population1km(),
                 outcome.recommendedMode());
+        scenario.noteExistingLine(outcome.existingLine());
         return ScenarioDto.DetailResponse.of(scenario);
     }
 

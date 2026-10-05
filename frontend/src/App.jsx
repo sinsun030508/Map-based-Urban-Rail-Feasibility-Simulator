@@ -29,6 +29,7 @@ export default function App() {
   const [admin, setAdmin] = useState(false);
   const [compare, setCompare] = useState(false);
   const [calculatedAt, setCalculatedAt] = useState(null);
+  const [existingLine, setExistingLine] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   const [calculating, setCalculating] = useState(false);
 
@@ -64,6 +65,7 @@ export default function App() {
     setPopulation(null);
     setSelectedResult(null);
     setCalculatedAt(null);
+    setExistingLine(null);
   }
 
   /** 새 노선을 그리기 시작한다 — 고치던 시나리오와의 연결도 끊는다 */
@@ -99,6 +101,7 @@ export default function App() {
       setResults(saved.results || []);
       setPopulation(saved.population1km ?? null);
       setCalculatedAt(saved.calculatedAt ?? null);
+      setExistingLine(saved.existingLine ?? null);
       setScenarios(await api.listScenarios());
     } catch (e) {
       setError(e.message);
@@ -120,6 +123,7 @@ export default function App() {
       setResults(s.results || []);
       setPopulation(s.population1km ?? null);
       setCalculatedAt(s.calculatedAt ?? null);
+      setExistingLine(s.existingLine ?? null);
     } catch (e) {
       setError(e.message);
     }
@@ -133,6 +137,7 @@ export default function App() {
       setResults(detail.results || []);
       setPopulation(detail.population1km ?? null);
       setCalculatedAt(detail.calculatedAt ?? null);
+      setExistingLine(detail.existingLine ?? null);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -202,6 +207,7 @@ export default function App() {
           calculating={calculating}
           population={population}
           stale={isStale(calculatedAt, referenceUpdatedAt)}
+          existingLine={existingLine}
           selectedResult={selectedResult}
           onSelectResult={setSelectedResult}
           onTitle={setTitle}
