@@ -47,7 +47,17 @@ export default function MapView({ points, zones, stations, show3D, onPick }) {
 
     map.on('click', (e) => onPickRef.current?.([e.lngLat.lng, e.lngLat.lat]));
     mapRef.current = map;
-    return () => map.remove();
+
+    // 컨테이너 크기를 못 재면 MapLibre 는 400×300 으로 만들어 두고 그대로 둔다.
+    // 그러면 지도 일부만 그려지고 **빈 영역을 클릭했을 때 좌표까지 어긋난다** —
+    // 노선을 찍는 게 이 서비스의 첫 동작이라 그냥 둘 수 없다.
+    const resize = new ResizeObserver(() => map.resize());
+    resize.observe(containerRef.current);
+
+    return () => {
+      resize.disconnect();
+      map.remove();
+    };
   }, []);
 
   usePopulation3D(mapRef, show3D);
