@@ -43,8 +43,9 @@ class CostCalculatorTest {
             "discount_rate", 0.045,
             "discount_rate_late", 0.035,
             "discount_switch_year", 30.0,
-            "peak_hour_ratio", 0.0987,
-            "peak_direction_ratio", 0.3165);
+            "peak_hour_ratio", 0.1159,
+            "weekday_factor", 1.1041,
+            "peak_direction_ratio", 0.2440);
 
     private CostCalculator calculator() {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
