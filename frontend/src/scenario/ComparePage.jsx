@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { resultKey } from './resultKey';
 import { isStale, STALE_MESSAGE } from './stale';
 
 /**
@@ -67,12 +68,10 @@ export default function ComparePage({ onClose }) {
   const chosen = picked.map((id) => details[id]).filter(Boolean);
   // 고른 시나리오 중 하나라도 가진 수단×구조를 모아 행으로 쓴다
   const modeRows = [...new Map(
-    chosen.flatMap((d) => d.results || [])
-      .map((r) => [`${r.modeType}-${r.structureType}`, r])
+    chosen.flatMap((d) => d.results || []).map((r) => [resultKey(r), r])
   ).keys()];
 
-  const cellOf = (d, key) =>
-    (d.results || []).find((r) => `${r.modeType}-${r.structureType}` === key);
+  const cellOf = (d, key) => (d.results || []).find((r) => resultKey(r) === key);
 
   return (
     <div className="admin">
