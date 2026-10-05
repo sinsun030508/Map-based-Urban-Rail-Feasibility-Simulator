@@ -136,3 +136,18 @@ table.admin-table.compare th:first-child { text-align: left; }
 table.admin-table.compare td.top { background: #f0f6ff; font-weight: 700; }
 
 table.cost .tag.note { color: var(--muted); }
+
+/* 수단별 B/C 막대 — 표 위에 모양만 보여 준다 (숫자는 표가 갖고 있다) */
+.bc-chart { margin: 10px 0 4px; }
+.bc-chart figcaption { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.bc-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.bc-bar { fill: #1a56db; }
+.bc-row { cursor: pointer; }
+.bc-row.picked .bc-bar { fill: #0f3da8; }
+.bc-hit { fill: transparent; }
+.bc-row:hover .bc-hit { fill: rgba(26, 86, 219, .06); }
+/* 축·기준선은 hairline 으로 물러나 있어야 한다 */
+.bc-rule { stroke: #9aa3b0; stroke-width: 1; }
+.bc-rule-label, .bc-label, .bc-clip { font-size: 10px; fill: var(--muted); }
+.bc-rule-label { text-anchor: middle; }
+.bc-label { text-anchor: end; }
