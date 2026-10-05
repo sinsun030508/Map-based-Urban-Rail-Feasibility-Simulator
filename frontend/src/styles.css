@@ -21,8 +21,11 @@ main { flex: 1; display: flex; min-height: 0; }
 
 .map { flex: 1; }
 
+/* 넓은 화면에서는 패널이 함께 커져야 한다. 340px 고정이면 남는 폭을 지도가 다 먹어
+   비교표(9행 × 6열)가 어느 화면에서나 308px 에 눌려 '복선전/철', '20/분' 으로 접힌다.
+   이 표가 이 서비스의 결과물인데 지도만 커지는 셈이었다. */
 .panel {
-  width: 340px; padding: 16px; overflow-y: auto;
+  width: clamp(340px, 26vw, 500px); padding: 16px; overflow-y: auto;
   background: #fff; border-left: 1px solid var(--line);
 }
 .panel section { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
