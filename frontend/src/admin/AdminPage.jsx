@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { api } from '../api/client';
 
 /**
@@ -36,21 +36,39 @@ export default function AdminPage({ onClose }) {
   const [parameters, setParameters] = useState([]);
   const [modes, setModes] = useState([]);
   const [draft, setDraft] = useState({});
+  /**
+   * 저장 실패는 **실패한 행에 붙여** 보여 준다. 기준값이 25행이라 화면 한 장에 안 들어가는데,
+   * 맨 위에 한 줄로 띄우면 아래쪽 행을 저장했을 때 메시지가 화면 밖에 그려져
+   * **저장 버튼이 먹지 않는 것처럼 보인다.** (`key: null` 은 행이 없는 불러오기 실패다.)
+   */
   const [error, setError] = useState(null);
   const [saved, setSaved] = useState(null);
 
   useEffect(() => {
     Promise.all([api.adminParameters(), api.adminModes()])
       .then(([p, m]) => { setParameters(p); setModes(m); })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError({ key: null, message: e.message }));
   }, []);
 
-  const edit = (key, patch) =>
+  // 저장 표시는 잠깐만 둔다 — 계속 남으면 '지금 저장했다'는 말이 거짓이 된다
+  useEffect(() => {
+    if (!saved) {
+      return undefined;
+    }
+    const timer = setTimeout(() => setSaved(null), 3000);
+    return () => clearTimeout(timer);
+  }, [saved]);
+
+  // 다시 고치기 시작하면 앞선 실패 메시지는 치운다
+  const edit = (key, patch) => {
+    setError((e) => (e?.key === key ? null : e));
     setDraft((d) => ({ ...d, [key]: { ...d[key], ...patch } }));
+  };
 
   async function saveParameter(p) {
     const d = draft[p.paramName] || {};
     setError(null);
+    setSaved(null);          // 같은 행을 다시 저장해도 표시가 되살아나게
     try {
       const updated = await api.updateParameter(p.paramName, {
         value: Number(d.value ?? p.value),
@@ -61,13 +79,14 @@ export default function AdminPage({ onClose }) {
       setDraft((x) => ({ ...x, [p.paramName]: undefined }));
       setSaved(p.paramName);
     } catch (e) {
-      setError(e.message);
+      setError({ key: p.paramName, message: e.message });
     }
   }
 
   async function saveMode(m) {
     const d = draft[m.modeType] || {};
     setError(null);
+    setSaved(null);
     try {
       const body = { source: d.source ?? m.source };
       MODE_FIELDS.forEach(([f]) => {
@@ -79,11 +98,19 @@ export default function AdminPage({ onClose }) {
       setDraft((x) => ({ ...x, [m.modeType]: undefined }));
       setSaved(m.modeType);
     } catch (e) {
-      setError(e.message);
+      setError({ key: m.modeType, message: e.message });
     }
   }
 
   const sourceOf = (key, fallback) => draft[key]?.source ?? fallback ?? '';
+
+  /** 실패한 행 바로 아래에 한 줄. 열 너비를 흔들지 않게 별도 행으로 둔다 */
+  const rowError = (key, span) => (error?.key === key ? (
+    <tr className="row-error">
+      <td />
+      <td colSpan={span} className="error">{error.message}</td>
+    </tr>
+  ) : null);
 
   return (
     <div className="admin">
@@ -96,7 +123,8 @@ export default function AdminPage({ onClose }) {
         <button onClick={onClose}>지도로 돌아가기</button>
       </header>
 
-      {error && <p className="error">{error}</p>}
+      {/* 행이 없는 실패(불러오기)만 위에 띄운다 — 저장 실패는 해당 행 아래로 간다 */}
+      {error && error.key == null && <p className="error">{error.message}</p>}
 
       <section>
         <h2>편익 원단위 ({parameters.length})</h2>
@@ -114,17 +142,18 @@ export default function AdminPage({ onClose }) {
               const d = draft[p.paramName] || {};
               const source = sourceOf(p.paramName, p.source);
               return (
-                <tr key={p.paramName} className={saved === p.paramName ? 'just-saved' : ''}>
+                <Fragment key={p.paramName}>
+                <tr className={saved === p.paramName ? 'just-saved' : ''}>
                   <td className="name">{p.paramName}</td>
-                  <td>
+                  <td className="value">
                     <input
                       type="number" step="any"
                       value={d.value ?? p.value}
                       onChange={(e) => edit(p.paramName, { value: e.target.value })}
                     />
                   </td>
-                  <td className="muted small">{p.unit}</td>
-                  <td>
+                  <td className="muted small unit">{p.unit}</td>
+                  <td className="source">
                     <input
                       value={source}
                       onChange={(e) => edit(p.paramName, { source: e.target.value })}
@@ -140,6 +169,8 @@ export default function AdminPage({ onClose }) {
                     </button>
                   </td>
                 </tr>
+                {rowError(p.paramName, 4)}
+                </Fragment>
               );
             })}
           </tbody>
@@ -165,7 +196,8 @@ export default function AdminPage({ onClose }) {
               const d = draft[m.modeType] || {};
               const source = sourceOf(m.modeType, m.source);
               return (
-                <tr key={m.modeType} className={saved === m.modeType ? 'just-saved' : ''}>
+                <Fragment key={m.modeType}>
+                <tr className={saved === m.modeType ? 'just-saved' : ''}>
                   <td className="name">{MODE_LABEL[m.modeType] || m.modeType}</td>
                   {MODE_FIELDS.map(([f]) => (
                     <td key={f}>
@@ -176,7 +208,7 @@ export default function AdminPage({ onClose }) {
                       />
                     </td>
                   ))}
-                  <td>
+                  <td className="source">
                     <input
                       value={source}
                       onChange={(e) => edit(m.modeType, { source: e.target.value })}
@@ -187,6 +219,8 @@ export default function AdminPage({ onClose }) {
                     <button onClick={() => saveMode(m)} disabled={!source.trim()}>저장</button>
                   </td>
                 </tr>
+                {rowError(m.modeType, MODE_FIELDS.length + 2)}
+                </Fragment>
               );
             })}
           </tbody>
