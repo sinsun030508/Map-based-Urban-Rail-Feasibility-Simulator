@@ -64,6 +64,15 @@ button.link.danger { color: #b3261e; }
   background: var(--accent); color: #fff; font-size: 11px; font-weight: 700;
   border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.3);
 }
+/* 경유점은 정차역(파란 테 원)과 헷갈리지 않게 작은 마름모로.
+   마커 요소의 transform 은 MapLibre 가 위치 잡는 데 쓰므로 회전은 ::before 에 */
+.route-waypoint { width: 12px; height: 12px; cursor: default; }
+.route-waypoint::before {
+  content: ''; display: block; width: 9px; height: 9px; margin: 1.5px;
+  transform: rotate(45deg);
+  background: var(--accent); border: 1.5px solid #fff; box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
 
 .login { display: grid; place-items: center; height: 100vh; }
 .login .card {

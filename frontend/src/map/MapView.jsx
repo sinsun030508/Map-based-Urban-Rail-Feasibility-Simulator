@@ -79,11 +79,18 @@ export default function MapView({ points, zones, stations, show3D, onPick }) {
     else map.once('load', draw);
 
     markersRef.current.forEach((m) => m.remove());
+    // 가운데 점은 선이 꺾이는 경유점일 뿐 정차역이 아니다. 번호를 달면 역처럼 읽혀
+    // "클릭한 곳이 역이 된다"고 오해한다 — 역은 계산 후 StationPlanner 가 놓는다
     markersRef.current = points.map((p, i) => {
       const el = document.createElement('div');
-      el.className = 'route-marker';
-      el.textContent =
-        i === 0 ? '출발' : i === points.length - 1 ? '도착' : String(i);
+      const terminal = i === 0 || i === points.length - 1;
+      if (terminal) {
+        el.className = 'route-marker';
+        el.textContent = i === 0 ? '출발' : '도착';
+      } else {
+        el.className = 'route-waypoint';
+        el.title = '경유점 — 노선이 지나는 점 (정차역 아님)';
+      }
       return new maplibregl.Marker({ element: el }).setLngLat(p).addTo(map);
     });
   }, [points]);

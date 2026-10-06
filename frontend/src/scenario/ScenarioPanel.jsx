@@ -23,9 +23,17 @@ export default function ScenarioPanel({
     <aside className="panel">
       <section>
         <h2>노선 그리기</h2>
-        <p className="muted">지도를 클릭해 출발·경유·도착을 찍으세요.</p>
+        <p className="muted">
+          지도에서 출발지와 도착지를 클릭하세요. 정차역은 저장 후 '비용 비교하기'를 누르면
+          수단별 역간격에 맞춰 그 사이에 자동으로 놓입니다.
+        </p>
+        <p className="muted small">
+          노선을 꺾으려면 더 클릭하세요 — 마지막 점이 도착지가 되고 앞의 점은 경유점(◆)이 됩니다.
+          경유점은 정차역이 아닙니다.
+        </p>
         <div className="metric">
-          <span>{length.toFixed(3)}</span> km · 지점 {points.length}개
+          <span>{length.toFixed(3)}</span> km
+          {points.length > 2 && <> · 경유점 {points.length - 2}개</>}
         </div>
         {mismatch && (
           <p className="error">
