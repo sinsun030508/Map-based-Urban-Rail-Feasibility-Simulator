@@ -35,8 +35,7 @@ docs/            erd.png 은 제안서 원안, **erd.md 가 실제 스키마**
 ```bash
 python etl/etl.py && python etl/cost_model.py    # 데이터 재생성
 docker compose up -d                             # DB·Redis (시드를 고쳤으면 down -v 먼저)
-set -a && . ./.env && set +a                     # 비밀값
-export DB_HOST=localhost DB_PORT=3307 DB_USER=root
+set -a && . ./.env && set +a                     # DB 접속·API 키
 cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
 cd frontend && npm run dev                       # 5173
 ```
@@ -48,10 +47,12 @@ cd frontend && npm run dev                       # 5173
 **이 환경에서 밟은 함정들**
 
 - DB는 **호스트 3307**로 노출한다 (개발 PC의 로컬 MySQL이 3306 사용 중).
-  **`.env` 에는 `DB_PASSWORD` 와 API 키만 있고 `DB_HOST`·`DB_PORT`·`DB_USER` 는 없다.**
-  `application.yml` 기본값이 `localhost:3306` 이라 그냥 띄우면 로컬 MySQL 로 붙어
-  `Access denied for user 'root'@'localhost'` 가 난다 — 비밀번호가 틀린 게 아니라
-  **다른 DB 에 붙은 것**이다. 위 실행 블록처럼 포트를 명시하거나 `.env` 에 추가할 것
+  `.env` 에 `DB_PORT=3307` 이 없으면 `application.yml` 기본값 `localhost:3306` 으로 붙어
+  **`Access denied for user 'root'@'localhost'`** 가 난다. 비밀번호가 틀린 게 아니라
+  **다른 DB 에 붙은 것**이다 — 비밀번호를 의심하기 전에 포트를 볼 것.
+  실제로 `.env` 가 `.env.example` 보다 뒤처져 이 키가 빠져 있었다.
+  **키가 안 맞는다 싶으면 둘의 키 이름을 견줘 볼 것** (값 말고 이름만):
+  `diff <(grep -oE '^[A-Z_]+' .env) <(grep -oE '^[A-Z_]+' .env.example)`
 - **root 비밀번호는 `.env`의 `DB_PASSWORD`다** — compose 기본값 `railfeas` 가 아니다.
   값을 출력하지 말고 이렇게 넘긴다
 
