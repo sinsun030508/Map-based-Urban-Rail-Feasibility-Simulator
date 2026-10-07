@@ -75,6 +75,12 @@ cd frontend && npm run dev                       # 5173
 - **`cost_standard`는 TRUNCATE 불가** — `scenario_result`가 FK로 참조. `DELETE`를 쓴다
 - **엔티티 타입이 DDL과 어긋나면 기동 실패** — `data_grade CHAR(1)`은 `columnDefinition="char(1)"`
 - **소셜 로그인 설정은 `application-social.yml`** — 키가 비면 기동이 막혀 기본 프로파일에서 뺐다
+- **`JWT_SECRET` 은 기본값이 없다 — 없으면 기동이 막힌다.** `application.yml` 은 공개
+  저장소에 올라가므로 거기 적은 키는 누구나 읽어 **토큰을 위조**할 수 있다. 실제로
+  47바이트 기본값이 들어 있었다. `.env` 에 32바이트 이상으로 넣는다(HS256, RFC 7518 3.2).
+  `JwtTokenProvider` 가 없음·짧음·치환 안 됨(`${...}`)을 가려 무엇을 어디에 넣을지 말해 준다 —
+  그러지 않으면 jjwt 가 "key byte array is 104 bits" 라고만 해서 원인을 알 수 없다
+  (104비트 = 치환되지 않은 `${JWT_SECRET}` 13글자). **키를 바꾸면 발급된 토큰이 전부 무효**다
 - **JDK 23+는 애너테이션 처리가 기본 비활성** — `pom.xml` `annotationProcessorPaths`에 Lombok 명시
   (1.18.38). `mvnw spring-boot:run`은 클래스패스 오류라 `package` 후 `java -jar` (원인 미파악)
 - `initdb.d`는 하위 폴더를 안 읽어 compose에서 `01_`~`07_` 접두사로 파일 단위 마운트
