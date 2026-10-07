@@ -25,6 +25,8 @@ app:
   worker-file: ${WORKER_FILE:../data/build/dong_workers.csv}
   # 기존 노선 활용 안내용 역 좌표 (etl/seoul_ridership.py 산출)
   station-file: ${STATION_FILE:../data/build/station_master.csv}
+  # 지방은 출처가 달라 따로 둔다 (OSM, etl/osm_regional_stations.py)
+  regional-station-file: ${REGIONAL_STATION_FILE:../data/build/regional_station.csv}
   jwt:
     # 기본값을 두지 않는다. 이 파일은 공개 저장소에 올라가므로 여기 적힌 키는
     # 누구나 읽어 토큰을 위조할 수 있다. 값이 없으면 조용히 돌지 말고 기동이 막혀야 한다.

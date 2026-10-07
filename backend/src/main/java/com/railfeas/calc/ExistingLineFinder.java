@@ -27,8 +27,8 @@ import org.springframework.stereotype.Component;
  * 양 끝만 보면 전혀 다른 경로로 돌아가는 노선까지 걸리고, 겹침 비율만 보면
  * 일부 구간만 스치는 노선이 걸린다.
  *
- * **단정하지 않는다.** 역 좌표는 수도권 784개뿐이고(지방·신설 노선은 없다) 선형이 아니라
- * 역 위치로만 재기 때문에, "활용을 검토하라"는 안내까지만 한다.
+ * **단정하지 않는다.** 선형이 아니라 역 위치로만 재고, 지방 좌표는 OSM(집단 편집 자료)
+ * 에서 받았기 때문에 "활용을 검토하라"는 안내까지만 한다. 신설 노선은 아직 없다.
  */
 @Component
 public class ExistingLineFinder {
@@ -43,11 +43,17 @@ public class ExistingLineFinder {
     // 노선은 0.9 를 넘으므로 0.8 이면 둘을 가른다 (테스트로 고정)
     private static final double MIN_COVERAGE = 0.8;
 
-    private final Path stationFile;
+    /**
+     * 좌표 출처가 둘이다. 수도권은 서울 열린데이터광장(`seoul_ridership.py`),
+     * 지방은 OpenStreetMap(`osm_regional_stations.py`). **섞어 두지 않고 따로 받는다** —
+     * 신뢰도가 다르고 각자 다시 만들어지는 주기도 다르다. 둘 다 없어도 기동은 막지 않는다.
+     */
+    private final List<Path> stationFiles;
     private final Map<String, List<double[]>> byLine = new HashMap<>();
 
-    public ExistingLineFinder(@Value("${app.station-file}") String stationFile) {
-        this.stationFile = Path.of(stationFile);
+    public ExistingLineFinder(@Value("${app.station-file}") String stationFile,
+                              @Value("${app.regional-station-file}") String regionalFile) {
+        this.stationFiles = List.of(Path.of(stationFile), Path.of(regionalFile));
     }
 
     /** 겹치는 기존 노선. coverage 는 0~1 */
@@ -60,12 +66,19 @@ public class ExistingLineFinder {
 
     @PostConstruct
     void load() {
-        if (!Files.exists(stationFile)) {
-            // 없으면 안내만 못 할 뿐 계산은 그대로 돈다 — 기동을 막지 않는다
-            log.warn("{} 없음 — 기존 노선 활용 안내가 비활성화된다 "
-                    + "(etl/seoul_ridership.py 실행 필요)", stationFile);
-            return;
+        for (Path file : stationFiles) {
+            if (Files.exists(file)) {
+                loadFile(file);
+            } else {
+                // 없으면 그 범위만 안내를 못 할 뿐 계산은 그대로 돈다 — 기동을 막지 않는다
+                log.warn("{} 없음 — 이 범위의 기존 노선 활용 안내가 비활성화된다", file);
+            }
         }
+        log.info("기존 노선 {}개 적재 (역 {}개)", byLine.size(),
+                byLine.values().stream().mapToInt(List::size).sum());
+    }
+
+    private void loadFile(Path stationFile) {
         try (BufferedReader reader = Files.newBufferedReader(stationFile, StandardCharsets.UTF_8)) {
             String header = reader.readLine();
             if (header == null) {
@@ -93,8 +106,11 @@ public class ExistingLineFinder {
         } catch (Exception e) {
             throw new IllegalStateException(stationFile + " 를 읽지 못했습니다", e);
         }
-        log.info("기존 노선 {}개 적재 (역 {}개)", byLine.size(),
-                byLine.values().stream().mapToInt(List::size).sum());
+    }
+
+    /** 적재된 노선 수. 두 출처가 합쳐졌는지 테스트에서 본다 */
+    int lineCount() {
+        return byLine.size();
     }
 
     private int indexOf(String[] columns, String name) {

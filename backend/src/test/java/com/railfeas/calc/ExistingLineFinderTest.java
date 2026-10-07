@@ -40,9 +40,41 @@ class ExistingLineFinderTest {
         return file;
     }
 
+    /** 지방 좌표는 출처가 달라 별도 파일로 들어온다 (OSM). 둘이 합쳐져야 한다 */
+    @Test
+    @DisplayName("수도권 파일과 지방 파일을 함께 읽는다")
+    void loadsBothSources(@TempDir Path dir) throws IOException {
+        Path capital = stations(dir, "수도권노선:0:20");
+        Path regional = Files.createTempDirectory("regional").resolve("regional_station.csv");
+        // 실제 파일은 pandas 가 utf-8-sig 로 쓴다 — BOM 이 붙는다.
+        // 로더가 BOM 을 떼지 않으면 첫 열 이름이 안 맞아 좌표를 하나도 못 읽는다
+        Files.writeString(regional, String.join(System.lineSeparator(),
+                "﻿line_name,station_name,latitude,longitude",
+                "부산1호선,서면,35.1577,129.0600",
+                "부산1호선,연산,35.1840,129.0790"),
+                StandardCharsets.UTF_8);
+
+        ExistingLineFinder f = new ExistingLineFinder(capital.toString(), regional.toString());
+        f.load();
+
+        assertThat(f.lineCount()).isEqualTo(2);        // 두 파일에서 한 노선씩
+    }
+
+    /** 한쪽이 없어도 나머지는 살아야 한다 — 지방 ETL 은 따로 돌린다 */
+    @Test
+    @DisplayName("지방 파일이 없어도 수도권 안내는 그대로 된다")
+    void missingRegionalFileIsNotFatal(@TempDir Path dir) throws IOException {
+        ExistingLineFinder f = new ExistingLineFinder(
+                stations(dir, "수도권노선:0:20").toString(), "없는지방파일.csv");
+        f.load();
+
+        assertThat(f.lineCount()).isEqualTo(1);
+        assertThat(f.find(alongLine())).isNotNull();
+    }
+
     private ExistingLineFinder finder(Path file) {
         ExistingLineFinder f = new ExistingLineFinder(
-                file == null ? "없는파일.csv" : file.toString());
+                file == null ? "없는파일.csv" : file.toString(), "없는지방파일.csv");
         f.load();
         return f;
     }

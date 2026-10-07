@@ -213,3 +213,57 @@ class TestSpacingStats:
         out = etl.spacing_stats(df)
 
         assert out.loc['LIGHT_RAIL', 'n'] == 1
+
+
+class TestOsmRegionalStations:
+    """
+    지방 역 좌표 수집(`osm_regional_stations.py`)의 판정 규칙.
+
+    OSM 은 집단 편집 자료라 누락이 흔하다. 실제로 첫 수집본은 10개 노선 **전부**가
+    공식 역수에 미달했는데(99역 / 271역), 관계 멤버만 긁어서 생긴 일이었다.
+    여기서 고정하는 것은 "그런 자료를 어떻게 걸러내기로 했는가"다.
+    """
+
+    def test_거리는_미터로_재고_가까운_역만_남긴다(self):
+        import osm_regional_stations as osm
+        # 위도 0.001도 ≈ 111m — 반경 150m 안이다
+        assert osm.meters(37.5000, 127.0, 37.5010, 127.0) == pytest.approx(111, abs=2)
+        # 0.01도 ≈ 1.1km — 밖이다
+        assert osm.meters(37.5000, 127.0, 37.5100, 127.0) > osm.STATION_RADIUS_M
+
+    def test_bbox_는_노선_이름의_도시로_고른다(self):
+        import osm_regional_stations as osm
+        # bbox 가 없으면 Overpass 가 전 세계를 훑어 504 가 난다
+        assert osm.bbox_of('부산 도시철도 1호선') == osm.CITY_BBOX['부산']
+        # 부산김해경전철은 김해까지 가지만 부산 상자 안에 든다
+        assert osm.bbox_of('부산김해경전철') == osm.CITY_BBOX['부산']
+        with pytest.raises(SystemExit):
+            osm.bbox_of('없는도시 1호선')
+
+    def test_채택_명단은_운영현황이다(self):
+        import osm_regional_stations as osm
+        # OSM 에는 미개통 노선도 운영 노선처럼 올라와 있다 (광주 2호선은 공사 중).
+        # 없는 노선을 "기존 노선 활용 검토" 로 안내하면 잘못된 권고가 된다
+        assert '광주 도시철도 1호선' in osm.OFFICIAL_STATIONS
+        assert '광주 도시철도 2호선' not in osm.OFFICIAL_STATIONS
+
+    def test_역수가_어긋나면_그_노선은_쓰지_않는다(self):
+        import osm_regional_stations as osm
+        official = osm.OFFICIAL_STATIONS['부산 도시철도 1호선']
+        # 반쪽짜리 좌표가 들어가면 "기존 노선 활용" 판정이 조용히 빗나간다
+        assert abs(19 - official) > osm.TOLERANCE        # 첫 수집본이 19역이었다
+        assert abs(40 - official) <= osm.TOLERANCE       # 고친 뒤 40역
+
+    def test_같은_장소의_역은_하나로_묶는다(self):
+        import osm_regional_stations as osm
+        # 선로 주변을 훑으면 나란히 있는 일반철도 역까지 딸려 온다.
+        # 대구 1호선에서 코레일 '대구' 와 지하철 '대구역' 이 101m 거리로 둘 다 잡혀
+        # 역수가 하나 많았다 (36 vs 공식 35)
+        found = {
+            '대구역': (35.8760, 128.5960),
+            '대구': (35.8769, 128.5955),      # 약 100m
+            '중앙로': (35.8690, 128.5960),    # 약 780m - 다른 역이다
+        }
+        kept = osm.dedupe(found)
+        assert len(kept) == 2
+        assert '중앙로' in kept
