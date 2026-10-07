@@ -22,11 +22,21 @@ public class ApiExceptionHandler {
                 .body(Map.of("message", "요청 본문을 읽을 수 없습니다 (UTF-8 JSON 인지 확인하세요)"));
     }
 
+    /**
+     * 화면에 그대로 뜨는 문구라 **필드 이름을 우리말로 바꿔** 내보낸다.
+     * 그냥 두면 회원가입에서 "password: 크기가 8에서 64 사이여야 합니다" 처럼
+     * 내부 DTO 필드명이 사용자에게 노출된다.
+     */
+    private static final Map<String, String> FIELD_NAMES = Map.of(
+            "email", "이메일", "password", "비밀번호", "nickname", "닉네임",
+            "title", "제목", "source", "근거", "value", "값", "points", "지점");
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handle(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
-                .map(f -> f.getField() + ": " + f.getDefaultMessage())
+                .map(f -> FIELD_NAMES.getOrDefault(f.getField(), f.getField())
+                        + " — " + f.getDefaultMessage())
                 .orElse("잘못된 요청입니다");
         return ResponseEntity.badRequest().body(Map.of("message", message));
     }

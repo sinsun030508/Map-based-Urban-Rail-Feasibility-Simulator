@@ -48,6 +48,11 @@ export default function LoginPage({ onLogin }) {
             required
           />
         </label>
+        {/* 규칙을 미리 알린다. minLength 는 사용자가 직접 친 값에만 걸려(HTML 규격)
+            자동 입력·붙여넣기는 그냥 통과하고, 그때는 서버 400 이 유일한 안내가 된다 */}
+        {mode === 'signup' && (
+          <p className="muted small">비밀번호는 8자 이상이어야 합니다.</p>
+        )}
         {mode === 'signup' && (
           <label>
             닉네임
