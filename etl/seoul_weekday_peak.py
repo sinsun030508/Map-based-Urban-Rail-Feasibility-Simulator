@@ -120,11 +120,59 @@ def summarize(rows):
     return pd.DataFrame(recs)
 
 
+def summarize_by_line(rows):
+    """
+    노선별로 같은 계산을 한다. 환산계수 K 를 연장 함수로 세우려면 노선별 K 가 필요한데,
+    전 노선 공통 첨두율을 쓰면 **노선마다 다른 첨두 쏠림이 K 에 섞여 들어간다.**
+    첨두가 뾰족한 노선은 K 가 낮게, 완만한 노선은 높게 나와 연장과의 관계를 가린다.
+
+    평일 보정(`weekday_factor`)도 노선마다 다르다. 둘 다 노선별로 재야 K 에 남는 것이
+    순수한 단면 변환뿐이 된다.
+    """
+    per = {}
+    for r in rows:
+        day = per.setdefault((r.get('LINE'), r['MVMN_YMD']), {h: 0.0 for h in HOURS})
+        for h in HOURS:
+            day[h] += float(r.get(h) or 0)
+
+    recs = []
+    for (line, ymd), hours in per.items():
+        total = sum(hours.values())
+        if total <= 0:
+            continue
+        y, m, d = (int(x) for x in ymd.split('-'))
+        peak = max(hours, key=hours.get)
+        recs.append({
+            'line_name': line, 'date': ymd,
+            'is_weekday': date(y, m, d).weekday() < 5,
+            'day_total': total, 'peak_hour': peak,
+            'peak_ratio': hours[peak] / total,
+        })
+    daily = pd.DataFrame(recs)
+
+    out = []
+    for line, g in daily.groupby('line_name'):
+        wd, we = g[g.is_weekday], g[~g.is_weekday]
+        if wd.empty or we.empty:
+            continue
+        out.append({
+            'line_name': line,
+            'weekday_days': len(wd),
+            'peak_hour_ratio': round(wd.peak_ratio.mean(), 4),
+            'weekend_peak_ratio': round(we.peak_ratio.mean(), 4),
+            'weekday_factor': round(wd.day_total.mean() / g.day_total.mean(), 4),
+            'peak_hour': wd.peak_hour.mode().iat[0],
+            'weekend_peak_hour': we.peak_hour.mode().iat[0],
+        })
+    return pd.DataFrame(out).sort_values('line_name')
+
+
 def main():
     month = sys.argv[1] if len(sys.argv) > 1 else TARGET_MONTH
     key = load_key()
     print(f'일별 시간대별 승하차 수집 ({month})')
-    df = summarize(collect_month(key, month))
+    rows = collect_month(key, month)      # 노선별 집계에 다시 쓴다
+    df = summarize(rows)
     if df.empty:
         raise SystemExit('수집된 자료가 없습니다')
 
@@ -142,6 +190,19 @@ def main():
     print(f'\n평일 ÷ 전체 = {wd.peak_ratio.mean() / df.peak_ratio.mean():.3f}')
     print('  이 배율이 지금 단면 환산계수 K 가 떠안고 있는 평일 보정분이다')
     print('→ weekday_peak.csv')
+
+    by_line = summarize_by_line(rows)
+    by_line.to_csv(BUILD / 'line_weekday_peak.csv', index=False, encoding='utf-8-sig')
+    print()
+    print(f'노선별 평일 첨두율 ({len(by_line)}개 호선)')
+    print(by_line.to_string(index=False))
+    print(f'  첨두율 범위 {by_line.peak_hour_ratio.min():.4f}'
+          f'~{by_line.peak_hour_ratio.max():.4f}'
+          f' / 공통값 {wd.peak_ratio.mean():.4f}')
+    print(f'  평일 보정 범위 {by_line.weekday_factor.min():.4f}'
+          f'~{by_line.weekday_factor.max():.4f}')
+    print('  공통값을 쓰면 이 차이가 환산계수 K 에 섞여 연장과의 관계를 가린다')
+    print('→ line_weekday_peak.csv')
 
 
 if __name__ == '__main__':

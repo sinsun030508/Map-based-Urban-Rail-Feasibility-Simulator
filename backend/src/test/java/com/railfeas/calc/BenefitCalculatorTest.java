@@ -31,7 +31,8 @@ class BenefitCalculatorTest {
         v.put("discount_switch_year", 30.0);
         v.put("weekday_factor", 1.1);
         v.put("peak_hour_ratio", 0.1);
-        v.put("peak_direction_ratio", 0.3);
+        v.put("peak_direction_coef", 9.0);     // K = 9/연장, 상한 0.3
+        v.put("peak_direction_max", 0.3);
         return new BenefitCalculator.Params(v);
     }
 
@@ -88,9 +89,24 @@ class BenefitCalculatorTest {
     @DisplayName("첨두 단면은 평일 보정·첨두율·단면 환산을 모두 곱한다")
     void peakIsConvertedFromDailyRiders() {
         // 수요 모델은 주말 섞인 일 평균을 내놓는다 — 평일 설계 첨두까지 세 번 보정한다
-        // 100,000 × 1.1 × 0.1 × 0.3 = 3,300
-        assertThat(calculator().peakPphpd(params(), 100_000)).isEqualTo(3_300);
-        assertThat(calculator().peakPphpd(params(), null)).isNull();
+        // 연장 45km 면 K = 9/45 = 0.2 → 100,000 × 1.1 × 0.1 × 0.2 = 2,200
+        assertThat(calculator().peakPphpd(params(), 100_000, 45)).isEqualTo(2_200);
+        assertThat(calculator().peakPphpd(params(), null, 45)).isNull();
+    }
+
+    @Test
+    @DisplayName("단면 환산계수는 연장에 반비례하고 상한에서 멈춘다")
+    void sectionRatioFallsWithLength() {
+        BenefitCalculator c = calculator();
+        // 통행이 노선보다 짧으면 한 지점을 지나는 비율이 (평균 통행거리 ÷ 연장)이다
+        assertThat(c.sectionRatio(params(), 45)).isEqualTo(0.2);
+        assertThat(c.sectionRatio(params(), 90)).isEqualTo(0.1);
+        // 짧은 노선에서 1/L 이 발산하지 않게 상한이 잡아 준다 (9/20 = 0.45 > 0.3)
+        assertThat(c.sectionRatio(params(), 20)).isEqualTo(0.3);
+        assertThat(c.sectionRatio(params(), 0)).isEqualTo(0.3);
+        // 긴 노선일수록 단면에 실리는 비율이 낮아야 한다
+        assertThat(c.sectionRatio(params(), 60))
+                .isLessThan(c.sectionRatio(params(), 30));
     }
 
     @Test

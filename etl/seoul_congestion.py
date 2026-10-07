@@ -47,11 +47,16 @@ SERVICE = 'subwConfusion'
 PAGE = 1000
 
 CAPACITY_PER_CAR = 160      # 혼잡도 100% 기준 1량 정원 (좌석 54 + 통로 54 + 출입문 52)
-# 평일 설계 첨두까지의 보정 — S7 과 같은 값을 써야 한다.
-# 혼잡도는 평일 자료인데 승하차는 주말 섞인 평균이라, 두 보정을 곱해 분모를 맞춘다
-# (etl/seoul_weekday_peak.py 실측). 이렇게 해야 K 가 **순수 단면 변환**만 남는다.
-WEEKDAY_FACTOR = 1.1041     # 평일 일수요 ÷ 전체 평균
-PEAK_HOUR_RATIO = 0.1159    # 평일 첨두 1시간 비중
+
+# 평일 설계 첨두까지의 보정은 **노선별** 실측을 쓴다 (etl/seoul_weekday_peak.py →
+# line_weekday_peak.csv). 전 노선 공통값을 쓰면 노선마다 다른 첨두 쏠림이 K 에 섞여
+# 연장과의 관계를 가린다 — 실제로 공통값일 때 r=0.775 이던 것이 노선별로 0.865 가 됐다.
+
+# K 의 이론 상한. ①승하차 이중 계산(×0.5) ②방향 쏠림(실측 중앙값 0.79)까지만 적용한 값으로,
+# **모든 통행이 최대 단면을 지나야** 도달한다. K 가 이보다 크면 분모가 결손된 것이다
+# (직결 노선이 그렇다). 짧은 노선에서 K=a/L 이 발산하지 않게 잡아 주는 뚜껑이기도 하다.
+DIRECTION_SHARE = 0.79
+K_CEILING = 0.5 * DIRECTION_SHARE
 
 # **직결 운행 노선은 K 가 과대로 나온다.** 다른 운영기관 구간에서 승차한 승객이
 # 단면에는 실리지만 분모(서울교통공사 역 승하차)에는 없다. 계수 산출에서 뺀다.
@@ -86,6 +91,14 @@ def fetch_all(key):
         rows.extend(got)
         if not got or len(rows) >= payload['list_total_count']:
             return rows
+
+
+def load_line_peak():
+    """노선별 평일 보정·첨두율. 없으면 멈춘다 — 공통값으로 조용히 되돌아가면 안 된다."""
+    path = BUILD / 'line_weekday_peak.csv'
+    if not path.exists():
+        raise SystemExit(f'{path.name} 이 없습니다 - etl/seoul_weekday_peak.py 를 먼저 실행하세요')
+    return pd.read_csv(path, encoding='utf-8-sig').set_index('line_name')
 
 
 def load_operation():
@@ -151,6 +164,7 @@ def main():
 
     ride = pd.read_csv(BUILD / 'station_ridership.csv')
     daily = ride.groupby('line_name').daily_total.sum()
+    peak = load_line_peak()
 
     out = []
     for line, g in long.groupby('line_name'):
@@ -168,8 +182,9 @@ def main():
             'max_pphpd': round(top.pphpd),
             'direction_share': round(share, 3) if share else None,
             'daily_total': int(total) if total else None,
-            'k_factor': round(top.pphpd / (total * WEEKDAY_FACTOR * PEAK_HOUR_RATIO), 4)
-            if total else None,
+            'k_factor': round(top.pphpd / (total * peak.weekday_factor[line]
+                                           * peak.peak_hour_ratio[line]), 4)
+            if total and line in peak.index else None,
         })
     res = pd.DataFrame(out).sort_values('max_pphpd', ascending=False)
 
@@ -197,24 +212,89 @@ def main():
     print(f'\n방향 쏠림  중앙값 {share.median():.3f}'
           f' / 범위 {share.min():.3f}~{share.max():.3f} (가정값 0.6 보다 크다)')
     print('→ line_congestion.csv')
-    light_rail_floor(daily, clean.k_factor.median())
+    a = length_fit(clean)
+    light_rail_floor(daily, a, clean.length_km.median())
 
 
-def light_rail_floor(daily, k):
+def length_fit(clean):
+    """
+    K 를 연장의 함수로 세운다.  K = min(K_CEILING, a / 연장)
+
+    왜 상수로 두면 안 되나
+      이 계수는 30~60km 노선 4개로 재는데, 정작 서비스가 다루는 노선은 5~35km 다.
+      긴 노선에서 잰 값을 짧은 노선에 그대로 쓰면 **단면을 과소 추정**한다.
+
+    왜 1/L 인가
+      통행이 노선보다 짧으면 한 지점을 지나는 통행의 비율은 대략 (평균 통행거리 / 연장)
+      이다. 계수 둘짜리(a + b/L)도 재 봤지만 표본 4개에 과적합이라
+      교차검증이 오히려 나빠졌다 (아래 표).
+
+    상한
+      모든 통행이 최대 단면을 지나도 K 는 0.5 × 방향쏠림을 넘을 수 없다.
+      이 뚜껑이 없으면 짧은 노선에서 1/L 이 발산한다.
+    """
+    L, K = clean.length_km.values, clean.k_factor.values
+    a = float(np.mean(K * L))
+
+    def mae(predict, idx=None):
+        rows = range(len(L)) if idx is None else idx
+        return float(np.mean([abs(predict(L[i]) - K[i]) for i in rows]))
+
+    candidates = {
+        '상수 (중앙값)': lambda tr_L, tr_K: (lambda l: float(np.median(tr_K))),
+        'K = a/L (채택)': lambda tr_L, tr_K: (
+            lambda l: min(K_CEILING, float(np.mean(tr_K * tr_L)) / l)),
+        'K = a + b/L': lambda tr_L, tr_K: (
+            lambda p: (lambda l: min(K_CEILING, p[0] / l + p[1])))(np.polyfit(1 / tr_L, tr_K, 1)),
+    }
+    print()
+    print(f'환산계수를 연장 함수로  (표본 {len(L)}개, 연장 {L.min():.1f}~{L.max():.1f}km)')
+    print(f'{"모델":18s} {"적합 MAE":>9s} {"LOO 교차검증":>12s}')
+    for name, build in candidates.items():
+        full = build(L, K)
+        loo = []
+        for i in range(len(L)):
+            m = np.ones(len(L), bool)
+            m[i] = False
+            loo.append(abs(build(L[m], K[m])(L[i]) - K[i]))
+        print(f'{name:18s} {mae(full):9.4f} {float(np.mean(loo)):12.4f}')
+
+    print(f'  a = {a:.2f}  (K x 연장: {", ".join(f"{v:.2f}" for v in K * L)})')
+    print(f'  상한 {K_CEILING:.3f} = 0.5 x {DIRECTION_SHARE} (모든 통행이 최대 단면을 지날 때)')
+    print(f'  상한에 닿는 연장 = {a / K_CEILING:.1f}km 이하')
+    print('  S7 에 peak_direction_coef / peak_direction_max 로 넣는다')
+    return a
+
+
+def light_rail_floor(daily, a, metro_median_km):
     """
     경전철 하한의 근거. 혼잡도 자료가 1~8호선뿐이라 경전철은 실측할 수 없다.
     실제 운영 중인 경전철의 일 승하차에 첨두율·환산계수를 적용해 단면을 추정한다.
     추정이지만 "실제로 지어진 경전철이 이 정도"라는 근거는 된다.
+
+    **경전철은 짧다.** 우이신설 11.0km·신림 7.8km 로, K = a/L 이 상한에 닿는 구간이다.
+    상수 K 를 쓰던 이전 추정은 30~60km 노선에서 잰 값을 그대로 적용해 단면을 낮게 봤다.
+    다만 상한 자체가 **표본 밖 외삽**이라, 이 값은 실측이 아니라 추정임을 분명히 둔다.
     """
-    print('\n경전철 추정 단면 (혼잡도 자료가 없어 K 로 환산)')
-    for line in ('우이신설선', '신림선'):
+    peak = load_line_peak()
+    lengths = {'우이신설선': 11.0, '신림선': 7.8}      # data/seed/rail_speed.csv
+    print()
+    print('경전철 추정 단면 (혼잡도 자료가 없어 K 로 환산)')
+    for line, km in lengths.items():
         total = daily.get(line)
         if total is None:
             print(f'  {line} 승하차 자료 없음')
             continue
-        section = total * WEEKDAY_FACTOR * PEAK_HOUR_RATIO * k
-        print(f'  {line:8s} 일 승하차 {int(total):,}명 → 단면 {section:,.0f}명/시')
-    print('  mode_capacity 의 경전철 pphpd_min 3,000 은 이 추정에서 가져왔다')
+        # 경전철은 1~8호선 자료에 없어 평일 보정·첨두율은 중전철 중앙값을 빌린다
+        wf = float(peak.weekday_factor.median())
+        ph = float(peak.peak_hour_ratio.median())
+        k = min(K_CEILING, a / km)
+        section = total * wf * ph * k
+        capped = ' (상한)' if a / km > K_CEILING else ''
+        print(f'  {line:8s} 연장 {km:4.1f}km  K {k:.4f}{capped}'
+              f'  일 승하차 {int(total):,}명 → 단면 {section:,.0f}명/시')
+    print(f'  (중전철 연장 중앙값 {metro_median_km:.1f}km 에서 잰 계수를 외삽한 값이다)')
+    print('  mode_capacity 의 경전철 pphpd_min 은 이 추정에서 가져온다')
 
 
 if __name__ == '__main__':
