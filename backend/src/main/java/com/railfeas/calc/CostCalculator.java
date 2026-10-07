@@ -67,7 +67,7 @@ public class CostCalculator {
                 .mapToDouble(p -> Haversine.distanceKm(p[0], p[1], CBD[0], CBD[1]))
                 .min().orElse(0);
         Integer dailyRiders = benefits.estimateDailyRiders(params, people, workers, cbdDistance);
-        Integer peak = benefits.peakPphpd(params, dailyRiders);
+        Integer peak = benefits.peakPphpd(params, dailyRiders, lengthKm);
 
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다

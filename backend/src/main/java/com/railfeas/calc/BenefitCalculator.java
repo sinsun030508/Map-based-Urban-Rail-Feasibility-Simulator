@@ -72,14 +72,36 @@ public class BenefitCalculator {
      *      지나지도 않는다 (혼잡도 실측에서 역산)
      * 셋을 따로 재 두지 않으면 하나만 고쳐도 나머지가 조용히 어긋난다.
      */
-    public Integer peakPphpd(Params p, Integer dailyRiders) {
+    public Integer peakPphpd(Params p, Integer dailyRiders, double lengthKm) {
         if (dailyRiders == null) {
             return null;
         }
         return (int) Math.round(dailyRiders
                 * p.get("weekday_factor")
                 * p.get("peak_hour_ratio")
-                * p.get("peak_direction_ratio"));
+                * sectionRatio(p, lengthKm));
+    }
+
+    /**
+     * 역 승하차를 최대 단면 통행량으로 바꾸는 계수. **연장의 함수다.**
+     *
+     * 통행이 노선보다 짧으면 한 지점을 지나는 통행의 비율은 대략 `평균 통행거리 ÷ 연장`
+     * 이라, 긴 노선일수록 단면에 실리는 비율이 낮다. 상수로 두면 30~60km 노선에서 잰
+     * 값을 5~35km 노선에 적용하게 되어 **짧은 노선의 단면을 과소 추정**한다
+     * (서울 1~8호선 실측 r=0.86, 교차검증에서 상수보다 오차 44% 낮다).
+     *
+     * 상한이 있다. 모든 통행이 최대 단면을 지나더라도 승하차 이중 계산(×0.5)과
+     * 방향 쏠림(실측 0.79)을 넘을 수 없다. 이 뚜껑이 없으면 짧은 노선에서 발산한다.
+     *
+     * **표본이 30~60km 4개뿐이라 그보다 짧은 구간은 외삽이다** — 25.5km 아래는 전부
+     * 상한에 걸린다. 근거는 etl/seoul_congestion.py 와 docs/research-log.md.
+     */
+    double sectionRatio(Params p, double lengthKm) {
+        double ceiling = p.get("peak_direction_max");
+        if (lengthKm <= 0) {
+            return ceiling;
+        }
+        return Math.min(ceiling, p.get("peak_direction_coef") / lengthKm);
     }
 
     /**

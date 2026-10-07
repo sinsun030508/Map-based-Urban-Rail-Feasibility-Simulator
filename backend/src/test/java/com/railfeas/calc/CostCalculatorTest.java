@@ -35,17 +35,18 @@ class CostCalculatorTest {
             new double[]{37.5665, 126.9780}, new double[]{37.4765, 126.9780});
 
     /** 원단위는 S7 과 같은 값으로 채운다 — 시드 없이 계산기만 떼어 보기 위해서다 */
-    private static final Map<String, Double> PARAMETERS = Map.of(
-            "baseline_speed_kmh", 21.3,
-            "time_value_won_per_hour", 7231.0,
-            "analysis_years", 40.0,
-            "construction_years", 5.0,
-            "discount_rate", 0.045,
-            "discount_rate_late", 0.035,
-            "discount_switch_year", 30.0,
-            "peak_hour_ratio", 0.1159,
-            "weekday_factor", 1.1041,
-            "peak_direction_ratio", 0.2440);
+    private static final Map<String, Double> PARAMETERS = Map.ofEntries(
+            Map.entry("baseline_speed_kmh", 21.3),
+            Map.entry("time_value_won_per_hour", 7231.0),
+            Map.entry("analysis_years", 40.0),
+            Map.entry("construction_years", 5.0),
+            Map.entry("discount_rate", 0.045),
+            Map.entry("discount_rate_late", 0.035),
+            Map.entry("discount_switch_year", 30.0),
+            Map.entry("peak_hour_ratio", 0.1159),
+            Map.entry("weekday_factor", 1.1041),
+            Map.entry("peak_direction_coef", 10.06),
+            Map.entry("peak_direction_max", 0.395));
 
     private CostCalculator calculator() {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
