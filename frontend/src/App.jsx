@@ -40,7 +40,12 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    api.listScenarios().then(setScenarios).catch((e) => setError(e.message));
+    // 로그인한 사람이 바뀌면 앞 사람의 오류는 치운다. 낡은 토큰으로 403 을 받고 다시
+    // 로그인하면 목록은 정상인데 "요청 실패 (403)" 만 화면에 남아 있었다
+    setError(null);
+    api.listScenarios()
+      .then((list) => { setScenarios(list); setError(null); })
+      .catch((e) => setError(e.message));
     api.zones().then(setZones).catch(() => {});
     refreshReference();
     // eslint-disable-next-line react-hooks/exhaustive-deps
