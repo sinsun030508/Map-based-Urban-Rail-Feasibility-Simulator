@@ -37,7 +37,22 @@ CACHE = ROOT / 'data' / 'cache' / 'sgis'
 BASE = 'https://sgisapi.mods.go.kr/OpenAPI3'
 YEAR = 2023                  # 집계구 인구 기준연도
 RADIUS_KM = 1.0              # 노선 버퍼 반경 — CLAUDE.md 기준
-CBD = (37.5665, 126.9780)    # 서울시청 — 도심 접근성 대리변수
+# **도심 접근성은 그 지역의 도심 기준이다.** 서울시청 하나로 고정하면 부산 역이
+# 326km 로 잡혀, 회귀 표본 범위(0.1~88.7km)의 3.7배를 외삽하게 된다. 도심거리 항만으로
+# 예측이 0.02배로 깎여 B/C 가 무의미해진다. 부산 사람이 서울로 출근하지 않으니
+# **가장 가까운 광역시 도심**까지의 거리를 쓴다.
+CBDS = {
+    '서울시청': (37.5665, 126.9780),
+    '부산시청': (35.1796, 129.0756),
+    '대구시청': (35.8714, 128.6014),
+    '광주시청': (35.1600, 126.8514),
+    '대전시청': (36.3504, 127.3845),
+}
+
+
+def cbd_distance_km(lat, lng):
+    """가장 가까운 도심까지의 거리. 수도권 역은 서울시청이 가장 가까워 값이 바뀌지 않는다."""
+    return min(distance_km(lat, lng, c[0], c[1]) for c in CBDS.values())
 EARTH_R = 6371.0088
 
 # SGIS 경계는 UTM-K 로 온다
@@ -183,12 +198,49 @@ def distance_km(lat1, lng1, lat2, lng2):
     return 2 * EARTH_R * asin(sqrt(a))
 
 
+TRANSFER_KM = 1.0           # 이 안에 있어야 같은 역으로 본다
+
+
+def transfer_counts(stations):
+    """
+    환승 노선 수 — 같은 역이 여러 노선에 나오면 환승역이다.
+
+    **이름만으로 묶으면 안 된다.** 지방 역까지 한 파일에 담으면서 서울 `시청` 이
+    부산·대전 `시청` 과 묶여 환승이 2 → 4 로 뛰었다. 400km 떨어진 역은 환승이 아니다.
+    수요 모델에서 **기여가 가장 큰 변수**(계수 1.08)라 이 오염이 계수를 바로 흔든다.
+
+    이름이 같으면서 **1km 안**에 있는 노선만 센다 — 환승역의 조건은 이름이 아니라
+    같은 자리에 있는 것이다.
+    """
+    counts = {}
+    for name, group in stations.groupby('station_name'):
+        same = list(group.itertuples())
+        for a in same:
+            if len(same) == 1:
+                counts[(a.line_name, a.station_name)] = 1
+                continue
+            lines = {b.line_name for b in same
+                     if distance_km(a.latitude, a.longitude,
+                                    b.latitude, b.longitude) <= TRANSFER_KM}
+            counts[(a.line_name, a.station_name)] = len(lines)
+    return counts
+
+
 def main():
     env = load_env()
     token = get_token(env)
-    stations = pd.read_csv(BUILD / 'station_ridership.csv')
+    # **수집 범위는 역 위치가 정한다.** 수도권만 받으면 지방 노선은 인구를 못 구해
+    # 수요·B/C 가 안 나오고 정차역 이름도 번호로 떨어진다 (역명은 집계구의 행정동명이다).
+    # 지방 역 좌표가 생겼으므로(osm_regional_stations.py) 함께 넣어 범위를 넓힌다.
+    frames = [pd.read_csv(BUILD / 'station_ridership.csv')]
+    regional = BUILD / 'regional_station.csv'
+    if regional.exists():
+        frames.append(pd.read_csv(regional, encoding='utf-8-sig'))
+    else:
+        print('regional_station.csv 없음 - 수도권만 수집한다', flush=True)
+    stations = pd.concat(frames, ignore_index=True)
     stations = stations[stations.latitude.notna()].reset_index(drop=True)
-    print(f'역 {len(stations)}개', flush=True)
+    print(f'역 {len(stations)}개 ({len(frames)}개 파일)', flush=True)
 
     # 1) 역이 속한 시군구·행정동 모으기
     sggs = set()
@@ -233,8 +285,7 @@ def main():
                                    index=False, encoding='utf-8-sig')
     print(f'동별 종사자 {len(dong_rows)}개 → dong_workers.csv', flush=True)
 
-    # 환승 노선 수 — 같은 역명이 여러 노선에 나오면 환승역이다
-    transfers = stations.groupby('station_name').line_name.nunique()
+    transfers = transfer_counts(stations)
 
     # 5) 역 반경 1km 인구 + 부가 변수
     rows = []
@@ -249,9 +300,9 @@ def main():
                      'dong_code': dong,
                      'population_1km': total,
                      'workers_dong': workers.get(dong),
-                     'transfer_lines': int(transfers[s.station_name]),
+                     'transfer_lines': int(transfers[(s.line_name, s.station_name)]),
                      'cbd_distance_km': round(
-                         distance_km(s.latitude, s.longitude, *CBD), 2),
+                         cbd_distance_km(s.latitude, s.longitude), 2),
                      'daily_total': s.daily_total})
     result = pd.DataFrame(rows)
     result.to_csv(BUILD / 'station_population.csv', index=False, encoding='utf-8-sig')

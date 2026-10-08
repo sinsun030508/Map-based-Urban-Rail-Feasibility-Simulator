@@ -33,12 +33,38 @@ public class CostCalculator {
 
     private static final int MIN_STATIONS = 2;        // 출발·도착
     private static final double BUFFER_KM = 1.0;      // 인구 집계 반경
-    private static final double[] CBD = {37.5665, 126.9780};   // 서울시청
+    /**
+     * 도심 접근성 대리변수의 기준점. **그 지역의 도심이어야 한다.**
+     *
+     * 서울시청 하나로 고정했더니 부산 노선이 326km 로 잡혀, 수요 회귀 표본의 범위
+     * (0.1~88.7km)를 3.7배 외삽했다. 도심거리 항만으로 예측이 0.02배로 깎여
+     * B/C 가 0.019 처럼 **숫자는 나오지만 뜻이 없는 값**이 된다.
+     * 부산 사람이 서울로 출근하지 않으니 가장 가까운 광역시 도심까지를 잰다.
+     *
+     * `etl/sgis_population.py` 의 `CBDS` 와 **같은 목록이어야 한다** — 어긋나면
+     * 학습과 예측이 다른 기준을 쓰게 된다.
+     */
+    private static final double[][] CBDS = {
+            {37.5665, 126.9780},   // 서울시청
+            {35.1796, 129.0756},   // 부산시청
+            {35.8714, 128.6014},   // 대구시청
+            {35.1600, 126.8514},   // 광주시청
+            {36.3504, 127.3845},   // 대전시청
+    };
 
     private final PopulationIndex population;
     private final BenefitCalculator benefits;
     private final StationPlanner planner;
     private final ExistingLineFinder existingLines;
+
+    /** 가장 가까운 도심까지의 거리. 수도권은 서울시청이 가장 가까워 값이 바뀌지 않는다 */
+    private static double nearestCbdKm(double[] point) {
+        double best = Double.MAX_VALUE;
+        for (double[] cbd : CBDS) {
+            best = Math.min(best, Haversine.distanceKm(point[0], point[1], cbd[0], cbd[1]));
+        }
+        return best;
+    }
 
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
                           StationPlanner planner, ExistingLineFinder existingLines) {
@@ -64,7 +90,7 @@ public class CostCalculator {
         long people = population.populationNear(points, BUFFER_KM);
         long workers = population.workersNear(points, BUFFER_KM);
         double cbdDistance = points.stream()
-                .mapToDouble(p -> Haversine.distanceKm(p[0], p[1], CBD[0], CBD[1]))
+                .mapToDouble(CostCalculator::nearestCbdKm)
                 .min().orElse(0);
         Integer dailyRiders = benefits.estimateDailyRiders(params, people, workers, cbdDistance);
         Integer peak = benefits.peakPphpd(params, dailyRiders, lengthKm);
