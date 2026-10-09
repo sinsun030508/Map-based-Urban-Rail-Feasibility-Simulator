@@ -289,3 +289,54 @@ class Test누적뒤걸음:
         d = [10.0, 10.05, 9.98, 10.12, 10.09, 10.2]
         rows = [obs(i * 0.5, v) for i, v in enumerate(d)]
         assert len(brt.split_runs(rows)) == 1
+
+
+class Test정류장배치:
+    """선형 위에 정류장을 올리는 규칙. 틀리면 차량 진행거리가 조용히 어긋난다."""
+
+    def rows(self, lats, names=None):
+        return [{'ord': i + 1, 'name': (names or ['정류장%d' % (i + 1) for i in range(len(lats))])[i],
+                 'id': 'S%d' % (i + 1), 'lat': lat, 'lng': LNG}
+                for i, lat in enumerate(lats)]
+
+    def test_순환선의_첫_정류장을_선형_끝에_붙이지_않는다(self):
+        """순환선은 기점과 종점이 같은 장소다. 선형의 끝점이 시작점보다 미세하게
+        가까우면 1번 정류장이 끝에 붙고, 전진 커서가 거기 갇혀 나머지가 전부
+        몰린다 - B5 에서 38개가 모두 23.37km 에 쌓였다.
+        """
+        # 기점으로 되돌아오는 고리: 위로 갔다가 옆으로 돌아 제자리 근처로 온다.
+        # **끝점을 정류장에 더 가깝게 둔다** - 실제 자료가 그랬다. 끝점이 시작점과
+        # 정확히 같으면 동점에서 낮은 색인이 뽑혀 버그가 재현되지 않는다.
+        jitter = STEP / 10          # 약 11m
+        up = [(LAT0 + i * STEP, LNG) for i in range(60)]
+        side = [(LAT0 + 59 * STEP, LNG + i * STEP) for i in range(1, 30)]
+        down = [(LAT0 + (59 - i) * STEP, LNG + 29 * STEP) for i in range(1, 60)]
+        back = [(LAT0, LNG + (29 - i) * STEP) for i in range(1, 29)]
+        back.append((LAT0 + jitter, LNG))      # 끝점이 기점 정류장에 더 가깝다
+        sh = make_shape(up + side + down + back)
+        terminal = LAT0 + jitter               # 기점 정류장은 끝점 자리에 있다
+        stops = brt.place_stops(
+            sh, self.rows([terminal, LAT0 + 20 * STEP, LAT0 + 40 * STEP]), False)
+        assert stops[0]['idx'] < 10, '첫 정류장이 선형 끝에 붙었다'
+        kms = [st['km'] for st in stops]
+        assert kms == sorted(kms), '첫 정류장이 끝에 붙어 나머지가 몰렸다'
+        assert all(st['off_km'] < 0.05 for st in stops)
+
+    def test_정류장_위치는_순서대로_늘어난다(self):
+        sh = straight(101)
+        stops = brt.place_stops(sh, self.rows([LAT0 + i * STEP for i in (0, 25, 50, 75, 100)]), False)
+        kms = [st['km'] for st in stops]
+        assert kms == sorted(kms)
+        assert all(st['off_km'] < 0.01 for st in stops)
+
+    def test_왕복선은_같은_이름도_구간이_갈린다(self):
+        # 가는 편 정류장과 오는 편 정류장이 같은 자리인데 순번으로 갈려야 한다
+        sh = out_and_back(101)
+        lats = [LAT0, LAT0 + 50 * STEP, LAT0 + 100 * STEP, LAT0 + 50 * STEP, LAT0]
+        names = ['기점', '중간', '반환점', '중간', '기점']
+        stops = brt.place_stops(sh, self.rows(lats, names), True)
+        kms = [st['km'] for st in stops]
+        assert kms == sorted(kms), '순번이 뒤섞였다'
+        turn_km = sh['cum_km'][100]
+        assert stops[1]['km'] < turn_km          # 가는 편 중간
+        assert stops[3]['km'] > turn_km          # 오는 편 중간

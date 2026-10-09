@@ -59,7 +59,9 @@ HEADERS = {
 
 # 재는 노선. 대개 방향마다 route_id 가 따로 있어 방향이 자료 구조에서 갈라진다.
 # 등급은 `data/seed/brt_seed.csv` 의 구간과 맞춰 붙였다.
-#   turn=True 는 회차 노선(기점=종점)이라 선형이 왕복이다 - project_km 설명 참고.
+#   turn=True 는 **갔던 길을 되돌아오는** 노선이라 선형에 같은 길이 두 번 나온다.
+#   기점=종점이어도 **순환선**(B0 내·외선, B5)은 한 바퀴 돌 뿐 되돌아오지 않으므로
+#   turn=False 다. 기점·종점 이름만 보고 붙이면 틀린다 - check_shape() 가 검사한다.
 ROUTES = {
     # 세종 BRT 본선 (brt_seed "세종 BRT 반석역~세종시~오송역" HIGH 31.2km)
     '293000317': dict(name='B4', mode='BRT_HIGH', direction='반석역->오송역', turn=False),
@@ -84,6 +86,20 @@ ROUTES = {
     # 그 치우침으로 BRT 측정값을 나누면 심야 실측을 연평균 쪽으로 끌어올 수 있다.
     '293000282': dict(name='1005', mode='CITY_BUS', direction='반석역->오송역', turn=False),
     '293000283': dict(name='1005', mode='CITY_BUS', direction='오송역->반석역', turn=False),
+    # 같은 전용도로를 쓰지만 정류장 수가 다른 노선들. 역간격이 0.63~2.55km 로 4배
+    # 벌어져 **같은 도로에서 "정류장 간격이 표정속도를 얼마나 깎는가" 를 잴 수 있다.**
+    # mode_capacity 가 수단별 spacing_km 을 쓰고 있어(중전철 1.06km->32.4,
+    # 복선전철 4.98km->47.6) 그 관계를 실측으로 받칠 값어치가 있다.
+    #
+    # **등급은 붙이지 않는다(OTHER).** brt_seed.csv 에 이 노선들의 구간이 없어
+    # 고급형인지 저급형인지 근거가 없다. BRT 중앙값을 오염시키지 않게 따로 둔다.
+    '293000303': dict(name='B0순환', mode='OTHER', direction='외선', turn=False),
+    '293000304': dict(name='B0터미널', mode='OTHER', direction='1', turn=False),
+    '293000305': dict(name='B0터미널', mode='OTHER', direction='2', turn=False),
+    '293000311': dict(name='B5', mode='OTHER', direction='1', turn=False),
+    '293000312': dict(name='B5', mode='OTHER', direction='2', turn=False),
+    '271000805': dict(name='B7', mode='OTHER', direction='집현동->비하', turn=False),
+    '271000806': dict(name='B7', mode='OTHER', direction='비하->집현동', turn=False),
 }
 
 POLL_SEC = 30          # 운영 화면은 3초. 우리 목적엔 30초로 충분하고 서버에 덜 부담된다
@@ -185,14 +201,29 @@ def place_stops(shape, rows, turn):
     ti = turn_index(shape) if turn else n
     t_ord = turn_ord(rows) if turn else None
     out = []
-    for r in rows:
+    cursor, cur_leg = 0, None
+    for r in sorted(rows, key=lambda x: x['ord']):
         if turn and r['ord'] > t_ord:
-            lo, hi = ti, n                  # 오는 편
+            leg, lo, hi = 'back', ti, n                 # 오는 편
         elif turn:
-            lo, hi = 0, min(ti + 1, n)      # 가는 편
+            leg, lo, hi = 'out', 0, min(ti + 1, n)      # 가는 편
         else:
-            lo, hi = 0, n
-        i, off = nearest(shape, r['lat'], r['lng'], lo, hi)
+            leg, lo, hi = 'one', 0, n
+        first = leg != cur_leg
+        if first:
+            cursor, cur_leg = lo, leg
+        # 구간 안에서 **앞으로만** 찾는다. 한 구간에서 같은 장소를 한 번만 지나므로
+        # 전진 탐색이면 혼동이 없고 순서도 보장된다.
+        #
+        # 단 **구간의 첫 정류장은 앞쪽 10% 로 더 좁힌다.** 순환선(B0·B5)은 기점과
+        # 종점이 같은 장소여서, 선형의 끝점이 시작점보다 미세하게 더 가까우면
+        # 1번 정류장이 선형 끝에 붙는다. 그러면 전진 커서가 거기 갇혀 나머지
+        # 정류장이 전부 몰리고(B5 에서 실제로 1~38번이 모두 23.37km 에 쌓였다),
+        # 이탈 거리만 1.6km, 2.6km 로 늘어난다. 노선의 첫 정류장은 정의상
+        # 노선의 시작이므로 그렇게 멀리서 찾을 이유가 없다.
+        top = lo + max(10, (hi - lo) // 10) if first else hi
+        i, off = nearest(shape, r['lat'], r['lng'], cursor, top)
+        cursor = i
         out.append({'ord': r['ord'], 'name': r['name'], 'id': r['id'], 'idx': i,
                     'km': round(shape['cum_km'][i], 3), 'off_km': round(off, 3)})
     return out
@@ -227,10 +258,43 @@ def project_km(shape, lat, lng, stop_id=None, last_idx=None):
     return shape['cum_km'][i], d, i
 
 
+def check_shape(shape, route_id):
+    """선형 지도가 쓸 만한지 검사한다. 아니면 멈춘다.
+
+    정류장 위치가 틀리면 차량 진행거리가 조용히 어긋나 그럴듯한 속도가 나온다.
+    실제로 B1 에서 55개 중 24군데가 순서를 거슬렀는데 숫자는 멀쩡해 보였다.
+    또 **기점=종점이라고 다 왕복은 아니다** - 순환선(B0·B5)은 한 바퀴 돌 뿐이다.
+    turn 을 잘못 붙이면 구간이 엉뚱하게 갈리므로 여기서 가려낸다.
+    """
+    name = ROUTES[route_id]['name'] + ' ' + ROUTES[route_id]['direction']
+    stops = shape['stops']
+    back = [(a['ord'], b['ord']) for a, b in zip(stops, stops[1:]) if b['km'] < a['km']]
+    if back:
+        raise SystemExit('%s: 정류장 위치가 순서를 거슬렀습니다 %s개 (%s...). '
+                         'turn 설정과 place_stops 를 보세요'
+                         % (name, len(back), back[:3]))
+    far = [(st['ord'], st['name'], st['off_km']) for st in stops if st['off_km'] > 0.5]
+    if far:
+        raise SystemExit('%s: 선형에서 500m 넘게 떨어진 정류장 %s' % (name, far[:3]))
+    # 되돌아오는지 기하로 확인해 turn 설정과 맞춰 본다
+    pts, n = shape['points'], len(shape['points'])
+    half = n // 2
+    tail = {'points': pts[half:], 'cum_km': shape['cum_km'][half:]}
+    step = max(1, half // 40)
+    near = [nearest(tail, pts[i][0], pts[i][1])[1] < 0.3 for i in range(0, half, step)]
+    retraces = sum(near) / len(near) > 0.8
+    if retraces != ROUTES[route_id]['turn']:
+        raise SystemExit('%s: 선형은 %s인데 turn=%s 로 돼 있습니다'
+                         % (name, '왕복' if retraces else '왕복이 아님',
+                            ROUTES[route_id]['turn']))
+
+
 def collect(minutes, only=None, obs_name='observations.csv'):
     CACHE.mkdir(parents=True, exist_ok=True)
     picked = [r for r in ROUTES if only is None or ROUTES[r]['name'] in only]
     shapes = {rid: route_shape(rid) for rid in picked}
+    for rid, sh in shapes.items():
+        check_shape(sh, rid)
     for rid, sh in shapes.items():
         r = ROUTES[rid]
         print('%s %-18s 선형 %6.2f km  정류장 %2d개  %s%s'
@@ -429,6 +493,33 @@ def measure_leg(run, leg_name, lo_km, hi_km):
     }, None
 
 
+SEED = Path(__file__).resolve().parent.parent / 'data' / 'seed' / 'road_speed.csv'
+BASELINE_CITY = '대전'      # 세종은 대전권이다. B1 은 대전~세종을 잇는다
+
+
+def published_city_bus():
+    """공표된 시내버스 표정속도. 국가지표체계 승인통계(`road_speed.csv`).
+
+    대조군(일반 시내버스 1005)을 이 값과 견주면 **측정이 어느 시간대에 치우쳤는지**가
+    숫자로 나온다. 공표값은 연간 실적이라 전 시간대를 섞은 값이고 내 측정은 특정
+    시점이다. 둘의 비가 그 치우침이다.
+
+    **그 비로 BRT 측정값을 나눠 연평균을 만들 수는 없다** - report() 설명 참고.
+
+    세종은 6대 광역시 통계에 없어 대전 값을 대리로 쓴다 (근사).
+    """
+    rows = []
+    with SEED.open(encoding='utf-8') as fh:
+        for r in csv.DictReader(fh):
+            if r['vehicle'] == '시내버스':
+                rows.append((int(r['year']), r['city'], float(r['speed_kmh'])))
+    if not rows:
+        return None, None
+    year = max(y for y, _, _ in rows)
+    latest = {c: v for y, c, v in rows if y == year}
+    return latest.get(BASELINE_CITY), statistics.median(sorted(latest.values()))
+
+
 def label(rid, leg):
     r = ROUTES[rid]
     base = '%s %s' % (r['name'], r['direction'])
@@ -524,40 +615,40 @@ def report():
               % (k, len(v), statistics.median(v), min(v), max(v)))
     print('')
 
-    # 대조군으로 시간대 치우침을 재고 보정한다
+    # 대조군으로 시간대 치우침을 잰다
     dj, med6 = published_city_bus()
     ctrl = by_mode.get('CITY_BUS')
     print('공표값과 견주기 (road_speed.csv, 국가지표체계 승인통계)')
     print('  공표 시내버스  %s %.1f / 6대 광역시 중앙값 %.1f  <- 연간 실적, 전 시간대'
           % (BASELINE_CITY, dj, med6))
     if not ctrl:
-        print('  대조군(1005 일반버스) 표본이 없어 치우침을 못 잰다.')
-        print('  **--only 1005 로 같은 시간대를 함께 재야 측정값을 보정할 수 있다.**')
+        print('  대조군(1005 일반버스) 표본이 없어 치우침을 못 잽니다.')
+        print('  **--only 1005 로 같은 시간대를 함께 재야 측정값을 해석할 수 있습니다.**')
     else:
         obs_bus = statistics.median(ctrl)
         bias = obs_bus / dj
         print('  측정 일반버스  1005 %.2f (n=%d)  -> 공표값의 %.2f배' % (obs_bus, len(ctrl), bias))
-        if bias > 1.15:
-            print('     이 시간대가 공표값보다 빠르다. BRT 측정값도 같은 만큼 부풀어 있다')
-        elif bias < 0.85:
-            print('     이 시간대가 공표값보다 느리다. BRT 측정값도 같은 만큼 눌려 있다')
-        else:
-            print('     공표값과 비슷한 시간대다. 보정이 거의 필요 없다')
         print('')
-        print('  %-10s %10s %10s %10s' % ('', '측정', '일반버스배수', '보정값'))
+        print('  %-10s %10s %12s' % ('', '측정', '일반버스대비'))
         for mode in ('BRT_HIGH', 'BRT_LOW'):
             v = by_mode.get(mode)
             if not v:
                 print('  %-10s %10s' % (mode, '표본 없음'))
                 continue
             m = statistics.median(v)
-            print('  %-10s %10.2f %9.2f배 %10.2f' % (mode, m, m / obs_bus, m / bias))
+            print('  %-10s %10.2f %11.2f배' % (mode, m, m / obs_bus))
         print('')
-        print('  보정값 = 측정값 / 치우침. 같은 시각에 달린 일반버스로 시간대를 지워 낸 값이다.')
-        print('  **일반버스배수는 같은 도로 비교가 아니다.** 1005 는 기점·종점만 같고')
-        print('  길이 다르다(겹침 18~36%, 조치원 경유). B4 전용도로에는 일반 시내버스가')
-        print('  아예 다니지 않아 같은 도로 대조군은 만들 수 없다.')
-        print('  **세종은 6대 광역시 통계에 없어 대전 값을 대리로 썼다 - 근사다.**')
+        print('  **치우침으로 나눠서 연평균을 만들 수는 없습니다.** 그러려면 BRT 와')
+        print('  일반버스가 혼잡에 똑같이 민감해야 하는데, 그건 BRT 의 존재 이유를')
+        print('  부정하는 가정입니다. 전용도로는 막힐 때 값을 하고 빈 도로에서는')
+        print('  아무것도 사 주지 않습니다 - 실제로 심야에는 BRT 가 일반버스보다')
+        print('  빠르지도 않게 나옵니다.')
+        if bias > 1.3:
+            print('')
+            print('  지금 표본은 공표 연평균의 %.2f배인 시간대에서 나왔습니다.' % bias)
+            print('  **절대값은 혼잡이 없을 때의 상한으로만 읽으세요.**')
+            print('  BRT 우위 비율도 이 시간대에는 과소평가입니다.')
+            print('  쓸 값을 얻으려면 첨두·보통 시간대를 직접 재야 합니다 (아래 격자).')
     print('')
 
     # 격자 - 빈 칸을 보고 다음에 언제 돌릴지 고른다
