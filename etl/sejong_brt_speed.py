@@ -72,6 +72,12 @@ ROUTES = {
     # 세종~청주 BRT. brt_seed 의 "행복도시~청주대농지구 32.3km" 와 구간이 달라 연장은 BIS 실측을 쓴다
     '271000801': dict(name='B3', mode='BRT_LOW', direction='세종터미널->청주공항', turn=False),
     '271000802': dict(name='B3', mode='BRT_LOW', direction='청주공항->세종터미널', turn=False),
+    # 대조군 - B4 와 기점·종점이 같은 일반 시내버스(정류장 35개, 역간격 1.10km).
+    # 같은 시각에 같은 길을 재면 시간대 치우침이 상쇄돼 'BRT 가 몇 배 빠른가' 가 남는다.
+    # 공표된 시내버스 21.3km/h(road_speed.csv)에 그 비율을 곱하는 것이
+    # 심야 실측값을 그대로 쓰는 것보다 방어하기 쉽다.
+    '293000282': dict(name='1005', mode='CITY_BUS', direction='반석역->오송역', turn=False),
+    '293000283': dict(name='1005', mode='CITY_BUS', direction='오송역->반석역', turn=False),
 }
 
 POLL_SEC = 30          # 운영 화면은 3초. 우리 목적엔 30초로 충분하고 서버에 덜 부담된다
@@ -160,16 +166,17 @@ def project_km(shape, lat, lng, last_idx=None):
     return shape['cum_km'][i], d, i
 
 
-def collect(minutes):
+def collect(minutes, only=None, obs_name='observations.csv'):
     CACHE.mkdir(parents=True, exist_ok=True)
-    shapes = {rid: route_shape(rid) for rid in ROUTES}
+    picked = [r for r in ROUTES if only is None or ROUTES[r]['name'] in only]
+    shapes = {rid: route_shape(rid) for rid in picked}
     for rid, sh in shapes.items():
         r = ROUTES[rid]
         print('%s %-18s 선형 %6.2f km  정류장 %2d개  %s%s'
               % (r['name'], r['direction'], sh['length_km'], len(sh['stops']),
                  sh['alloc'] or '운행횟수 없음', ' [회차]' if r['turn'] else ''))
 
-    obs_file = CACHE / 'observations.csv'
+    obs_file = CACHE / obs_name
     new_file = not obs_file.exists()
     deadline = time.time() + minutes * 60
     rows = 0
@@ -223,11 +230,18 @@ def collect(minutes):
 
 
 def load_obs():
-    f = CACHE / 'observations.csv'
-    if not f.exists():
+    """쌓인 관측을 모두 모아 읽는다.
+
+    수집 과정을 여러 개 동시에 돌릴 수 있어야 한다 - 막차 시각이 노선마다
+    다르고, 한 과정이 끝날 때까지 기다리면 그 사이 운행이 날아간다.
+    그래서 과정마다 파일을 따로 쓰고 집계에서 합친다.
+    """
+    rows = []
+    for f in sorted(CACHE.glob("observations*.csv")):
+        with f.open(encoding="utf-8") as fh:
+            rows.extend(csv.DictReader(fh))
+    if not rows:
         return []
-    with f.open(encoding='utf-8') as fh:
-        rows = list(csv.DictReader(fh))
     for r in rows:
         r['t'] = datetime.fromisoformat(r['ts'])
         r['dist_km'] = float(r['dist_km'])
@@ -315,6 +329,32 @@ def measure_leg(run, leg_name, lo_km, hi_km):
     }, None
 
 
+SEED = Path(__file__).resolve().parent.parent / 'data' / 'seed' / 'road_speed.csv'
+BASELINE_CITY = '대전'      # 세종은 대전권이다. B1 은 대전~세종을 잇는다
+
+
+def published_city_bus():
+    """공표된 시내버스 표정속도. 국가지표체계 승인통계(`road_speed.csv`).
+
+    대조군(일반 시내버스 1005)을 이 값과 견주면 **내 측정이 어느 시간대에
+    치우쳤는지**가 숫자로 나온다. 공표값은 연간 실적이라 전 시간대를 섞은 값이고,
+    내 측정은 특정 시점이다. 둘의 비가 그 치우침이다.
+
+    세종은 6대 광역시 통계에 없어 대전 값을 대리로 쓴다 - 근사다.
+    """
+    rows = []
+    with SEED.open(encoding='utf-8') as fh:
+        for r in csv.DictReader(fh):
+            if r['vehicle'] == '시내버스':
+                rows.append((int(r['year']), r['city'], float(r['speed_kmh'])))
+    if not rows:
+        return None, None
+    year = max(y for y, _, _ in rows)
+    latest = {c: v for y, c, v in rows if y == year}
+    median_all = statistics.median(sorted(latest.values()))
+    return latest.get(BASELINE_CITY), median_all
+
+
 def label(rid, leg):
     r = ROUTES[rid]
     base = '%s %s' % (r['name'], r['direction'])
@@ -374,7 +414,7 @@ def report():
     by_mode = {}
     for s in samples:
         by_mode.setdefault(ROUTES[s['route_id']]['mode'], []).append(s['speed_kmh'])
-    for mode in ('BRT_HIGH', 'BRT_LOW'):
+    for mode in ('BRT_HIGH', 'BRT_LOW', 'CITY_BUS'):
         v = by_mode.get(mode)
         if not v:
             print('  %-10s 표본 없음' % mode)
@@ -399,6 +439,41 @@ def report():
               % (k, len(v), statistics.median(v), min(v), max(v)))
     print('')
 
+    # 대조군으로 시간대 치우침을 재고 보정한다
+    dj, med6 = published_city_bus()
+    ctrl = by_mode.get('CITY_BUS')
+    print('공표값과 견주기 (road_speed.csv, 국가지표체계 승인통계)')
+    print('  공표 시내버스  %s %.1f / 6대 광역시 중앙값 %.1f  <- 연간 실적, 전 시간대'
+          % (BASELINE_CITY, dj, med6))
+    if not ctrl:
+        print('  대조군(1005 일반버스) 표본이 없어 치우침을 못 잰다.')
+        print('  **--only 1005 로 같은 시간대를 함께 재야 측정값을 보정할 수 있다.**')
+    else:
+        obs_bus = statistics.median(ctrl)
+        bias = obs_bus / dj
+        print('  측정 일반버스  1005 %.2f (n=%d)  -> 공표값의 %.2f배' % (obs_bus, len(ctrl), bias))
+        if bias > 1.15:
+            print('     이 시간대가 공표값보다 빠르다. BRT 측정값도 같은 만큼 부풀어 있다')
+        elif bias < 0.85:
+            print('     이 시간대가 공표값보다 느리다. BRT 측정값도 같은 만큼 눌려 있다')
+        else:
+            print('     공표값과 비슷한 시간대다. 보정이 거의 필요 없다')
+        print('')
+        print('  %-10s %10s %10s %10s' % ('', '측정', 'BRT배수', '보정값'))
+        for mode in ('BRT_HIGH', 'BRT_LOW'):
+            v = by_mode.get(mode)
+            if not v:
+                print('  %-10s %10s' % (mode, '표본 없음'))
+                continue
+            m = statistics.median(v)
+            print('  %-10s %10.2f %9.2f배 %10.2f' % (mode, m, m / obs_bus, m / bias))
+        print('')
+        print('  보정값 = 측정값 / 치우침. 같은 시각 같은 길을 달린 일반버스로 시간대를')
+        print('  지워 낸 값이다. 절대값보다 BRT배수가 더 믿을 만하다 - 두 측정이 같은')
+        print('  조건에서 나왔기 때문이다.')
+        print('  **세종은 6대 광역시 통계에 없어 대전 값을 대리로 썼다 - 근사다.**')
+    print('')
+
     # 격자 - 빈 칸을 보고 다음에 언제 돌릴지 고른다
     print('요일 x 시간대 격자 (등급별)')
     grid = {}
@@ -412,7 +487,7 @@ def report():
         else:
             slot = '보통'
         grid.setdefault((ROUTES[s['route_id']]['mode'], kind, slot), []).append(s['speed_kmh'])
-    for mode in ('BRT_HIGH', 'BRT_LOW'):
+    for mode in ('BRT_HIGH', 'BRT_LOW', 'CITY_BUS'):
         for kind in ('평일', '주말'):
             for slot in ('첨두', '보통', '심야'):
                 v = grid.get((mode, kind, slot))
@@ -450,9 +525,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--collect', type=int, metavar='MINUTES', help='이 분만큼 수집한다')
     ap.add_argument('--report', action='store_true', help='쌓인 관측으로 집계한다')
+    ap.add_argument('--only', nargs='+', metavar='노선', help='이 노선만 수집한다 (예: B4 1005)')
+    ap.add_argument('--obs', default='observations.csv', help='관측을 쓸 파일 이름')
     a = ap.parse_args()
     if a.collect:
-        collect(a.collect)
+        collect(a.collect, only=a.only, obs_name=a.obs)
     if a.report or not a.collect:
         report()
 
