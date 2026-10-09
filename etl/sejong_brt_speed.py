@@ -88,7 +88,8 @@ ROUTES = {
 
 POLL_SEC = 30          # 운영 화면은 3초. 우리 목적엔 30초로 충분하고 서버에 덜 부담된다
 DWELL_M = 200          # 양 끝에서 이만큼 안에 머문 관측은 종점 대기로 보고 잘라낸다
-MIN_COVER = 0.90       # 노선의 이 비율 이상을 달린 운행만 표본으로 센다
+MIN_COVER = 0.90       # 이 비율 이상을 달렸으면 전구간 표본으로 센다
+SEG_MIN_KM = 10.0      # 완주를 못 했어도 이어서 이만큼 달렸으면 구간 표본으로 센다
 RUN_GAP_SEC = 900      # 관측이 이만큼 끊기면 다른 운행으로 본다
 BACKSLIDE_KM = 1.0     # 진행거리가 이만큼 줄면 새 운행(종점에서 되돌아감)으로 본다
 FWD_WINDOW = 40        # 전진 투영 창. 30초에 80km/h 로도 0.67km(약 12점)뿐이라 넉넉하다
@@ -383,8 +384,14 @@ def legs_of(shape, turn):
 def measure_leg(run, leg_name, lo_km, hi_km):
     """한 운행에서 한 구간의 표정속도를 뽑는다. 못 뽑으면 (None, 이유).
 
-    표정속도는 중간 정차는 포함하고 종점 회차 대기는 포함하지 않는다.
-    양 끝에서 진행거리가 변하지 않는 관측이 그 대기이므로 잘라낸다.
+    표정속도는 중간 정차는 포함하고 **종점 회차 대기는 포함하지 않는다.**
+    진행거리가 변하지 않는 관측이 그 대기인데, **구간 끝에 닿아 있을 때만**
+    대기로 본다. 관측이 시작된 지점을 대기로 오인해 잘라내면 실제로 달린
+    시간이 빠져 속도가 부풀어 오른다.
+
+    완주 여부는 판단하지 않고 cover_pct 를 함께 돌려준다 - 부르는 쪽이
+    전구간 표본으로 셀지 구간 표본으로 셀지 고른다. 33km 노선에서 20km 를
+    이어서 따라갔으면 그것도 쓸 수 있는 측정이다. 완주만 세면 표본이 아깝다.
     """
     span = hi_km - lo_km
     seen = [r for r in run if lo_km - 0.05 <= r['dist_km'] <= hi_km + 0.05]
@@ -392,11 +399,14 @@ def measure_leg(run, leg_name, lo_km, hi_km):
         return None, '%s 관측 %d개' % (leg_name, len(seen))
     lo = min(r['dist_km'] for r in seen)
     hi = max(r['dist_km'] for r in seen)
-    if hi - lo < MIN_COVER * span:
-        return None, '%s %.0f%% 만 관측' % (leg_name, (hi - lo) / span * 100)
+    if hi - lo < 0.1:
+        return None, '%s 움직이지 않았다' % leg_name
 
-    dep = [r for r in seen if r['dist_km'] <= lo + DWELL_M / 1000][-1]
-    arr = [r for r in seen if r['dist_km'] >= hi - DWELL_M / 1000][0]
+    dwell = DWELL_M / 1000
+    at_start = lo <= lo_km + dwell          # 기점에 닿아 있었다 -> 출발 대기를 자른다
+    at_end = hi >= hi_km - dwell            # 종점에 닿았다 -> 도착 후 대기를 자른다
+    dep = [r for r in seen if r['dist_km'] <= lo + dwell][-1] if at_start else seen[0]
+    arr = [r for r in seen if r['dist_km'] >= hi - dwell][0] if at_end else seen[-1]
     secs = (arr['t'] - dep['t']).total_seconds()
     dist = arr['dist_km'] - dep['dist_km']
     if secs <= 0 or dist <= 0:
@@ -410,36 +420,13 @@ def measure_leg(run, leg_name, lo_km, hi_km):
         'weekday': dep['t'].strftime('%a'),
         'hour': dep['t'].hour,
         'dist_km': round(dist, 3),
+        'span_km': round(span, 3),
+        'cover_pct': round(dist / span * 100, 1),
+        'full': dist >= MIN_COVER * span,
         'minutes': round(secs / 60, 1),
         'speed_kmh': round(dist / (secs / 3600), 2),
         'n_obs': len(seen),
     }, None
-
-
-SEED = Path(__file__).resolve().parent.parent / 'data' / 'seed' / 'road_speed.csv'
-BASELINE_CITY = '대전'      # 세종은 대전권이다. B1 은 대전~세종을 잇는다
-
-
-def published_city_bus():
-    """공표된 시내버스 표정속도. 국가지표체계 승인통계(`road_speed.csv`).
-
-    대조군(일반 시내버스 1005)을 이 값과 견주면 **내 측정이 어느 시간대에
-    치우쳤는지**가 숫자로 나온다. 공표값은 연간 실적이라 전 시간대를 섞은 값이고,
-    내 측정은 특정 시점이다. 둘의 비가 그 치우침이다.
-
-    세종은 6대 광역시 통계에 없어 대전 값을 대리로 쓴다 - 근사다.
-    """
-    rows = []
-    with SEED.open(encoding='utf-8') as fh:
-        for r in csv.DictReader(fh):
-            if r['vehicle'] == '시내버스':
-                rows.append((int(r['year']), r['city'], float(r['speed_kmh'])))
-    if not rows:
-        return None, None
-    year = max(y for y, _, _ in rows)
-    latest = {c: v for y, c, v in rows if y == year}
-    median_all = statistics.median(sorted(latest.values()))
-    return latest.get(BASELINE_CITY), median_all
 
 
 def label(rid, leg):
@@ -461,40 +448,51 @@ def report():
              hi_t.strftime('%m-%d %H:%M')))
     print('')
 
-    samples, rejects = [], []
+    samples, short = [], []
     for run in split_runs(rows):
         rid = run[0]['route_id']
         if rid not in ROUTES:
             continue
-        got = False
         for leg_name, lo_km, hi_km in legs_of(shapes[rid], ROUTES[rid]['turn']):
-            s, why = measure_leg(run, leg_name, lo_km, hi_km)
-            if s:
-                samples.append(s)
-                got = True
+            m, why = measure_leg(run, leg_name, lo_km, hi_km)
+            if m is None:
+                continue
+            if m['full'] or m['dist_km'] >= SEG_MIN_KM:
+                samples.append(m)
             else:
-                rejects.append((rid, run[0]['plate_no'], run[0]['t'], why))
-        if not got:
-            pass
+                short.append(m)
 
-    print('완주 표본 %d개 / 미완주 조각 %d개' % (len(samples), len(rejects)))
+    full = [m for m in samples if m['full']]
+    seg = [m for m in samples if not m['full']]
+    print('전구간 표본 %d개 / 구간 표본 %d개 (%.0fkm 이상) / 너무 짧은 조각 %d개'
+          % (len(full), len(seg), SEG_MIN_KM, len(short)))
     if not samples:
         print('')
-        print('아직 한 구간을 처음부터 끝까지 따라간 차량이 없습니다. 더 모으세요.')
+        print('아직 %.0fkm 이상 이어서 따라간 차량이 없습니다. 더 모으세요.' % SEG_MIN_KM)
         print('가장 많이 달린 조각들:')
-        for rid, plate, t, why in rejects[:10]:
-            print('   %-22s %s %s  %s' % (label(rid, '전구간'),
-                                          plate, t.strftime('%m-%d %H:%M'), why))
+        for m in sorted(short, key=lambda x: -x['dist_km'])[:10]:
+            print('   %-28s %-12s %s  %5.1f km (%4.1f%%)'
+                  % (label(m['route_id'], m['leg']), m['plate_no'],
+                     m['depart'].strftime('%m-%d %H:%M'), m['dist_km'], m['cover_pct']))
         return
     print('')
 
-    print('%-30s %-16s %-12s %7s %6s %7s'
-          % ('구간', '출발', '차량', 'km', '분', 'km/h'))
-    for s in sorted(samples, key=lambda x: x['depart']):
-        print('%-30s %s  %-12s %7.2f %6.1f %7.2f'
-              % (label(s['route_id'], s['leg']), s['depart'].strftime('%m-%d %a %H:%M'),
-                 s['plate_no'], s['dist_km'], s['minutes'], s['speed_kmh']))
+    print('%-28s %-16s %-12s %7s %6s %6s %7s'
+          % ('구간', '출발', '차량', 'km', '비율', '분', 'km/h'))
+    for m in sorted(samples, key=lambda x: x['depart']):
+        print('%-28s %s  %-12s %7.2f %5.0f%% %6.1f %7.2f%s'
+              % (label(m['route_id'], m['leg']), m['depart'].strftime('%m-%d %a %H:%M'),
+                 m['plate_no'], m['dist_km'], m['cover_pct'], m['minutes'],
+                 m['speed_kmh'], '' if m['full'] else '  (구간)'))
     print('')
+
+    # 구간 표본이 전구간 표본과 어긋나는지 - 어긋나면 구간 값을 쓸 수 없다
+    if full and seg:
+        fm, sm = statistics.median([m['speed_kmh'] for m in full]),                  statistics.median([m['speed_kmh'] for m in seg])
+        print('전구간 중앙값 %.2f  vs  구간 중앙값 %.2f  (%.2f배)' % (fm, sm, sm / fm))
+        print('  구간 표본은 종점 부근의 가·감속과 혼잡을 덜 담아 조금 빠르게 나올 수 있다.')
+        print('  둘이 크게 어긋나면 구간 표본을 섞지 말 것.')
+        print('')
 
     # 등급별 집계 - 이게 mode_capacity.speed_kmh 에 들어갈 값이다
     print('등급별 (mode_capacity.speed_kmh 후보)')
@@ -592,7 +590,8 @@ def report():
     with out.open('w', newline='', encoding='utf-8') as fh:
         w = csv.DictWriter(fh, ['route_name', 'direction', 'leg', 'mode', 'plate_no',
                                 'depart', 'arrive', 'weekday', 'hour', 'dist_km',
-                                'minutes', 'speed_kmh', 'n_obs'])
+                                'span_km', 'cover_pct', 'full', 'minutes', 'speed_kmh',
+                                'n_obs'])
         w.writeheader()
         for s in sorted(samples, key=lambda x: x['depart']):
             r = ROUTES[s['route_id']]
@@ -600,8 +599,10 @@ def report():
                         'leg': s['leg'], 'mode': r['mode'], 'plate_no': s['plate_no'],
                         'depart': s['depart'].isoformat(), 'arrive': s['arrive'].isoformat(),
                         'weekday': s['weekday'], 'hour': s['hour'],
-                        'dist_km': s['dist_km'], 'minutes': s['minutes'],
-                        'speed_kmh': s['speed_kmh'], 'n_obs': s['n_obs']})
+                        'dist_km': s['dist_km'], 'span_km': s['span_km'],
+                        'cover_pct': s['cover_pct'], 'full': int(s['full']),
+                        'minutes': s['minutes'], 'speed_kmh': s['speed_kmh'],
+                        'n_obs': s['n_obs']})
     print('')
     print('%s 에 표본 %d개 저장' % (out, len(samples)))
 
