@@ -526,6 +526,56 @@ def label(rid, leg):
     return base if leg == '전구간' else '%s(%s)' % (base, leg)
 
 
+def spacing_report(samples, shapes):
+    """역간격이 표정속도를 얼마나 깎는가.
+
+    B4 전용도로에 일반 시내버스는 다니지 않지만 **정류장 수가 다른 BRT 계열이
+    여럿 있다** - 역간격이 0.63~2.73km 로 4.3배 벌어진다. 같은 도로에서 재면
+    도로 조건이 통제되므로 역간격 효과만 남는다.
+
+    `mode_capacity.spacing_km` 가 수단별로 다르고(중전철 1.06km->32.4,
+    복선전철 4.98km->47.6) 그 관계가 이미 자료에 암묵적으로 들어 있다.
+    실측으로 받칠 값어치가 있다.
+
+    시간대를 섞으면 안 된다 - 심야 표본과 첨두 표본을 함께 회귀하면 역간격
+    계수가 시간대 효과를 흡수한다. 그래서 시간대별로 따로 본다.
+    """
+    by_route = {}
+    for m in samples:
+        rid = m['route_id']
+        sh = shapes[rid]
+        spacing = sh['length_km'] / (len(sh['stops']) - 1)
+        h = m['hour']
+        slot = '첨두' if h in (7, 8, 17, 18) else ('심야' if (22 <= h or h < 6) else '보통')
+        key = (slot, ROUTES[rid]['name'], round(spacing, 2))
+        by_route.setdefault(key, []).append(m['speed_kmh'])
+
+    print('역간격 대비 표정속도 (같은 전용도로, 시간대별로 나눠 본다)')
+    if not by_route:
+        print('  표본 없음')
+        print('')
+        return
+    for slot in ('첨두', '보통', '심야'):
+        rows = sorted((k, v) for k, v in by_route.items() if k[0] == slot)
+        if not rows:
+            continue
+        print('  [%s]' % slot)
+        print('    %-10s %8s %5s %9s' % ('노선', '역간격km', 'n', '중앙값'))
+        for (_, name, sp), v in rows:
+            print('    %-10s %8.2f %5d %8.2f' % (name, sp, len(v), statistics.median(v)))
+        if len(rows) >= 3:
+            xs = [k[2] for k, _ in rows]
+            ys = [statistics.median(v) for _, v in rows]
+            mx, my = statistics.mean(xs), statistics.mean(ys)
+            den = sum((x - mx) ** 2 for x in xs)
+            if den > 0:
+                b = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den
+                print('    역간격 1km 늘 때 %+.2f km/h (노선 %d개 중앙값으로 단순 회귀)'
+                      % (b, len(rows)))
+                print('    주의: 노선마다 길·신호가 달라 역간격만의 효과는 아니다')
+    print('')
+
+
 def report():
     rows = load_obs()
     if not rows:
@@ -650,6 +700,9 @@ def report():
             print('  BRT 우위 비율도 이 시간대에는 과소평가입니다.')
             print('  쓸 값을 얻으려면 첨두·보통 시간대를 직접 재야 합니다 (아래 격자).')
     print('')
+
+    # 역간격과 표정속도 - 같은 전용도로에서 정류장 수만 다른 노선들이 있다
+    spacing_report(samples, shapes)
 
     # 격자 - 빈 칸을 보고 다음에 언제 돌릴지 고른다
     print('요일 x 시간대 격자 (등급별)')
