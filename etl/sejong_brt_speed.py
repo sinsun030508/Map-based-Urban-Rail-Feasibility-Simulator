@@ -557,6 +557,45 @@ def sanity_check(samples):
     print('')
 
 
+POOL_SPREAD = 2.0      # 한 노선의 구간 표본이 이보다 흩어지면 묶을 수 없다
+
+
+def poolability(samples):
+    """구간 표본을 한 노선의 대표값으로 묶어도 되는지 본다.
+
+    구간 표본은 노선의 일부만 달린 것이라, **노선이 균질할 때만** 서로 바꿔 쓸 수 있다.
+    B7(집현동~비하)은 세종 전용도로와 대전 시내를 함께 지나는데, 구간 표본이
+    17.6~60.6km/h 로 3.45배 흩어졌다. 그 중앙값을 "B7 의 표정속도" 라고 부르면
+    어느 구간을 더 많이 관측했는지에 따라 값이 달라진다.
+    균질한 노선은 그렇지 않다 - B2 1.04배, B0터미널 1.06배, B4 1.28배.
+
+    흩어진 노선은 전구간 표본이 쌓일 때까지 기다리는 것이 맞다.
+    """
+    by = {}
+    for m in samples:
+        by.setdefault(ROUTES[m['route_id']]['name'], []).append(m)
+    bad = []
+    for name, v in sorted(by.items()):
+        if len(v) < 2:
+            continue
+        sp = [x['speed_kmh'] for x in v]
+        if min(sp) <= 0:
+            continue
+        spread = max(sp) / min(sp)
+        if spread > POOL_SPREAD and not all(x['full'] for x in v):
+            bad.append((name, len(v), min(sp), max(sp), spread))
+    if bad:
+        print('구간 표본을 묶을 수 없는 노선 - 구간마다 속도가 너무 다르다')
+        for name, n, lo, hi, sp in bad:
+            print('   %-10s n=%-3d %.2f~%.2f km/h (%.2f배)' % (name, n, lo, hi, sp))
+        print('   길이 균질하지 않다는 뜻이다(전용도로와 시내도로가 섞인 노선).')
+        print('   **이 노선의 중앙값은 어느 구간을 더 관측했는지에 좌우된다** -')
+        print('   전구간 표본이 쌓일 때까지 대표값으로 쓰지 말 것.')
+    else:
+        print('구간 표본 묶기 - 모든 노선에서 구간별 속도가 %.1f배 안에 있다' % POOL_SPREAD)
+    print('')
+
+
 def spacing_report(samples, shapes):
     """역간격이 표정속도를 얼마나 깎는가.
 
@@ -733,6 +772,7 @@ def report():
     print('')
 
     sanity_check(samples)
+    poolability(samples)
 
     # 역간격과 표정속도 - 같은 전용도로에서 정류장 수만 다른 노선들이 있다
     spacing_report(samples, shapes)
