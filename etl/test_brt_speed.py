@@ -25,12 +25,13 @@ STEP = 0.001          # 약 0.1112 km
 LNG = 127.0
 
 
-def make_shape(points):
+def make_shape(points, stop_idx=None):
     """route_shape 과 같은 모양의 선형 딕셔너리를 만든다."""
     cum = [0.0]
     for a, b in zip(points, points[1:]):
         cum.append(cum[-1] + brt.haversine_km(a[0], a[1], b[0], b[1]))
-    return {'points': points, 'cum_km': cum, 'length_km': cum[-1]}
+    return {'points': points, 'cum_km': cum, 'length_km': cum[-1],
+            'stop_idx': stop_idx or {}}
 
 
 def straight(n):
@@ -189,3 +190,71 @@ class Test표정속도:
         s, _ = brt.measure_leg(run, '전구간', 0.0, 30.0)
         assert s['weekday'] == 'Fri'        # 2026-10-09 는 금요일
         assert s['hour'] == 8
+
+class Test정류장id로구간확정:
+    """실시간 응답의 stop_id 를 1순위 기준으로 쓰는 이유.
+
+    기하만 보면 왕복 노선의 중간 지점은 두 구간에 똑같이 가깝다. 처음 잡힐 때
+    상태가 없으면 가는 쪽에 붙고, 그 뒤로 거꾸로 기어간다 - 실측에서 진행거리가
+    29km 에서 25km 로 줄다가 81km 로 튀었다. stop_id 는 방향마다 다르므로
+    (B1 은 55개가 모두 유일하다) id 하나로 구간이 정해진다.
+    """
+
+    def test_상태가_없어도_오는_편으로_읽는다(self):
+        sh = out_and_back(101)                    # 색인 50 과 150 이 같은 자리
+        sh['stop_idx'] = {'오는편정류장': 150, '가는편정류장': 50}
+        lat = LAT0 + 50 * STEP
+        turn_km = sh['cum_km'][100]
+
+        km, off, idx = brt.project_km(sh, lat, LNG, stop_id='오는편정류장')
+        assert idx == 150
+        assert km > turn_km
+
+        km2, _, idx2 = brt.project_km(sh, lat, LNG, stop_id='가는편정류장')
+        assert idx2 == 50
+        assert km2 < turn_km
+
+    def test_정류장id가_직전_색인보다_우선한다(self):
+        # 한 번 잘못 붙었더라도 id 가 맞는 구간으로 되돌린다
+        sh = out_and_back(101)
+        sh['stop_idx'] = {'오는편정류장': 150}
+        lat = LAT0 + 50 * STEP
+        km, _, idx = brt.project_km(sh, lat, LNG, stop_id='오는편정류장', last_idx=48)
+        assert idx == 150
+
+    def test_모르는_정류장id는_무시하고_물러난다(self):
+        sh = out_and_back(101)
+        sh['stop_idx'] = {'다른정류장': 150}
+        lat = LAT0 + 50 * STEP
+        km, _, idx = brt.project_km(sh, lat, LNG, stop_id='없는id', last_idx=145)
+        assert idx == 150          # 직전 색인 방식으로 물러나 복귀 구간을 찾는다
+
+
+class Test불가능한점프:
+    def test_30초에_55km_는_끊는다(self):
+        # 실측에서 나온 값. 투영이 튄 것이지 운행이 아니다
+        rows = [obs(0, 25.565), obs(0.5, 80.933)]
+        assert len(brt.split_runs(rows)) == 2
+
+    def test_있을_수_있는_전진은_끊지_않는다(self):
+        # 30초에 0.5km = 60km/h. 전용도로 BRT 에는 흔하다
+        rows = [obs(0, 10.0), obs(0.5, 10.5)]
+        assert len(brt.split_runs(rows)) == 1
+
+
+class Test누적뒤걸음:
+    def test_조금씩_뒤로_가도_끊는다(self):
+        """종점에 닿은 버스가 반대 방향 운행을 시작하면 이전 route_id 에 몇 분간
+        남아 있다. 한 걸음씩은 1km 미만이라 걸음만 보면 못 잡는다 - 실제로
+        1005 차량이 37.6km 에서 34.0km 까지 조금씩 3.5km 를 뒤로 갔다.
+        """
+        d = [37.557, 37.382, 36.989, 36.265, 35.486, 35.186, 34.621, 34.039]
+        rows = [obs(i * 0.5, v) for i, v in enumerate(d)]
+        runs = brt.split_runs(rows)
+        assert len(runs) > 1, '누적 뒤걸음을 끊지 못했다'
+
+    def test_GPS_떨림은_끊지_않는다(self):
+        # 100m 안쪽에서 흔들리는 것은 같은 운행이다
+        d = [10.0, 10.05, 9.98, 10.12, 10.09, 10.2]
+        rows = [obs(i * 0.5, v) for i, v in enumerate(d)]
+        assert len(brt.split_runs(rows)) == 1

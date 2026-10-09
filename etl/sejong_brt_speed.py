@@ -72,10 +72,16 @@ ROUTES = {
     # 세종~청주 BRT. brt_seed 의 "행복도시~청주대농지구 32.3km" 와 구간이 달라 연장은 BIS 실측을 쓴다
     '271000801': dict(name='B3', mode='BRT_LOW', direction='세종터미널->청주공항', turn=False),
     '271000802': dict(name='B3', mode='BRT_LOW', direction='청주공항->세종터미널', turn=False),
-    # 대조군 - B4 와 기점·종점이 같은 일반 시내버스(정류장 35개, 역간격 1.10km).
-    # 같은 시각에 같은 길을 재면 시간대 치우침이 상쇄돼 'BRT 가 몇 배 빠른가' 가 남는다.
-    # 공표된 시내버스 21.3km/h(road_speed.csv)에 그 비율을 곱하는 것이
-    # 심야 실측값을 그대로 쓰는 것보다 방어하기 쉽다.
+    # 대조군 - 일반 시내버스. B4 와 기점·종점이 같지만(반석역~오송역) **길은 다르다**
+    # (선형 겹침 18~36%, 공통 정류장은 양 끝 2개뿐. 1005 는 조치원을 지나 돌아간다).
+    #
+    # **같은 도로 대조군은 원리적으로 불가능하다.** B4 전용도로의 중간 정류장 4곳을
+    # 지나는 노선을 모두 조회해 보니 전부 A·B 계열이었다 - 세종 BRT 전용도로에는
+    # 일반 시내버스가 다니지 않는다. 설계가 그렇다.
+    #
+    # 그래서 1005 의 역할은 "같은 길에서 BRT 가 몇 배 빠른가" 가 아니라
+    # **"일반 시내버스가 이 시간대에 연평균보다 얼마나 빠른가" 를 재는 탐침**이다.
+    # 그 치우침으로 BRT 측정값을 나누면 심야 실측을 연평균 쪽으로 끌어올 수 있다.
     '293000282': dict(name='1005', mode='CITY_BUS', direction='반석역->오송역', turn=False),
     '293000283': dict(name='1005', mode='CITY_BUS', direction='오송역->반석역', turn=False),
 }
@@ -88,10 +94,14 @@ BACKSLIDE_KM = 1.0     # 진행거리가 이만큼 줄면 새 운행(종점에�
 FWD_WINDOW = 40        # 전진 투영 창. 30초에 80km/h 로도 0.67km(약 12점)뿐이라 넉넉하다
 BACK_WINDOW = 3        # GPS 흔들림으로 조금 뒤로 잡히는 것은 허용한다
 OFF_ROUTE_KM = 1.0     # 선형에서 이만큼 벗어나면 그 노선을 달리는 차량이 아니다
+STOP_WINDOW = 60       # stop_id 로 정해진 정류장 주변에서 찾는 창. 왕복의 두 구간은
+                       # 색인이 수백 점 떨어져 있어 이 정도로는 섞이지 않는다
+MAX_KMH = 120          # 이보다 빠르면 투영이 튄 것이다 (버스는 이렇게 못 달린다)
 
 CACHE = Path(__file__).resolve().parent.parent / 'data' / 'cache' / 'brt'
 BUILD = Path(__file__).resolve().parent.parent / 'data' / 'build'
-OBS_COLS = ['ts', 'route_id', 'plate_no', 'lat', 'lng', 'dist_km', 'stop_name', 'spot_speed']
+OBS_COLS = ['ts', 'route_id', 'plate_no', 'lat', 'lng', 'dist_km',
+            'stop_id', 'stop_name', 'spot_speed']
 
 
 def post(path, **form):
@@ -125,10 +135,15 @@ def route_shape(route_id):
         'points': pts,
         'cum_km': cum,
         'length_km': round(cum[-1], 3),
-        'stops': [{'ord': int(s['stop_ord']), 'name': s['stop_name'], 'id': s['stop_id']}
-                  for s in d['busRouteDetailList']],
         'alloc': d['busRouteDetailList'][0]['alloc_time'].strip(),
     }
+
+    rows = [{'ord': int(st['stop_ord']), 'name': st['stop_name'].strip(),
+             'id': st['stop_id'].strip(), 'lat': float(st['lat']), 'lng': float(st['lng'])}
+            for st in d['busRouteDetailList']]
+    shape['stops'] = place_stops(shape, rows, ROUTES.get(route_id, {}).get('turn', False))
+    # 실시간 응답의 stop_id 로 위치를 짚는다
+    shape['stop_idx'] = {st['id']: st['idx'] for st in shape['stops']}
     f.write_text(json.dumps(shape, ensure_ascii=False), encoding='utf-8')
     return shape
 
@@ -146,18 +161,63 @@ def nearest(shape, lat, lng, lo=0, hi=None):
     return best, best_d
 
 
-def project_km(shape, lat, lng, last_idx=None):
+def turn_ord(rows):
+    """회차 노선의 반환 정류장 순번 - 첫 정류장에서 직선거리가 가장 먼 정류장."""
+    a = rows[0]
+    return max(rows, key=lambda r: haversine_km(a['lat'], a['lng'], r['lat'], r['lng']))['ord']
+
+
+def place_stops(shape, rows, turn):
+    """정류장을 선형 색인에 맞춘다.
+
+    **좌표만으로는 회차 노선의 구간을 가릴 수 없다.** 같은 장소의 가는 편·오는 편
+    차로가 100m 안에 나란히 있어서 정류장 좌표가 양쪽 선형 모두에 그만큼 가깝다.
+    실제로 B1 에서 가는 편 정류장이 오는 편 자리에 무작위로 붙어, 15번 보람동은
+    제자리(28.89km)인데 11번 국제과학비즈니스벨트는 복귀 자리(83.95km)로 갔다.
+    그 지도를 쓰면 차량 진행거리가 거꾸로 기어간다.
+
+    가릴 수 있는 것은 좌표가 아니라 **`stop_ord`** 다. 순번이 곧 구간이다 -
+    반환 정류장 전은 가는 편, 후는 오는 편. 구간을 먼저 가르고 그 안에서만
+    찾으면 한 구간에 같은 장소가 한 번만 나오므로 애매함이 없다.
+    """
+    n = len(shape['points'])
+    ti = turn_index(shape) if turn else n
+    t_ord = turn_ord(rows) if turn else None
+    out = []
+    for r in rows:
+        if turn and r['ord'] > t_ord:
+            lo, hi = ti, n                  # 오는 편
+        elif turn:
+            lo, hi = 0, min(ti + 1, n)      # 가는 편
+        else:
+            lo, hi = 0, n
+        i, off = nearest(shape, r['lat'], r['lng'], lo, hi)
+        out.append({'ord': r['ord'], 'name': r['name'], 'id': r['id'], 'idx': i,
+                    'km': round(shape['cum_km'][i], 3), 'off_km': round(off, 3)})
+    return out
+
+
+def project_km(shape, lat, lng, stop_id=None, last_idx=None):
     """좌표를 선형에 투영해 노선상 진행거리(km)로 바꾼다.
 
     점 간격이 약 58m 라 가장 가까운 점을 쓰면 오차가 +-29m 다. 33km 에 대해
     0.09% 이므로 선분까지 투영할 값어치가 없다.
 
-    **회차 노선(B1)은 선형이 왕복이라 같은 길이 두 번 나온다.** 전체를 훑으면
-    되돌아오는 차량이 가는 쪽 색인에 붙어 진행거리가 뒤로 튄다. 그래서 그 차량의
-    직전 색인부터 앞쪽만 찾는다 - 회차점을 지나면 색인이 그대로 복귀 구간으로
-    이어지므로 왕복이 하나의 증가하는 거리가 된다.
-    창 안에서 선형을 벗어난 것으로 나오면 새 운행으로 보고 전체를 다시 훑는다.
+    **회차 노선(B1)은 선형이 왕복이라 같은 길이 두 번 나온다.** 그대로 가장 가까운
+    점을 찾으면 되돌아오는 차량이 가는 쪽 색인에 붙는다. 실제로 그렇게 붙은 차량이
+    진행거리 29km 에서 25km 로 **거꾸로 기어가다가** 갑자기 81km 로 튀었다.
+
+    그래서 **`stop_id` 를 1순위 기준으로 쓴다.** 왕복 노선도 같은 장소의 정류장 id 가
+    방향마다 다르므로(B1 은 55개가 모두 유일하다) id 하나로 구간이 정해진다. 상태를
+    들고 다니지 않아 잡힌 순서에 좌우되지 않고, 좌표만 있으면 나중에 다시 계산할 수도 있다.
+
+    stop_id 를 못 쓰면 직전 색인부터 앞쪽만 찾는 방식으로 물러난다.
     """
+    anchor = shape['stop_idx'].get(stop_id) if stop_id else None
+    if anchor is not None:
+        i, d = nearest(shape, lat, lng, anchor - STOP_WINDOW, anchor + STOP_WINDOW)
+        if i is not None and d <= OFF_ROUTE_KM:
+            return shape['cum_km'][i], d, i
     if last_idx is not None:
         i, d = nearest(shape, lat, lng, last_idx - BACK_WINDOW, last_idx + FWD_WINDOW)
         if i is not None and d <= OFF_ROUTE_KM:
@@ -207,14 +267,16 @@ def collect(minutes, only=None, obs_name='observations.csv'):
                     if prev is not None and last_seen.get(key) is not None:
                         if (now - last_seen[key]).total_seconds() > RUN_GAP_SEC:
                             prev = None          # 오래 끊겼으면 이어 보지 않는다
-                    km, off, idx = project_km(sh, lat, lng, prev)
+                    sid = (b.get('stop_id') or '').strip()
+                    km, off, idx = project_km(sh, lat, lng, sid, prev)
                     if off > OFF_ROUTE_KM:       # 선형을 벗어나면 그 노선 차량이 아니다
                         continue
                     last_idx[key] = idx
                     last_seen[key] = now
                     w.writerow({'ts': stamp, 'route_id': rid, 'plate_no': b['plate_no'],
                                 'lat': lat, 'lng': lng, 'dist_km': round(km, 3),
-                                'stop_name': b.get('stop_name', ''),
+                                'stop_id': sid,
+                                'stop_name': (b.get('stop_name') or '').strip(),
                                 'spot_speed': b.get('speed', '')})
                     rows += 1
                     tick += 1
@@ -229,7 +291,7 @@ def collect(minutes, only=None, obs_name='observations.csv'):
     print('%d행 저장 (%s), 차량 %d대' % (rows, obs_file, len(seen)))
 
 
-def load_obs():
+def load_obs(recompute=True):
     """쌓인 관측을 모두 모아 읽는다.
 
     수집 과정을 여러 개 동시에 돌릴 수 있어야 한다 - 막차 시각이 노선마다
@@ -245,23 +307,48 @@ def load_obs():
     for r in rows:
         r['t'] = datetime.fromisoformat(r['ts'])
         r['dist_km'] = float(r['dist_km'])
+    if recompute:
+        # 저장해 둔 dist_km 을 믿지 않고 좌표로 다시 계산한다.
+        # 수집기는 돌면서 계산해야 하므로 그때 쓴 선형 지도가 틀렸을 수 있다
+        # (실제로 B1 정류장 지도를 두 번 고쳤다). 좌표와 stop_id 는 원본이라
+        # 다시 계산하면 그 수정이 과거 관측까지 소급된다. 집계가 결정적이 된다.
+        shapes = {}
+        for r in rows:
+            rid = r['route_id']
+            if rid not in ROUTES:
+                continue
+            if rid not in shapes:
+                shapes[rid] = route_shape(rid)
+            km, off, _ = project_km(shapes[rid], float(r['lat']), float(r['lng']),
+                                    (r.get('stop_id') or '').strip() or None)
+            r['dist_km'] = round(km, 3)
+            r['off_km'] = round(off, 3)
     rows.sort(key=lambda r: (r['route_id'], r['plate_no'], r['t']))
     return rows
 
 
 def split_runs(rows):
-    """차량별 관측을 한 운행씩 끊는다."""
-    runs, cur = [], []
+    """차량별 관측을 한 운행씩 끊는다.
+
+    한 운행 안에서 진행거리는 줄지 않는다. 그래서 **그 운행에서 지금까지 간
+    가장 먼 거리보다 뒤로 내려가면** 다른 운행이다. 한 걸음씩만 보면 못 잡는다 -
+    종점에 닿은 버스가 반대 방향 운행을 시작하면서 몇 분간 이전 route_id 에
+    남아 있는 일이 있고(1005 에서 실제로 나왔다), 그때 조금씩 3.5km 를 뒤로 갔다.
+    """
+    runs, cur, peak = [], [], None
     for r in rows:
         if cur:
             prev = cur[-1]
             same = (r['route_id'] == prev['route_id'] and r['plate_no'] == prev['plate_no'])
             gap = (r['t'] - prev['t']).total_seconds()
-            back = prev['dist_km'] - r['dist_km']
-            if not same or gap > RUN_GAP_SEC or back > BACKSLIDE_KM:
+            # 투영이 튀면 거리가 앞으로도 불가능하게 뛴다 (실제로 30초에 55km 가 나왔다)
+            step = r['dist_km'] - prev['dist_km']
+            jump = gap > 0 and step / (gap / 3600) > MAX_KMH
+            if not same or gap > RUN_GAP_SEC or peak - r['dist_km'] > BACKSLIDE_KM or jump:
                 runs.append(cur)
-                cur = []
+                cur, peak = [], None
         cur.append(r)
+        peak = r['dist_km'] if peak is None else max(peak, r['dist_km'])
     if cur:
         runs.append(cur)
     return runs
@@ -459,7 +546,7 @@ def report():
         else:
             print('     공표값과 비슷한 시간대다. 보정이 거의 필요 없다')
         print('')
-        print('  %-10s %10s %10s %10s' % ('', '측정', 'BRT배수', '보정값'))
+        print('  %-10s %10s %10s %10s' % ('', '측정', '일반버스배수', '보정값'))
         for mode in ('BRT_HIGH', 'BRT_LOW'):
             v = by_mode.get(mode)
             if not v:
@@ -468,9 +555,10 @@ def report():
             m = statistics.median(v)
             print('  %-10s %10.2f %9.2f배 %10.2f' % (mode, m, m / obs_bus, m / bias))
         print('')
-        print('  보정값 = 측정값 / 치우침. 같은 시각 같은 길을 달린 일반버스로 시간대를')
-        print('  지워 낸 값이다. 절대값보다 BRT배수가 더 믿을 만하다 - 두 측정이 같은')
-        print('  조건에서 나왔기 때문이다.')
+        print('  보정값 = 측정값 / 치우침. 같은 시각에 달린 일반버스로 시간대를 지워 낸 값이다.')
+        print('  **일반버스배수는 같은 도로 비교가 아니다.** 1005 는 기점·종점만 같고')
+        print('  길이 다르다(겹침 18~36%, 조치원 경유). B4 전용도로에는 일반 시내버스가')
+        print('  아예 다니지 않아 같은 도로 대조군은 만들 수 없다.')
         print('  **세종은 6대 광역시 통계에 없어 대전 값을 대리로 썼다 - 근사다.**')
     print('')
 
