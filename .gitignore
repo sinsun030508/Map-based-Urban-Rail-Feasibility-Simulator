@@ -28,5 +28,11 @@ Thumbs.db
 # 로컬 실행 로그
 backend/*.log
 
-# API 응답 캐시
-data/cache/
+# API 응답 캐시 — 지워도 다시 받으면 된다
+data/cache/*
+
+# 단 BRT 실시간 관측은 다시 받을 수 없다. 실시간 API 는 "지금" 만 주므로
+# 지우면 그 시점이 영원히 사라진다 — 재취득 가능한 다른 캐시와 달리 저장소에 넣는다
+!data/cache/brt/
+data/cache/brt/*
+!data/cache/brt/observations.csv
