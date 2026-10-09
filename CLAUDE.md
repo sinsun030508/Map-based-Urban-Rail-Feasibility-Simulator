@@ -4,9 +4,6 @@
 정차역을 추천하는 웹 서비스. 예비타당성조사(KDI PIMAC) 방법론을 축소·근사한
 개인 프로젝트(8주, 단독).
 
-**스택** React + MapLibre GL + deck.gl / Spring Boot + Security JWT + JPA /
-MySQL 8 + Redis / Docker Compose, GitHub Actions, AWS EC2 프리티어
-
 **웹 전용.** 지도 설계와 결과 비교에 큰 화면이 필요하고, deck.gl 3D가 모바일에서 불안정하며,
 사용 맥락이 "앉아서 검토하는" 일이다. Kakao/Naver Map은 주소 검색·좌표 변환 보조용.
 **로드뷰 위에 3D 모델은 불가능**(파노라마라 깊이 정보 없음).
@@ -20,20 +17,8 @@ MySQL 8 + Redis / Docker Compose, GitHub Actions, AWS EC2 프리티어
 
 ## 디렉터리
 
-```
-data/raw/        받은 원본 — 수정 금지 (데이터.txt, 철도건설현황 csv, 도시철도노선정보 xlsx)
-data/seed/       수기 정리분 — brt_seed / metro_seed / price_index / rail_station_seed /
-                 rail_speed(표정속도) / road_speed(승용차·버스 속도) / train_operation(편성·시격)
-data/build/      ETL 산출물 — reference_line / census_population / dong_workers /
-                 station_master / station_ridership / station_population / line_congestion
-db/schema/       V1 마스터(reference_line·mode_capacity 등) / V2 서비스(user·scenario 등)
-db/seed/         S1 mode_capacity, S2 reference_line*, S3 restricted_zone, S4 price_index*,
-                 S5 cost_standard*, S6 demand_model*, S7 benefit_parameter
-                 (*는 자동 생성 — 직접 수정 금지, 생성기를 고쳐 재실행)
-etl/             etl.py(raw→reference_line), cost_model.py(→S5), demand_model.py(→S6),
-                 seoul_* / sgis_population (수요·첨두·단면 입력 수집), test_etl.py
-docs/            erd.png 은 제안서 원안, **erd.md 가 실제 스키마**
-```
+`data/raw/` 는 **받은 원본이라 수정하지 않는다.** 나머지 구조는 `ls` 로 보면 된다 —
+자동 생성 시드와 ERD 주의사항은 아래 「작업 규칙」·「스키마」에 있다.
 
 ## 실행
 
@@ -467,36 +452,12 @@ NULL 이면 경고를 띄우지 않는다. **근거 없이 경고하지 않는�
 
 ## 화면
 
-**클릭은 정차역이 아니라 선형이다.** 첫 점은 출발, 마지막 점은 도착이고 가운데 점은 선이 꺾이는
-경유점(작은 ◆)이다. 정차역은 계산 후 `StationPlanner`가 놓는다. 경유점에 번호(1, 2…)를 달았더니
-"다음 클릭에 이전 도착지가 정차역이 된다"고 읽혔다 — 경유점에 역처럼 보이는 표시를 달지 말 것.
+**화면에서만 쓰는 규칙은 `frontend/CLAUDE.md` 로 옮겼다** (선형 클릭, 패널 폭, `BcChart`,
+인구밀도 3D 렌더링, `ComparePage`). 아래는 **백엔드와 공유하는 계약**이라 여기 남긴다.
 
-**결과 패널 폭(`.panel`)** `clamp(340px, 26vw, 500px)` — 넓은 화면에서 함께 커진다. 340px
-고정이면 남는 폭을 지도(`flex:1`)가 다 먹어 **비교표가 어느 화면에서나 308px 에 눌린다**
-(`복선전/철`, `20/분` 으로 접힘). 지도 설계만큼 결과 비교도 큰 화면이 필요하다.
-
-**수단별 B/C 막대(`BcChart`)** 표 위에 **모양만** 보여 준다 — 숫자는 표가 갖고 있다. 1.0
-기준선 하나로 "어떤 안이 선을 넘는가"가 바로 읽힌다. 차트 하나 때문에 Recharts 를 넣지 않고
-SVG 로 직접 그렸다.
-
-- 한 계열이라 **범례 없이**(제목이 곧 계열 이름) 한 색이다. 통과·미달을 색으로 가르지 않는다 —
-  기준선이 이미 그 일을 하고, 색으로 상태를 말하면 표의 경고와 역할이 겹친다
-- **BRT 가 6~15 로 튀어 축을 독식한다.** 축을 3.0 에서 자르고 **잘린 막대에만** 값을 적는다
-- 기준선은 **실선** hairline (점선은 격자처럼 읽혀 노이즈가 된다). 막대 14px, 데이터 끝만 둥글게
-
-**인구밀도 3D(`usePopulation3D`)** 집계구 인구를 반경 300m 육각형으로 묶어 높이로 세운다
-(HexagonLayer). 집계구는 크기가 제각각이라 그대로 그리면 면적이 큰 구역이 커 보인다 — 고정
-크기 육각형에 모아야 **밀도** 비교가 된다 (정차역 배치가 고정 반경으로 세는 것과 같은 이유).
-
-- **높이 축척이 함정이다.** 1명당 0.25m (95분위 기둥 약 2km). 처음 쓴 12m 는 기둥이 **98km** 로
-  솟아 지도와 노선이 통째로 묻혔다. 반경 300m 칸에 서울 기준 3,000~10,000명이 모인다
-- **`interleaved: true` + `beforeId: 'route-line'`** — 기본 overlay 모드는 모든 지도 레이어 위에
-  그려서 노선이 기둥에 묻힌다
-- 상위 1%(`upperPercentile`)는 잘라 낸다. 한 칸이 높으면 나머지가 다 눌려 보인다
-- `GET /api/reference/population?minLat..` 이 **화면 범위만** 준다. 집계구 5만 칸을 전부 보내면
-  수 MB 라, 객체가 아니라 `[위도, 경도, 인구]` 배열로 보낸다(키 이름이 응답의 절반).
-  서울 범위 9,618칸 423KB, gzip 166KB (`server.compression`)
-- 끄면 pitch 가 0 으로 돌아가고 레이어도 떼어 낸다
+**인구밀도 3D 범위 질의** `GET /api/reference/population?minLat..` 이 **화면 범위만** 준다.
+집계구 5만 칸을 전부 보내면 수 MB 라, 객체가 아니라 `[위도, 경도, 인구]` 배열로 보낸다
+(키 이름이 응답의 절반). 서울 범위 9,618칸 423KB, gzip 166KB (`server.compression`).
 
 **관리자 기준값 CRUD(`/api/admin/**`, ROLE_ADMIN)** 편익 원단위(`benefit_parameter`)와 수단
 기준값(`mode_capacity`)을 화면에서 고친다. 저장 즉시 다음 계산부터 적용된다.
@@ -519,11 +480,6 @@ SVG 로 직접 그렸다.
 보여 주면 근거가 바뀐 숫자를 인용하게 된다. `scenario.calculated_at` 과 `mode_capacity`·
 `benefit_parameter` 의 `updated_at` 최댓값(`GET /api/reference/updated-at`)을 견줘 기준값이 더
 나중이면 "다시 계산해 주세요"를 띄운다. 비교 화면에서는 "기준값 변경됨".
-
-**시나리오 비교(`ComparePage`)** 비교표가 한 노선 안에서 수단을 고른다면, 여기서는 **노선끼리**
-견준다 — 어느 노선을 먼저 할 것인가. 개요와 수단별 B/C 표 두 개이고, 수단마다 B/C 가 가장 높은
-노선을 굵게 표시한다 (**노선이 하나뿐이면 강조하지 않는다** — 전부 1등이라 의미가 없다).
-목록 API 는 요약만 주므로 고른 시나리오의 상세를 따로 받는다 (최대 4개).
 
 ---
 
@@ -559,7 +515,7 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
 
 ## 테스트
 
-**백엔드** `backend/src/test` — 계산 로직만 본다(26건). 수식과 판정 규칙이 조용히 바뀌는 것을 막는다.
+**백엔드** `backend/src/test` — 계산 로직만 본다. 수식과 판정 규칙이 조용히 바뀌는 것을 막는다.
 
 - `BenefitCalculatorTest` — 지침을 옮긴 부분이라 기대값을 조문에서 손으로 계산해 적었다.
   2단계 할인계수 합 14.8529, 사업비 현재가치 배수 0.8735 가 박혀 있다
@@ -571,7 +527,7 @@ SGIS OpenAPI로 받을 수 있는 가장 촘촘한 단위는 **집계구**(인�
   약속이 깨지기 쉬워 경계를 박아 뒀다. 기준값 엔티티는 읽기 전용이라 테스트에서만 리플렉션
 - `./mvnw package` 가 테스트를 돌린다 (실행 중인 백엔드를 먼저 끌 것)
 
-**ETL** `cd etl && python -m pytest` (81건). 파서가 조용히 빗나가면
+**ETL** `cd etl && python -m pytest`. 파서가 조용히 빗나가면
 **데이터가 썩은 채로 회귀까지 흘러간다.**
 
 - `test_etl.py` — 파싱·판정 규칙. "원본의 이런 표기를 이렇게 읽기로 했다"는 약속들
