@@ -168,12 +168,43 @@ class Test표정속도:
         assert s is not None, why
         assert s['minutes'] == pytest.approx(60.0, abs=0.1)
 
-    def test_일부만_따라간_운행은_표본이_아니다(self):
-        # 이걸 세면 그 구간 속도가 전 구간 속도로 올라간다
+    def test_일부만_따라간_운행은_완주로_세지_않는다(self):
+        """완주 여부는 measure_leg 이 판단하지 않고 full 로 알려 준다.
+
+        완주만 세면 표본이 아깝고(33km 중 20km 를 따라간 것도 쓸 수 있는 측정이다),
+        그렇다고 섞어서 하나로 내놓으면 구간 속도가 전 구간 속도로 올라간다.
+        그래서 재기는 하고 **구분해서** 돌려준다.
+        """
         run = [obs(m, 10.0 + 0.2 * m) for m in range(0, 30)]
         s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
-        assert s is None
-        assert '만 관측' in why
+        assert s is not None, why
+        assert s['full'] is False
+        assert s['cover_pct'] == pytest.approx(5.8 / 30 * 100, abs=0.1)
+
+    def test_중간에서_시작한_관측을_대기로_오인하지_않는다(self):
+        """가장 조용히 틀릴 수 있는 곳.
+
+        양 끝의 멈춘 구간을 종점 대기로 보고 자르는데, **관측이 시작된 지점**을
+        대기로 오인해 자르면 실제로 달린 시간이 빠져 속도가 부풀어 오른다.
+        구간 끝에 닿아 있을 때만 잘라야 한다.
+        """
+        # 중간 정류장(15km 지점)에 2.5분 서 있는 동안 관측이 시작됐고,
+        # 그 뒤 30분에 15km 를 달렸다. 중간 정차는 표정속도에 **포함**되므로
+        # 32.5분에 15km = 27.7km/h 가 맞다. 잘라내면 30km/h 로 부풀어 오른다.
+        run = [obs(m * 0.5, 15.0) for m in range(0, 6)]
+        run += [obs(2.5 + m, 15.0 + 15.0 * m / 30) for m in range(1, 31)]
+        s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        assert s is not None, why
+        assert s['minutes'] == pytest.approx(32.5, abs=0.1), '시작 지점 정차를 잘라냈다'
+        assert s['speed_kmh'] == pytest.approx(27.69, abs=0.1)
+
+    def test_구간_표본도_도착_대기는_자른다(self):
+        # 종점에는 닿았으므로 도착 후 대기는 빼야 한다
+        run = [obs(m, 15.0 + 15.0 * m / 30) for m in range(0, 31)]
+        run += [obs(30 + m, 30.0) for m in range(1, 11)]
+        s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        assert s is not None, why
+        assert s['minutes'] == pytest.approx(30.0, abs=0.1)
 
     def test_구간_밖의_관측은_섞지_않는다(self):
         # 회차 노선에서 가는 편을 재는데 오는 편 관측이 섞이면 거리가 두 배가 된다
