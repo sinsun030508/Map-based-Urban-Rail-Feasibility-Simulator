@@ -97,14 +97,14 @@ class Test선형투영:
 
         # 복귀 구간을 따라오던 차량 - 앞쪽만 보므로 150 쪽에 붙는다
         km, off, idx = brt.project_km(sh, lat, LNG, last_idx=145)
-        assert idx == 150
         assert off == pytest.approx(0, abs=1e-6)
         assert km > turn_km                 # 회차점을 지난 거리여야 한다
+        assert km == pytest.approx(sh['cum_km'][150], abs=1e-6)
 
         # 직전 색인이 없으면 전체를 훑어 가는 쪽에 붙는다 (같은 좌표인데 값이 다르다)
         km2, _, idx2 = brt.project_km(sh, lat, LNG, last_idx=None)
-        assert idx2 == 50
         assert km2 < turn_km
+        assert km2 == pytest.approx(sh['cum_km'][50], abs=1e-6)
 
     def test_진행거리는_뒤로_가지_않는다(self):
         sh = out_and_back(101)
@@ -122,8 +122,8 @@ class Test선형투영:
         sh = straight(201)
         lat = LAT0 + 150 * STEP
         km, off, idx = brt.project_km(sh, lat, LNG, last_idx=0)
-        assert idx == 150
         assert off == pytest.approx(0, abs=1e-6)
+        assert km == pytest.approx(sh['cum_km'][150], abs=1e-6)
 
 
 class Test운행끊기:
@@ -238,12 +238,12 @@ class Test정류장id로구간확정:
         turn_km = sh['cum_km'][100]
 
         km, off, idx = brt.project_km(sh, lat, LNG, stop_id='오는편정류장')
-        assert idx == 150
         assert km > turn_km
+        assert km == pytest.approx(sh['cum_km'][150], abs=1e-6)
 
         km2, _, idx2 = brt.project_km(sh, lat, LNG, stop_id='가는편정류장')
-        assert idx2 == 50
         assert km2 < turn_km
+        assert km2 == pytest.approx(sh['cum_km'][50], abs=1e-6)
 
     def test_정류장id가_직전_색인보다_우선한다(self):
         # 한 번 잘못 붙었더라도 id 가 맞는 구간으로 되돌린다
@@ -251,24 +251,38 @@ class Test정류장id로구간확정:
         sh['stop_idx'] = {'오는편정류장': 150}
         lat = LAT0 + 50 * STEP
         km, _, idx = brt.project_km(sh, lat, LNG, stop_id='오는편정류장', last_idx=48)
-        assert idx == 150
+        assert km == pytest.approx(sh['cum_km'][150], abs=1e-6)
 
     def test_모르는_정류장id는_무시하고_물러난다(self):
         sh = out_and_back(101)
         sh['stop_idx'] = {'다른정류장': 150}
         lat = LAT0 + 50 * STEP
         km, _, idx = brt.project_km(sh, lat, LNG, stop_id='없는id', last_idx=145)
-        assert idx == 150          # 직전 색인 방식으로 물러나 복귀 구간을 찾는다
+        # 직전 색인 방식으로 물러나 복귀 구간을 찾는다
+        assert km == pytest.approx(sh['cum_km'][150], abs=1e-6)
 
 
 class Test불가능한점프:
-    def test_30초에_55km_는_끊는다(self):
-        # 실측에서 나온 값. 투영이 튄 것이지 운행이 아니다
+    """걸음당 **거리**로 가른다. 속도로는 가를 수 없다.
+
+    세종 BIS 는 차량이 노드를 지날 때만 위치를 갱신한다. 30초마다 물어도 연속
+    관측의 좌표가 같은 비율이 B1 52% / 1005 50% / B4 39% 이고, 그러다 한 번에
+    최대 5.3km 를 뛴다 - 31초 기준 615km/h 로 보이지만 피드가 밀렸다 따라잡은
+    것이다. 속도로 끊으면 끊지 말아야 할 것을 끊어 B1 이 조각 211개가 되고
+    10km 짜리 표본이 하나도 안 나왔다.
+    """
+
+    def test_55km_점프는_끊는다(self):
+        # 실측에서 나온 값. 투영이 다른 구간에 붙은 것이지 운행이 아니다
         rows = [obs(0, 25.565), obs(0.5, 80.933)]
         assert len(brt.split_runs(rows)) == 2
 
+    def test_피드가_밀렸다_따라잡은_것은_끊지_않는다(self):
+        # B1 실측 최대: 31초에 5.3km. 615km/h 로 보이지만 끊으면 안 된다
+        rows = [obs(0, 10.0), obs(0.52, 15.3)]
+        assert len(brt.split_runs(rows)) == 1
+
     def test_있을_수_있는_전진은_끊지_않는다(self):
-        # 30초에 0.5km = 60km/h. 전용도로 BRT 에는 흔하다
         rows = [obs(0, 10.0), obs(0.5, 10.5)]
         assert len(brt.split_runs(rows)) == 1
 
@@ -397,3 +411,72 @@ class Test구간표본묶기:
         brt.poolability([self.sample('B7', 17.57, full=True),
                          self.sample('B7', 60.31, full=True)])
         assert '묶을 수 없는' not in capsys.readouterr().out
+
+
+class Test선분투영:
+    """점이 아니라 선분에 투영한다 - 선형 점이 드문 구간의 양자화를 없앤다."""
+
+    def test_점_사이에_있는_좌표도_그대로_잡는다(self):
+        """B1 은 선형 점 간격이 최대 1,339m 다. 가장 가까운 점으로 투영하면
+        ±670m 가 양자화돼, 30초 간격에서 1.7km 씩 뛰는 것으로 보인다(196km/h).
+        그러면 MAX_KMH 가드가 오발동해 운행이 조각난다.
+        """
+        # 점을 1km 간격으로 띄운 선형
+        pts = [(LAT0 + i * 0.009, LNG) for i in range(5)]      # 약 1km 간격
+        sh = make_shape(pts)
+        seg = sh['cum_km'][1] - sh['cum_km'][0]
+        # 첫 선분의 중간
+        mid = (LAT0 + LAT0 + 0.009) / 2
+        i, d, t = brt.nearest(sh, mid, LNG)
+        assert i == 0
+        assert t == pytest.approx(0.5, abs=0.01)
+        assert d < 0.01
+        assert brt.line_km(sh, i, t) == pytest.approx(seg * 0.5, abs=0.02)
+
+    def test_선분_밖으로_벗어난_좌표는_끝으로_붙인다(self):
+        sh = straight(10)
+        far = LAT0 - 0.01          # 선형 시작보다 뒤
+        i, d, t = brt.nearest(sh, far, LNG)
+        assert i == 0 and t == pytest.approx(0.0)
+        assert d > 1.0             # 선형에서 1km 넘게 떨어져 있다
+
+    def test_수직_거리를_재고_선형_따라간_거리를_주지_않는다(self):
+        # 선형에서 옆으로 벗어난 점: 수직 거리가 작아야 한다
+        sh = straight(50)
+        side = LNG + 0.0005        # 약 45m 옆
+        i, d, t = brt.nearest(sh, LAT0 + 25 * STEP, side)
+        assert d < 0.06
+
+
+class Test시간해상도:
+    """BIS 는 차량이 노드를 지날 때만 위치를 갱신한다.
+
+    노드가 촘촘하면 오차가 작지만 B1 의 KDI~국제과학비즈니스벨트는 정류장 간격이
+    6.25km 라 그 구간이 31초로 보고됐다 - 몇 분의 주행이 시각에 안 잡혀 81.57km/h
+    가 나왔다. **정차한 버스와 밀린 피드는 자료상 구분되지 않으므로** 시각을
+    추측해 고치지 않고 표시를 달아 대표값에서 뺀다.
+    """
+
+    def test_큰_걸음이_섞이면_거친_표본으로_표시한다(self):
+        run = [obs(0, 0.0)]
+        run += [obs(m, 5.0 + 25.0 * m / 60) for m in range(1, 61)]   # 0 -> 5.42km 한 걸음
+        s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        assert s is not None, why
+        assert s['coarse'] is True
+        assert s['max_step_km'] == pytest.approx(5.42, abs=0.02)
+
+    def test_촘촘한_걸음은_표시하지_않는다(self):
+        run = [obs(m, 30.0 * m / 60) for m in range(0, 61)]           # 0.5km 씩
+        s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        assert s is not None, why
+        assert s['coarse'] is False
+        assert s['max_step_km'] == pytest.approx(0.5, abs=0.01)
+
+    def test_잰_구간_밖의_걸음은_보지_않는다(self):
+        """종점 대기로 잘라낸 구간의 걸음은 측정에 안 들어가므로 셈에서 뺀다."""
+        run = [obs(m * 0.5, 0.0) for m in range(0, 6)]                # 기점 대기
+        run += [obs(2.5 + m, 30.0 * m / 60) for m in range(1, 61)]
+        run += [obs(63 + m, 30.0) for m in range(1, 6)]               # 종점 대기
+        s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        assert s is not None, why
+        assert s['coarse'] is False

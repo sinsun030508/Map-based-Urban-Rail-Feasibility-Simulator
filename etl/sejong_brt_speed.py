@@ -113,7 +113,17 @@ BACK_WINDOW = 3        # GPS 흔들림으로 조금 뒤로 잡히는 것은 허�
 OFF_ROUTE_KM = 1.0     # 선형에서 이만큼 벗어나면 그 노선을 달리는 차량이 아니다
 STOP_WINDOW = 60       # stop_id 로 정해진 정류장 주변에서 찾는 창. 왕복의 두 구간은
                        # 색인이 수백 점 떨어져 있어 이 정도로는 섞이지 않는다
-MAX_KMH = 120          # 이보다 빠르면 투영이 튄 것이다 (버스는 이렇게 못 달린다)
+MAX_STEP_KM = 10.0     # 한 걸음에 이보다 멀리 가면 투영이 다른 구간에 붙은 것이다.
+                       # **걸음당 속도로는 가를 수 없다** - 세종 BIS 는 차량이 노드를
+                       # 지날 때만 위치를 갱신한다. 30초마다 물어도 연속 관측의 좌표가
+                       # 같은 비율이 B1 52% / 1005 50% / B4 39% 다. 그러다 한 번에
+                       # 최대 5.3km(B1) 를 뛰므로 31초 기준 615km/h 로 보인다.
+                       # 피드가 밀렸다 따라잡은 것이지 버스가 날아간 게 아니다.
+                       # 총거리와 총시간은 둘 다 맞아 표정속도 계산에는 영향이 없다.
+                       # 실제 구간 혼동은 50~97km 로 튀어 사이가 넓게 벌어져 있다.
+TRUST_STEP_KM = 2.0    # 한 걸음이 이보다 크면 그 사이 주행 시각이 안 잡힌 것이다.
+                       # 80km/h 로 2km 는 90초 - 그만큼이 시각에서 비는 셈이다
+MAX_KMH = 120          # 순간속도 검산에만 쓴다 (sanity_check). 이 값으로 운행을 끊지 말 것
 
 CACHE = Path(__file__).resolve().parent.parent / 'data' / 'cache' / 'brt'
 BUILD = Path(__file__).resolve().parent.parent / 'data' / 'build'
@@ -165,17 +175,61 @@ def route_shape(route_id):
     return shape
 
 
+KM_PER_DEG_LAT = 110.574
+
+
 def nearest(shape, lat, lng, lo=0, hi=None):
-    """선형의 [lo, hi) 구간에서 가장 가까운 점의 색인과 거리."""
+    """선형의 [lo, hi) 구간에서 가장 가까운 **선분** 위의 점을 찾는다.
+
+    돌려주는 것은 (선분 시작 색인, 수직 거리 km, 선분 안 비율 0~1).
+
+    **점이 아니라 선분에 투영해야 한다.** 처음에는 "점 간격이 58m 니 가장 가까운
+    점으로 충분하다" 고 적었는데, 그건 B4(571점/33km) 기준이었다. B1 은 995점/104km
+    에 고속 구간이 섞여 점 간격이 **최대 1,339m**(99분위 663m)다. 가장 가까운 점으로
+    투영하면 ±670m 가 양자화돼, 30초 간격에서 1.7km 씩 뛰는 것으로 보인다 - 196km/h 다.
+    그러면 MAX_KMH 가드가 오발동해 운행이 조각나고(B1 이 220개로 쪼개졌다) 10km 짜리
+    표본이 하나도 안 나온다.
+    """
     pts = shape['points']
-    hi = len(pts) if hi is None else min(hi, len(pts))
+    n = len(pts)
+    hi = n if hi is None else min(hi, n)
     lo = max(0, lo)
-    best, best_d = None, 1e9
-    for i in range(lo, hi):
-        d = haversine_km(lat, lng, pts[i][0], pts[i][1])
-        if d < best_d:
-            best, best_d = i, d
-    return best, best_d
+    if lo >= n:
+        return None, 1e9, 0.0
+    if hi - lo < 2:
+        i = min(lo, n - 1)
+        return i, haversine_km(lat, lng, pts[i][0], pts[i][1]), 0.0
+
+    # 이 위도에서 도를 km 로 바꿔 평면으로 계산한다 (수 km 범위에서 충분하다)
+    kx = KM_PER_DEG_LAT * math.cos(math.radians(lat))
+    px, py = lng * kx, lat * KM_PER_DEG_LAT
+    best, best_d2, best_t = lo, 1e18, 0.0
+    for i in range(lo, hi - 1):
+        a, b = pts[i], pts[i + 1]
+        ax, ay = a[1] * kx, a[0] * KM_PER_DEG_LAT
+        bx, by = b[1] * kx, b[0] * KM_PER_DEG_LAT
+        dx, dy = bx - ax, by - ay
+        den = dx * dx + dy * dy
+        if den <= 0:
+            t = 0.0
+        else:
+            t = ((px - ax) * dx + (py - ay) * dy) / den
+            t = 0.0 if t < 0 else (1.0 if t > 1 else t)
+        qx, qy = ax + t * dx, ay + t * dy
+        d2 = (px - qx) ** 2 + (py - qy) ** 2
+        if d2 < best_d2:
+            best, best_d2, best_t = i, d2, t
+    return best, math.sqrt(best_d2), best_t
+
+
+def line_km(shape, idx, t):
+    """선분 색인과 비율을 노선상 진행거리(km)로 바꾼다."""
+    cum = shape['cum_km']
+    if idx is None:
+        return 0.0
+    if idx + 1 >= len(cum):
+        return cum[-1]
+    return cum[idx] + t * (cum[idx + 1] - cum[idx])
 
 
 def turn_ord(rows):
@@ -222,40 +276,38 @@ def place_stops(shape, rows, turn):
         # 이탈 거리만 1.6km, 2.6km 로 늘어난다. 노선의 첫 정류장은 정의상
         # 노선의 시작이므로 그렇게 멀리서 찾을 이유가 없다.
         top = lo + max(10, (hi - lo) // 10) if first else hi
-        i, off = nearest(shape, r['lat'], r['lng'], cursor, top)
+        i, off, t = nearest(shape, r['lat'], r['lng'], cursor, top)
         cursor = i
         out.append({'ord': r['ord'], 'name': r['name'], 'id': r['id'], 'idx': i,
-                    'km': round(shape['cum_km'][i], 3), 'off_km': round(off, 3)})
+                    'km': round(line_km(shape, i, t), 3), 'off_km': round(off, 3)})
     return out
 
 
 def project_km(shape, lat, lng, stop_id=None, last_idx=None):
     """좌표를 선형에 투영해 노선상 진행거리(km)로 바꾼다.
 
-    점 간격이 약 58m 라 가장 가까운 점을 쓰면 오차가 +-29m 다. 33km 에 대해
-    0.09% 이므로 선분까지 투영할 값어치가 없다.
-
     **회차 노선(B1)은 선형이 왕복이라 같은 길이 두 번 나온다.** 그대로 가장 가까운
-    점을 찾으면 되돌아오는 차량이 가는 쪽 색인에 붙는다. 실제로 그렇게 붙은 차량이
-    진행거리 29km 에서 25km 로 **거꾸로 기어가다가** 갑자기 81km 로 튀었다.
+    자리를 찾으면 되돌아오는 차량이 가는 쪽에 붙는다. 실제로 그렇게 붙은 차량이
+    진행거리 29km 에서 25km 로 거꾸로 기어가다가 갑자기 81km 로 튀었다.
 
     그래서 **`stop_id` 를 1순위 기준으로 쓴다.** 왕복 노선도 같은 장소의 정류장 id 가
-    방향마다 다르므로(B1 은 55개가 모두 유일하다) id 하나로 구간이 정해진다. 상태를
-    들고 다니지 않아 잡힌 순서에 좌우되지 않고, 좌표만 있으면 나중에 다시 계산할 수도 있다.
-
+    방향마다 다르므로(B1 은 55개가 모두 유일하다) id 하나로 구간이 정해진다.
     stop_id 를 못 쓰면 직전 색인부터 앞쪽만 찾는 방식으로 물러난다.
+
+    **회차점에서는 stop_id 자체가 흔들린다** — 부르는 쪽(load_obs)이 물리적으로
+    불가능한 이동을 보면 연속성 쪽으로 되돌린다.
     """
     anchor = shape['stop_idx'].get(stop_id) if stop_id else None
     if anchor is not None:
-        i, d = nearest(shape, lat, lng, anchor - STOP_WINDOW, anchor + STOP_WINDOW)
+        i, d, t = nearest(shape, lat, lng, anchor - STOP_WINDOW, anchor + STOP_WINDOW)
         if i is not None and d <= OFF_ROUTE_KM:
-            return shape['cum_km'][i], d, i
+            return line_km(shape, i, t), d, i
     if last_idx is not None:
-        i, d = nearest(shape, lat, lng, last_idx - BACK_WINDOW, last_idx + FWD_WINDOW)
+        i, d, t = nearest(shape, lat, lng, last_idx - BACK_WINDOW, last_idx + FWD_WINDOW)
         if i is not None and d <= OFF_ROUTE_KM:
-            return shape['cum_km'][i], d, i
-    i, d = nearest(shape, lat, lng)
-    return shape['cum_km'][i], d, i
+            return line_km(shape, i, t), d, i
+    i, d, t = nearest(shape, lat, lng)
+    return line_km(shape, i, t), d, i
 
 
 def check_shape(shape, route_id):
@@ -372,23 +424,44 @@ def load_obs(recompute=True):
     for r in rows:
         r['t'] = datetime.fromisoformat(r['ts'])
         r['dist_km'] = float(r['dist_km'])
+    rows.sort(key=lambda r: (r['route_id'], r['plate_no'], r['t']))
     if recompute:
         # 저장해 둔 dist_km 을 믿지 않고 좌표로 다시 계산한다.
         # 수집기는 돌면서 계산해야 하므로 그때 쓴 선형 지도가 틀렸을 수 있다
         # (실제로 B1 정류장 지도를 두 번 고쳤다). 좌표와 stop_id 는 원본이라
         # 다시 계산하면 그 수정이 과거 관측까지 소급된다. 집계가 결정적이 된다.
+        #
+        # **회차점에서는 stop_id 를 믿을 수 없다.** 버스가 오송역(B1 회차점)에
+        # 서 있는 동안 BIS 가 보고하는 stop_id 가 가는 편 정류장과 오는 편
+        # 정류장 사이를 왔다 갔다 해서, 투영이 44~63km 사이를 튀었다. 그 튐마다
+        # split_runs 가 끊어 B1 이 조각 220개로 쪼개지고 10km 짜리가 하나도
+        # 안 나왔다. 그래서 **stop_id 가 준 위치가 물리적으로 불가능하면
+        # 연속성을 믿는다** - 30초에 10km 는 버스가 갈 수 없는 거리다.
         shapes = {}
+        prev = {}        # (route_id, plate_no) -> (시각, km, 선형 색인)
         for r in rows:
             rid = r['route_id']
             if rid not in ROUTES:
                 continue
             if rid not in shapes:
                 shapes[rid] = route_shape(rid)
-            km, off, _ = project_km(shapes[rid], float(r['lat']), float(r['lng']),
-                                    (r.get('stop_id') or '').strip() or None)
+            sh = shapes[rid]
+            key = (rid, r['plate_no'])
+            p = prev.get(key)
+            if p and (r['t'] - p[0]).total_seconds() > RUN_GAP_SEC:
+                p = None
+            lat, lng = float(r['lat']), float(r['lng'])
+            sid = (r.get('stop_id') or '').strip() or None
+            km, off, idx = project_km(sh, lat, lng, sid, p[2] if p else None)
+            if p and abs(km - p[1]) > MAX_STEP_KM:
+                # stop_id 가 준 자리가 너무 멀면 연속성을 믿는다. 회차점에서 BIS 가
+                # 가는 편·오는 편 정류장을 번갈아 보고해 투영이 ±10km 씩 튀었다
+                km2, off2, idx2 = project_km(sh, lat, lng, None, p[2])
+                if off2 <= OFF_ROUTE_KM:
+                    km, off, idx = km2, off2, idx2
             r['dist_km'] = round(km, 3)
             r['off_km'] = round(off, 3)
-    rows.sort(key=lambda r: (r['route_id'], r['plate_no'], r['t']))
+            prev[key] = (r['t'], km, idx)
     return rows
 
 
@@ -406,9 +479,9 @@ def split_runs(rows):
             prev = cur[-1]
             same = (r['route_id'] == prev['route_id'] and r['plate_no'] == prev['plate_no'])
             gap = (r['t'] - prev['t']).total_seconds()
-            # 투영이 튀면 거리가 앞으로도 불가능하게 뛴다 (실제로 30초에 55km 가 나왔다)
-            step = r['dist_km'] - prev['dist_km']
-            jump = gap > 0 and step / (gap / 3600) > MAX_KMH
+            # 투영이 다른 구간에 붙으면 거리가 앞으로도 크게 뛴다 (실제로 55km 가 나왔다).
+            # 거리로 가른다 - 걸음당 속도로는 피드 밀림과 구분할 수 없다(MAX_STEP_KM 참고)
+            jump = r['dist_km'] - prev['dist_km'] > MAX_STEP_KM
             if not same or gap > RUN_GAP_SEC or peak - r['dist_km'] > BACKSLIDE_KM or jump:
                 runs.append(cur)
                 cur, peak = [], None
@@ -475,6 +548,16 @@ def measure_leg(run, leg_name, lo_km, hi_km):
     dist = arr['dist_km'] - dep['dist_km']
     if secs <= 0 or dist <= 0:
         return None, '%s 시간/거리가 0' % leg_name
+
+    # **시간 해상도가 부족한 표본을 가려낸다.**
+    # BIS 는 차량이 노드를 지날 때만 위치를 갱신한다. 노드가 촘촘하면 오차가 작지만,
+    # B1 의 KDI~국제과학비즈니스벨트는 정류장 간격이 6.25km 라 그 구간이 31초로
+    # 보고됐다 - 몇 분의 주행이 시각에 안 잡힌 것이고 81.57km/h 가 나왔다.
+    # **정차한 버스와 밀린 피드는 자료상 구분되지 않는다.** 그래서 시각을 추측해
+    # 고치지 않고, 큰 걸음이 섞인 표본에 표시를 달아 대표값에서 뺀다.
+    span_obs = [r for r in seen if dep['t'] <= r['t'] <= arr['t']]
+    max_step = max((b['dist_km'] - a['dist_km'] for a, b in zip(span_obs, span_obs[1:])),
+                   default=0.0)
     return {
         'route_id': dep['route_id'],
         'leg': leg_name,
@@ -490,6 +573,8 @@ def measure_leg(run, leg_name, lo_km, hi_km):
         'minutes': round(secs / 60, 1),
         'speed_kmh': round(dist / (secs / 3600), 2),
         'n_obs': len(seen),
+        'max_step_km': round(max_step, 3),
+        'coarse': max_step > TRUST_STEP_KM,
         # 검산용 - 표정속도 계산에는 쓰지 않는다 (sanity_check 설명 참고)
         'spot': [int(r['spot_speed']) for r in seen
                  if (r.get('spot_speed') or '').strip().lstrip('-').isdigit()],
@@ -542,7 +627,9 @@ def sanity_check(samples):
     """
     over = []
     for m in samples:
-        sp = [v for v in m.get('spot', []) if 0 <= v <= MAX_KMH]
+        # 0 만 들어오면 피드가 그 필드를 안 채우는 것이다 (대전 노선 187... 이 그렇다).
+        # "최대 0km/h" 로 읽으면 멀쩡한 표본이 전부 검산 실패로 찍힌다
+        sp = [v for v in m.get('spot', []) if 0 < v <= MAX_KMH]
         if sp and m['speed_kmh'] > max(sp) + 1:
             over.append((m, max(sp)))
     if over:
@@ -673,10 +760,26 @@ def report():
             else:
                 short.append(m)
 
+    coarse = [m for m in samples if m['coarse']]
+    samples = [m for m in samples if not m['coarse']]
     full = [m for m in samples if m['full']]
     seg = [m for m in samples if not m['full']]
     print('전구간 표본 %d개 / 구간 표본 %d개 (%.0fkm 이상) / 너무 짧은 조각 %d개'
           % (len(full), len(seg), SEG_MIN_KM, len(short)))
+    if coarse:
+        import collections as _c
+        who = _c.Counter(ROUTES[m['route_id']]['name'] for m in coarse)
+        print('시간 해상도가 부족해 뺀 표본 %d개 — %s'
+              % (len(coarse), ', '.join('%s %d' % kv for kv in who.most_common())))
+        print('  한 걸음이 %.1fkm 를 넘는 표본이다. BIS 는 노드를 지날 때만 위치를'
+              % TRUST_STEP_KM)
+        print('  갱신하므로 정류장 간격이 넓으면 그 사이 주행 시각이 안 잡힌다 —')
+        print('  B1 의 KDI~국제과학비즈니스벨트가 6.25km 이고 31초로 보고됐다.')
+        if coarse and samples:
+            import statistics as _s
+            print('  뺀 표본이 %.2f, 남은 표본이 %.2f (거친 쪽이 부풀어 오른다)'
+                  % (_s.median([m['speed_kmh'] for m in coarse]),
+                     _s.median([m['speed_kmh'] for m in samples])))
     if not samples:
         print('')
         print('아직 %.0fkm 이상 이어서 따라간 차량이 없습니다. 더 모으세요.' % SEG_MIN_KM)

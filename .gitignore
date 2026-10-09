@@ -35,4 +35,4 @@ data/cache/*
 # 지우면 그 시점이 영원히 사라진다 — 재취득 가능한 다른 캐시와 달리 저장소에 넣는다
 !data/cache/brt/
 data/cache/brt/*
-!data/cache/brt/observations.csv
+!data/cache/brt/observations*.csv
