@@ -490,6 +490,9 @@ def measure_leg(run, leg_name, lo_km, hi_km):
         'minutes': round(secs / 60, 1),
         'speed_kmh': round(dist / (secs / 3600), 2),
         'n_obs': len(seen),
+        # 검산용 - 표정속도 계산에는 쓰지 않는다 (sanity_check 설명 참고)
+        'spot': [int(r['spot_speed']) for r in seen
+                 if (r.get('spot_speed') or '').strip().lstrip('-').isdigit()],
     }, None
 
 
@@ -524,6 +527,34 @@ def label(rid, leg):
     r = ROUTES[rid]
     base = '%s %s' % (r['name'], r['direction'])
     return base if leg == '전구간' else '%s(%s)' % (base, leg)
+
+
+def sanity_check(samples):
+    """계산한 표정속도를 **쓰지 않는 자료**로 검산한다.
+
+    실시간 응답에는 순간속도(`speed`)가 들어 있는데 표정속도 계산에는 쓰지 않는다.
+    그래서 독립 검산이 된다 - 표정속도는 그 운행의 순간 최대속도를 넘을 수 없고,
+    정차 시간이 분모에 들어가므로 순간 평균보다도 낮아야 한다. 투영이 어딘가
+    틀리면 거리가 부풀어 이 조건이 깨진다.
+
+    순간속도에 쓰레기 값이 섞인다(한 차량이 255km/h 로 찍혔다). 그래서 버스가
+    낼 수 있는 속도(MAX_KMH)로 잘라서 본다.
+    """
+    over = []
+    for m in samples:
+        sp = [v for v in m.get('spot', []) if 0 <= v <= MAX_KMH]
+        if sp and m['speed_kmh'] > max(sp) + 1:
+            over.append((m, max(sp)))
+    if over:
+        print('검산 실패 - 표정속도가 순간 최대속도를 넘은 표본 %d개' % len(over))
+        for m, mx in over[:5]:
+            print('   %-24s %-12s 표정 %.2f > 순간최대 %d'
+                  % (label(m['route_id'], m['leg']), m['plate_no'], m['speed_kmh'], mx))
+        print('   **투영이 틀렸을 수 있습니다. 거리가 부풀었는지 보세요.**')
+    else:
+        n = sum(1 for m in samples if m.get('spot'))
+        print('검산 통과 - 표본 %d개 모두 표정속도 <= 그 운행의 순간 최대속도' % n)
+    print('')
 
 
 def spacing_report(samples, shapes):
@@ -700,6 +731,8 @@ def report():
             print('  BRT 우위 비율도 이 시간대에는 과소평가입니다.')
             print('  쓸 값을 얻으려면 첨두·보통 시간대를 직접 재야 합니다 (아래 격자).')
     print('')
+
+    sanity_check(samples)
 
     # 역간격과 표정속도 - 같은 전용도로에서 정류장 수만 다른 노선들이 있다
     spacing_report(samples, shapes)

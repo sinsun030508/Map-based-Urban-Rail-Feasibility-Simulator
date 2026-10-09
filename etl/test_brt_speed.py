@@ -340,3 +340,26 @@ class Test정류장배치:
         turn_km = sh['cum_km'][100]
         assert stops[1]['km'] < turn_km          # 가는 편 중간
         assert stops[3]['km'] > turn_km          # 오는 편 중간
+
+
+class Test순간속도검산:
+    """표정속도 계산에 쓰지 않는 순간속도로 검산한다 - 독립 검증이 된다."""
+
+    def test_순간속도도_함께_담는다(self):
+        run = [dict(obs(m, 30.0 * m / 60), spot_speed=str(40 + m % 5)) for m in range(0, 61)]
+        s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        assert s is not None, why
+        assert len(s['spot']) == 61
+        assert max(s['spot']) == 44
+
+    def test_쓰레기_순간속도는_센서_오류다(self):
+        # 실제 자료에 255km/h 가 섞여 있었다. 버스가 낼 수 있는 속도로 잘라 본다
+        run = [dict(obs(m, 30.0 * m / 60), spot_speed='255') for m in range(0, 61)]
+        s, _ = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        plausible = [v for v in s['spot'] if 0 <= v <= brt.MAX_KMH]
+        assert plausible == [], '쓰레기 값을 걸러내지 못했다'
+
+    def test_숫자가_아닌_순간속도를_건너뛴다(self):
+        run = [dict(obs(m, 30.0 * m / 60), spot_speed='') for m in range(0, 61)]
+        s, _ = brt.measure_leg(run, '전구간', 0.0, 30.0)
+        assert s['spot'] == []
