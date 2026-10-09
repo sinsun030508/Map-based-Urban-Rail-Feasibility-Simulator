@@ -363,3 +363,37 @@ class Test순간속도검산:
         run = [dict(obs(m, 30.0 * m / 60), spot_speed='') for m in range(0, 61)]
         s, _ = brt.measure_leg(run, '전구간', 0.0, 30.0)
         assert s['spot'] == []
+
+
+class Test구간표본묶기:
+    """구간 표본은 노선이 균질할 때만 서로 바꿔 쓸 수 있다."""
+
+    def sample(self, name, speed, full=False):
+        rid = next(r for r in brt.ROUTES if brt.ROUTES[r]['name'] == name)
+        return {'route_id': rid, 'speed_kmh': speed, 'full': full, 'leg': '전구간',
+                'plate_no': '가1234'}
+
+    def test_구간마다_속도가_너무_다르면_걸러낸다(self, capsys):
+        # B7 실측: 17.57~60.31 km/h (3.43배). 전용도로와 시내도로가 섞인 노선이다
+        brt.poolability([self.sample('B7', 17.57), self.sample('B7', 60.31)])
+        out = capsys.readouterr().out
+        assert '묶을 수 없는' in out
+        assert 'B7' in out
+
+    def test_균질한_노선은_통과한다(self):
+        # B0터미널 실측: 36.56~38.58 (1.06배)
+        import io as _io, contextlib
+        buf = _io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            brt.poolability([self.sample('B0터미널', 36.56), self.sample('B0터미널', 38.58)])
+        assert '묶을 수 없는' not in buf.getvalue()
+
+    def test_전구간_표본만_있으면_흩어져도_문제없다(self, capsys):
+        """완주 표본은 노선 전체를 달린 값이라 서로 바꿔 쓸 수 있다.
+
+        흩어짐이 크면 그건 운행마다 달랐다는 뜻이고(분산), 어느 구간을 관측했는지에
+        좌우되는 문제(치우침)가 아니다.
+        """
+        brt.poolability([self.sample('B7', 17.57, full=True),
+                         self.sample('B7', 60.31, full=True)])
+        assert '묶을 수 없는' not in capsys.readouterr().out
