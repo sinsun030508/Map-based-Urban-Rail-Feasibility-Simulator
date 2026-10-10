@@ -23,6 +23,8 @@ class StationPlannerTest {
     /** 서울시청에서 남쪽으로 쭉 내려가는 직선. 위도만 바뀌어 거리 계산이 단순하다 */
     private static final double LAT0 = 37.5665;
     private static final double LNG0 = 126.9780;
+    /** 역 6개를 놓으면 서는 위도 중 하나 (0, 0.018, 0.036, ... 간격) */
+    private static final double STATION_LAT = 37.5665 - 0.036;
     private static final List<double[]> ROUTE =
             List.of(new double[]{LAT0, LNG0}, new double[]{LAT0 - 0.09, LNG0});
 
@@ -150,5 +152,109 @@ class StationPlannerTest {
     void needsAtLeastTwoStations() {
         assertThat(planner(null).plan(ROUTE, 1, 1.2)).isEmpty();
         assertThat(planner(null).plan(List.of(new double[]{LAT0, LNG0}), 5, 1.2)).isEmpty();
+    }
+
+    /** 노선에서 **옆으로** 비켜난 곳에만 사람이 몰려 있는 자료 */
+    private Path censusBesideLine(Path dir, double lat, double lngOffset) throws IOException {
+        Path file = dir.resolve("beside.csv");
+        String nl = System.lineSeparator();
+        StringBuilder sb = new StringBuilder("adm_cd,latitude,longitude,population,dong_name" + nl);
+        for (int i = 0; i <= 90; i++) {
+            sb.append("x,").append(LAT0 - i * 0.001).append(',').append(LNG0)
+                    .append(",10,배경동").append(nl);
+        }
+        sb.append("beside,").append(lat).append(',').append(LNG0 + lngOffset)
+                .append(",50000,옆동네").append(nl);
+        Files.writeString(file, sb, StandardCharsets.UTF_8);
+        return file;
+    }
+
+    @Test
+    @DisplayName("아무도 옆으로 안 움직이면 돌아간 거리는 정확히 0 이다")
+    void detourIsZeroWhenNothingMovesSideways() {
+        // 인구 자료가 없으면 점수가 모두 0 이라 선 위에 그대로 있어야 한다.
+        // 역을 이은 선을 그냥 다시 재면 보간 오차 때문에 0.08% 가 붙어
+        // 역이 하나도 안 움직였는데 건설비가 오른다 — 실제로 그 버그가 났었다.
+        StationPlanner.Plan plan = planner(null).planWithDetour(ROUTE, 6, 1.2);
+
+        assertThat(plan.stations()).hasSize(6);
+        assertThat(plan.detourKm()).isZero();
+        assertThat(plan.stations()).allSatisfy(
+                p -> assertThat(p.lng()).isEqualTo(LNG0));
+    }
+
+    /**
+     * 옆으로 넓게 깔린 인구. 점 하나로는 한도를 시험할 수 없다 —
+     * 점수가 반경 0.5km 안 인구의 **합**이라 계단 함수여서, 봉우리가 반경에 들어오는
+     * 순간 더 다가가도 점수가 그대로다. 띠로 깔면 갈수록 점수가 오르므로
+     * 막지 않으면 역이 계속 멀어진다.
+     */
+    private Path censusBandBeside(Path dir, double fromDeg, double toDeg) throws IOException {
+        Path file = dir.resolve("band.csv");
+        String nl = System.lineSeparator();
+        StringBuilder sb = new StringBuilder("adm_cd,latitude,longitude,population,dong_name" + nl);
+        for (int i = 0; i <= 90; i++) {
+            sb.append("x,").append(LAT0 - i * 0.001).append(',').append(LNG0)
+                    .append(",10,배경동").append(nl);
+        }
+        for (double d = fromDeg; d <= toDeg + 1e-9; d += 0.0005) {
+            sb.append("band,").append(STATION_LAT).append(',').append(LNG0 + d)
+                    .append(",50000,옆동네").append(nl);
+        }
+        Files.writeString(file, sb, StandardCharsets.UTF_8);
+        return file;
+    }
+
+    @Test
+    @DisplayName("선에서 옆으로 떨어진 인구 봉우리로 역을 옮긴다")
+    void pullsStationSideways(@TempDir Path dir) throws IOException {
+        // 이 위도에서 경도 1도는 약 88km. 0.008도 = 약 0.7km 다.
+        // **0.5km 보다 멀어야** 선 위에서 안 잡히고, 1.0km 안이어야 한도(0.5km)로 닿는다.
+        // 0.35km 에 두면 선 위에서 이미 반경에 들어와 움직일 이유가 없다 (계단 함수)
+        StationPlanner planner = planner(censusBesideLine(dir, STATION_LAT, 0.008));
+        List<StationPlanner.Placed> placed = planner.plan(ROUTE, 6, 1.2);
+
+        assertThat(placed.stream().anyMatch(p -> p.lng() > LNG0 + 1e-9))
+                .as("봉우리가 동쪽이니 동쪽으로 움직여야 한다").isTrue();
+    }
+
+    @Test
+    @DisplayName("옆으로 움직이면 돌아간 거리가 건설비로 나간다 — 공짜가 아니다")
+    void movingSidewaysCostsLength(@TempDir Path dir) throws IOException {
+        StationPlanner planner = planner(censusBesideLine(dir, STATION_LAT, 0.008));
+        StationPlanner.Plan plan = planner.planWithDetour(ROUTE, 6, 1.2);
+
+        assertThat(plan.detourKm()).isPositive();
+        // 한 역이 0.5km 비켜도 앞뒤 두 구간이 늘 뿐이라 몇백 m 수준이다
+        assertThat(plan.detourKm()).isLessThan(1.0);
+    }
+
+    @Test
+    @DisplayName("옆으로 가는 거리에 한도가 있다 — 지형·용지를 모르니 멀리 보내지 않는다")
+    void lateralMoveIsCapped(@TempDir Path dir) throws IOException {
+        // 0.6km 부터 2km 까지 띠로 깔아 갈수록 점수가 오르게 한다.
+        // 막지 않으면 역이 2km 밖까지 끌려간다
+        StationPlanner planner = planner(censusBandBeside(dir, 0.0068, 0.0227));
+        List<StationPlanner.Placed> placed = planner.plan(ROUTE, 6, 1.2);
+
+        boolean moved = false;
+        for (StationPlanner.Placed p : placed) {
+            double sideways = Haversine.distanceKm(p.lat(), LNG0, p.lat(), p.lng());
+            assertThat(sideways).isLessThanOrEqualTo(0.5 + 1e-6);
+            moved |= sideways > 1e-6;
+        }
+        assertThat(moved).as("띠가 있으니 움직이기는 해야 한다 — 한도에서 멈출 뿐").isTrue();
+    }
+
+    @Test
+    @DisplayName("종점은 옆으로도 움직이지 않는다")
+    void terminalsNeverMoveSideways(@TempDir Path dir) throws IOException {
+        // 기점 바로 옆에 봉우리를 둬도 종점은 사용자가 찍은 자리를 지킨다
+        StationPlanner planner = planner(censusBesideLine(dir, LAT0, 0.004));
+        List<StationPlanner.Placed> placed = planner.plan(ROUTE, 6, 1.2);
+
+        assertThat(placed.get(0).lat()).isEqualTo(LAT0);
+        assertThat(placed.get(0).lng()).isEqualTo(LNG0);
+        assertThat(placed.get(placed.size() - 1).lng()).isEqualTo(LNG0);
     }
 }

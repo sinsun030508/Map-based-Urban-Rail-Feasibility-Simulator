@@ -90,6 +90,7 @@ export default function ScenarioPanel({
         selected={selectedResult}
         stale={stale}
         existingLine={existingLine}
+        pointCount={points.length}
         onSelect={onSelectResult}
       />
 
