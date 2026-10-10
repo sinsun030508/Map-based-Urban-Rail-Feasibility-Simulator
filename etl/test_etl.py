@@ -181,9 +181,9 @@ class TestSpacingStats:
 
     def test_한_출처만_집계한다(self):
         df = pd.DataFrame([
-            {'mode_type': 'HEAVY_METRO', 'avg_spacing_km': 1.0,
+            {'mode_type': 'HEAVY_METRO', 'avg_spacing_km': 1.0, 'station_count': 10,
              'source_name': etl.SPACING_SOURCE, 'is_outlier': False},
-            {'mode_type': 'HEAVY_METRO', 'avg_spacing_km': 5.0,
+            {'mode_type': 'HEAVY_METRO', 'avg_spacing_km': 5.0, 'station_count': 10,
              'source_name': '다른출처', 'is_outlier': False},
         ])
         out = etl.spacing_stats(df)
@@ -194,9 +194,9 @@ class TestSpacingStats:
     def test_그_출처에_없는_수단은_전체에서_가져온다(self):
         # BRT 처럼 운영현황에 없는 수단까지 버리면 기준값이 사라진다
         df = pd.DataFrame([
-            {'mode_type': 'HEAVY_METRO', 'avg_spacing_km': 1.0,
+            {'mode_type': 'HEAVY_METRO', 'avg_spacing_km': 1.0, 'station_count': 10,
              'source_name': etl.SPACING_SOURCE, 'is_outlier': False},
-            {'mode_type': 'BRT_HIGH', 'avg_spacing_km': 1.16,
+            {'mode_type': 'BRT_HIGH', 'avg_spacing_km': 1.16, 'station_count': 10,
              'source_name': '다른출처', 'is_outlier': False},
         ])
         out = etl.spacing_stats(df)
@@ -205,9 +205,9 @@ class TestSpacingStats:
 
     def test_이상치는_빼고_센다(self):
         df = pd.DataFrame([
-            {'mode_type': 'LIGHT_RAIL', 'avg_spacing_km': 1.0,
+            {'mode_type': 'LIGHT_RAIL', 'avg_spacing_km': 1.0, 'station_count': 10,
              'source_name': etl.SPACING_SOURCE, 'is_outlier': False},
-            {'mode_type': 'LIGHT_RAIL', 'avg_spacing_km': 99.0,
+            {'mode_type': 'LIGHT_RAIL', 'avg_spacing_km': 99.0, 'station_count': 10,
              'source_name': etl.SPACING_SOURCE, 'is_outlier': True},
         ])
         out = etl.spacing_stats(df)
@@ -267,3 +267,76 @@ class TestOsmRegionalStations:
         kept = osm.dedupe(found)
         assert len(kept) == 2
         assert '중앙로' in kept
+
+
+class Test정거장구성구분자:
+    """xlsx 의 `정거장구성` 은 보통 쉼표로 구분되는데 두 노선만 `+` 를 쓴다.
+
+    쉼표로만 쪼개면 신분당선 16역이 **1역**으로 읽히고, 역간격이 33.5km 로 나온다.
+    이상치 목록에 "정거장구성 미기재로 추정" 으로 적혀 있었지만 미기재가 아니라
+    구분자가 달랐을 뿐이다 — 제외가 아니라 파싱을 고쳐야 한다.
+    """
+
+    def test_쉼표로_구분된_것을_센다(self):
+        assert etl.count_stations('A01-서울,A02-공덕,A03-홍대입구') == 3
+
+    def test_플러스로_구분된_것도_센다(self):
+        s = ('D04-신사+D05-논현+D06-신논현+D07-강남+D08-양재+D09-양재시민의숲+'
+             'D10-청계산입구+D11-판교+D12-정자+D13-미금+D14-동천+D15-수지구청+'
+             'D16-성복+D17-상현+D18-광교중앙+D19-광교')
+        assert etl.count_stations(s) == 16
+
+    def test_두_역짜리_플러스도_센다(self):
+        assert etl.count_stations('805-다산+804-별내') == 2
+
+    def test_중점은_역_이름_안에_있으므로_쪼개지_않는다(self):
+        # `전대·에버랜드` 처럼 역 이름에 · 가 들어간다. 쪼개면 역수가 부풀어 오른다
+        assert etl.count_stations('Y110-기흥,Y111-전대·에버랜드') == 2
+
+    def test_빈_값은_None(self):
+        assert etl.count_stations('') is None
+        assert etl.count_stations(None) is None
+
+
+class Test두자리날짜:
+    """xlsx 개통일자에 `YY.MM.DD` 형식이 섞여 있다.
+
+    pandas 는 `22.05.28` 을 DD.MM.YY 로 읽어 **2028년**을 내놓는다. 이 프로젝트에는
+    이미 올바른 `parse_short_year` 가 있는데 xlsx 경로에서 쓰지 않았다.
+    """
+
+    def test_두_자리_연도를_연도로_읽는다(self):
+        assert etl.parse_short_year('22.05.28') == 2022
+        assert etl.parse_short_year('24.12.28') == 2024
+
+    def test_50년대_이전은_1900년대로_읽는다(self):
+        assert etl.parse_short_year('74.08.15') == 1974
+
+    def test_xlsx_개통일자_파서가_두_자리_형식을_처리한다(self):
+        # 네 자리 날짜는 그대로, 두 자리 형식은 parse_short_year 로
+        assert etl.parse_opened_year('2024-08-10 00:00:00') == 2024
+        assert etl.parse_opened_year('22.05.28') == 2022
+        assert etl.parse_opened_year(None) is None
+
+
+class Test역간격은역이둘이상일때만:
+    """역이 하나면 역간격이란 것이 존재하지 않는다.
+
+    `가덕도신공항 접근철도` 는 16.5km 에 역 1개(공항역)라 역간격이 16.5km 로 계산됐고,
+    복선전철 역간격 중앙값을 4.30 에서 4.97 로 밀어 올렸다. 역간격은
+    `역수 = 연장 ÷ 역간격` 으로 쓰이고 복선전철 역당단가가 1,176억이라
+    50km 노선에서 역 2개 차이 = 2,350억 차이가 난다.
+    """
+
+    def test_역이_하나면_역간격_통계에서_뺀다(self):
+        df = pd.DataFrame([
+            {'mode_type': 'DOUBLE_ELEC', 'avg_spacing_km': 16.5, 'station_count': 1,
+             'is_outlier': False, 'source_name': 'X'},
+            {'mode_type': 'DOUBLE_ELEC', 'avg_spacing_km': 4.0, 'station_count': 10,
+             'is_outlier': False, 'source_name': 'X'},
+            {'mode_type': 'DOUBLE_ELEC', 'avg_spacing_km': 5.0, 'station_count': 8,
+             'is_outlier': False, 'source_name': 'X'},
+        ])
+        out = etl.spacing_stats(df)
+        assert out.loc['DOUBLE_ELEC', 'n'] == 2
+        assert out.loc['DOUBLE_ELEC', '최대'] == 5.0

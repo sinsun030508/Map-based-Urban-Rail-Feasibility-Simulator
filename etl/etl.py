@@ -90,12 +90,36 @@ def parse_period(v):
 
 
 def count_stations(v):
-    """'A01-서울,A02-공덕,...' → 14"""
+    """'A01-서울,A02-공덕,...' → 14
+
+    **구분자가 쉼표만이 아니다.** 47개 노선 중 두 개(신분당선·수도권 전철 8호선)가
+    `+` 를 쓴다. 쉼표로만 쪼개면 신분당선 16역이 1역으로 읽혀 역간격이 33.5km 가
+    된다. 이상치 목록에 "정거장구성 미기재로 추정" 으로 적혀 있었지만 미기재가
+    아니라 구분자가 달랐을 뿐이었다.
+
+    **`·` 로는 쪼개지 않는다** — `전대·에버랜드` 처럼 역 이름 안에 들어간다.
+    """
     s = clean_text(v)
     if not s:
         return None
-    parts = [p for p in s.split(',') if p.strip()]
+    parts = [p for p in re.split(r'[,+]', s) if p.strip()]
     return len(parts) or None
+
+
+def parse_opened_year(v):
+    """xlsx 개통일자 → 연도.
+
+    **pandas 에 그냥 맡기면 두 자리 형식을 뒤집어 읽는다.** `22.05.28`(2022-05-28)을
+    DD.MM.YY 로 보고 2028년을 내놓아, 신분당선 개통이 2028 로 들어가 있었다.
+    두 자리 형식은 이 프로젝트에 이미 있는 parse_short_year 로 보낸다.
+    """
+    s = clean_text(v)
+    if not s:
+        return None
+    if re.fullmatch(r'\d{2}\.\d{2}\.\d{2}\.?', s):
+        return parse_short_year(s)
+    d = pd.to_datetime(s, errors='coerce')
+    return None if pd.isna(d) else int(d.year)
 
 
 # ---------------------------------------------------------------
@@ -184,8 +208,7 @@ def load_metro_xlsx(path):
             'cost_status': 'UNDISCLOSED',
             'period_start': None,
             'period_end': None,
-            'opened_year': (pd.to_datetime(r.get('개통일자'), errors='coerce').year
-                            if pd.notna(r.get('개통일자')) else None),
+            'opened_year': parse_opened_year(r.get('개통일자')),
             'source_name': '전국도시철도노선정보 표준데이터',
         })
     return pd.DataFrame(rows)
@@ -505,8 +528,11 @@ KNOWN_OUTLIERS = {
     # xlsx 원본 오류 — 역간격 통계에 섞이지 않도록 제외
     ('수도권 경량도시철도 에버라인', '기흥(백남준아트센터)~전대·에버랜드'):
         'xlsx 원본 오류 — 연장 0.018km (실제 18.1km, 단위 오기로 추정)',
-    ('신분당선', '신사역~광교(경기대)'):
-        'xlsx 원본 오류 — 역수 1·개통 2028 (정거장구성 미기재로 추정)',
+    # 신분당선은 여기 있었다 — "역수 1·개통 2028 (정거장구성 미기재로 추정)" 으로.
+    # 미기재가 아니라 `정거장구성` 구분자가 `+` 였고(count_stations 참고), 개통일자
+    # `22.05.28` 을 pandas 가 DD.MM.YY 로 뒤집어 읽은 것이었다(parse_opened_year 참고).
+    # 둘을 고치니 33.5km·16역·2022 로 제자리를 찾아 이상치가 아니게 됐다.
+    # **진단이 틀린 이상치는 제외가 아니라 파싱을 고쳐야 한다.**
 }
 
 
@@ -690,7 +716,12 @@ SPACING_SOURCE = '국토교통부 도시철도 운영현황'
 
 
 def spacing_stats(df):
-    s = df[df['avg_spacing_km'].notna() & ~df['is_outlier']]
+    # 역이 하나면 역간격이란 것이 존재하지 않는다. `가덕도신공항 접근철도` 는 16.5km 에
+    # 역 1개(공항역)라 역간격이 16.5km 로 계산돼 복선전철 중앙값을 4.30 -> 4.97 로
+    # 밀어 올렸다. 역간격은 `역수 = 연장 ÷ 역간격` 으로 쓰이고 복선전철 역당단가가
+    # 1,176억이라 50km 노선에서 역 2개 차이 = 2,350억 차이가 난다.
+    s = df[df['avg_spacing_km'].notna() & ~df['is_outlier']
+           & (df['station_count'] >= 2)]
     ops = s[s['source_name'] == SPACING_SOURCE]
     s = pd.concat([ops, s[~s['mode_type'].isin(ops['mode_type'].unique())]])
     return (s.groupby('mode_type')['avg_spacing_km']
