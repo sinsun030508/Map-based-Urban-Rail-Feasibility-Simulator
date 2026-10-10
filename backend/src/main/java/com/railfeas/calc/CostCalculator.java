@@ -97,18 +97,28 @@ public class CostCalculator {
 
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
-        Map<ModeType, List<StationPlanner.Placed>> placedByMode = new HashMap<>();
+        Map<ModeType, StationPlanner.Plan> plannedByMode = new HashMap<>();
         for (CostStandard std : standards) {
             ModeCapacity capacity = capacities.get(std.getModeType());
             int stations = estimateStations(lengthKm, capacity);
+
+            // 역을 **먼저** 놓는다. 역이 선에서 옆으로 비켜 서면 노선이 그만큼 길어지고,
+            // 그 길이로 비용·편익을 내야 "인구만 더 담고 돈은 안 드는" 값이 안 나온다.
+            StationPlanner.Plan plan = plannedByMode.computeIfAbsent(
+                    std.getModeType(),
+                    mode -> planner.planWithDetour(points, stations, spacingOf(capacity)));
+            List<StationPlanner.Placed> placed = plan.stations();
+            // 역이 옆으로 비켜 선 만큼만 더한다. 선 위에만 있으면 그린 길이 그대로다
+            double routeKm = lengthKm + plan.detourKm();
+
             long cost = std.getFixedCost()
-                    + Math.round(std.getCostPerKm() * lengthKm)
+                    + Math.round(std.getCostPerKm() * routeKm)
                     + (long) std.getCostPerStation() * stations;
 
             Double speed = capacity == null || capacity.getSpeedKmh() == null
                     ? null : capacity.getSpeedKmh().doubleValue();
             Long benefit = speed == null ? null
-                    : benefits.benefitTotal(params, dailyRiders, lengthKm, speed);
+                    : benefits.benefitTotal(params, dailyRiders, routeKm, speed);
 
             ScenarioResult result = ScenarioResult.builder()
                     .scenario(scenario)
@@ -119,16 +129,13 @@ public class CostCalculator {
                     .totalCost(cost)
                     .estimatedRidership(dailyRiders)
                     .peakPphpd(peak)
-                    .travelTimeMin(travelTimeMin(lengthKm, speed))
+                    .travelTimeMin(travelTimeMin(routeKm, speed))
                     .benefitTotal(benefit)
                     // B/C 는 양쪽 다 현재가치로 본다. total_cost 에는 명목 총액을 남긴다
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
-                    .warning(warning(lengthKm, peak, capacity, zoneWarning, people))
+                    .warning(warning(routeKm, peak, capacity, zoneWarning, people))
                     .build();
-            List<StationPlanner.Placed> placed = placedByMode.computeIfAbsent(
-                    std.getModeType(),
-                    mode -> planner.plan(points, stations, spacingOf(capacity)));
             attachStations(result, placed, dailyRiders);
             results.add(result);
         }

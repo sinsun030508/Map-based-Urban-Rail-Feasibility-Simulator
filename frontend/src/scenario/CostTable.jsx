@@ -29,7 +29,7 @@ function people(n) {
 }
 
 export default function CostTable({
-  results, structure, population, selected, stale, existingLine, onSelect,
+  results, structure, population, selected, stale, existingLine, pointCount, onSelect,
 }) {
   if (!results.length) return null;
 
@@ -126,6 +126,14 @@ export default function CostTable({
       {[...new Set(results.map((r) => r.warning).filter(Boolean))].map((w) => (
         <p key={w} className="small warn">⚠ {w}</p>
       ))}
+
+      {pointCount === 2 && (
+        <p className="small note">
+          출발·도착 두 점만 찍어 <strong>직선으로 계산</strong>했습니다. 실제 노선은 돌아가므로
+          연장이 짧게, 따라서 건설비도 적게 잡힙니다. 지도 가운데를 눌러 경유점을 추가하면
+          실제 선형에 가깝게 그릴 수 있습니다.
+        </p>
+      )}
 
       <p className="small muted">
         비용 모델 오차 1.25배, 수요 모델 오차 1.75배입니다. 단일 값이 아니라 비교용 지표로 보세요.
