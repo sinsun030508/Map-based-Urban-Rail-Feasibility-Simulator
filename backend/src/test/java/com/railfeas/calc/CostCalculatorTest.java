@@ -269,4 +269,30 @@ class CostCalculatorTest {
         assertThat(b.results().get(0).getTravelTimeMin())
                 .isEqualTo(a.results().get(0).getTravelTimeMin());
     }
+
+    @Test
+    @DisplayName("역간격보다 짧은 노선도 출발·도착 두 역은 놓는다")
+    void shortRouteStillGetsTwoStations() {
+        // 급행 역간격 6.92km 는 지금까지 중 가장 넓다 — round(L/6.92) < 2 가 되는
+        // **L < 10.4km 노선이 전부 이 가장자리에 걸린다.** 사용자가 흔히 그리는 길이다.
+        // 묶지 않으면 역 1개(또는 0개)로 배치가 깨지고 역당단가도 어긋난다.
+        var outcome = run(scenario(5.0),
+                capacity(ModeType.EXPRESS_RAIL, null, 60_000, 6.92, 91.8, null));
+        var r = outcome.results().get(0);
+        assertThat(r.getStationCount()).isEqualTo(2);
+        assertThat(r.getStations()).hasSize(2);
+
+        // 1,000 + 5x500 + 2x200 = 3,900
+        assertThat(r.getTotalCost()).isEqualTo(3_900L);
+    }
+
+    @Test
+    @DisplayName("역간격이 없는 수단도 두 역은 놓는다")
+    void missingSpacingStillGetsTwoStations() {
+        // 단선전철·기존선 개량은 역간격이 NULL 이다. 비교표에는 안 나오지만
+        // 기준값이 바뀌어 들어오면 0 으로 나누지 않고 최소값으로 떨어져야 한다.
+        var outcome = run(scenario(20.0),
+                capacity(ModeType.SINGLE_ELEC, null, 25_000, null, 45.0, null));
+        assertThat(outcome.results().get(0).getStationCount()).isEqualTo(2);
+    }
 }
