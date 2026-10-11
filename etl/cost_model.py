@@ -19,6 +19,7 @@ db/seed/S5__cost_standard.sql 을 만든다.
   - 기준연도가 명시된 건이 2건뿐이라 물가 환산분(total_cost_2025)도 대부분 추정 기준이다
 """
 
+import re
 import sys
 import numpy as np
 import pandas as pd
@@ -39,15 +40,33 @@ MODE_STRUCTURES = {
     'BRT_HIGH':    ['AT_GRADE'],
     'BRT_LOW':     ['AT_GRADE'],
     'DOUBLE_ELEC': ['UNDERGROUND', 'ELEVATED'],
+    'EXPRESS_RAIL': ['UNDERGROUND', 'ELEVATED'],
 }
+
+# 비용 계수를 빌려 쓰는 수단 — 표본에 없으니 회귀 더미도 없다.
+#
+# **급행에 더미를 따로 두지 않는 것은 검사해서 정한 것이다.** km당 사업비만 보면
+# 급행 579 / 일반 1,064 억으로 두 배 갈리지만, `log(역수)` 를 넣은 뒤 잔차 차이는
+# 1.02배(t=+0.12)뿐이다 — 급행은 "급행이라서" 싼 게 아니라 역이 적어서 싸다.
+# 역수는 `SPACING` 이 정하므로 급행의 싼 값은 저절로 나온다.
+#
+# 다만 급행 n=4 라 **검출 한계가 1.50배**다. "차이가 없다"가 아니라 "그보다 작은
+# 차이는 못 본다"가 맞다 — 표본 4개에 더미를 더 붙이는 것이 과적합이라 안 가른 것이다.
+# 검사·재현: `cd etl && python mode_speed_check.py` (테스트가 t>2 를 감시한다)
+COST_ALIAS = {'EXPRESS_RAIL': 'DOUBLE_ELEC'}
 
 FIT_RANGE_KM = np.arange(5, 41, 1.0)      # 직선 근사 구간
 STATION_RATIOS = [0.6, 0.8, 1.0, 1.2, 1.4]  # 표준 역간격 대비 역수 비율
 
-# 역간격 (km) — 도시철도는 운영현황 중앙값, 복선전철은 rail_station_seed 로 역수를 채운
-# A등급 11건의 중앙값 4.98 (GTX 계열이 6~8km, 일반 광역철도가 1.7~3.6km 로 폭이 넓다)
+# 역간격 (km) — **S1__mode_capacity.sql 의 spacing_km 과 같아야 한다.**
+# 2단계 직선 근사가 "표준 역수"를 이 값으로 잡으므로, 어긋나면 격자의 중심이
+# 실제 쓰이는 역수에서 비껴 근사 오차가 커진다. (실제로 S1 이 4.98 → 4.30 →
+# 2.62 로 바뀌는 동안 여기가 4.98 로 남아 있었다 — ETL 이 아래에서 검사한다.)
+#
+# 복선전철을 쌍봉 분포의 두 집단으로 가른 근거는 S1 주석에 있다.
 SPACING = {'HEAVY_METRO': 1.06, 'LIGHT_RAIL': 1.06, 'TRAM': 0.86,
-           'BRT_HIGH': 1.16, 'BRT_LOW': 1.16, 'DOUBLE_ELEC': 4.98}
+           'BRT_HIGH': 1.16, 'BRT_LOW': 1.16,
+           'DOUBLE_ELEC': 2.62, 'EXPRESS_RAIL': 6.92}
 
 
 def load_sample(grade=('A', 'B')):
@@ -114,11 +133,16 @@ BASE_UG = {'BRT_HIGH': 0.0, 'BRT_LOW': 0.0, 'DOUBLE_ELEC': 0.1, 'SINGLE_ELEC': 0
 
 
 def predict_cost(model, mode, ug, length_km, stations=None,
-                 ug_coef=None, station_coef=None):
+                 ug_coef=None, station_coef=None, dummy=None):
     """
     log-log 모델로 총사업비(억원) 예측.
     모델에 없는 항(지하비율·역수)은 밖에서 계수를 받아 곱해 준다.
+
+    `dummy` 는 **어느 수단의 계수를 빌려 쓸지**다 (기본은 `mode` 자신).
+    급행처럼 표본에 없는 수단은 `COST_ALIAS` 가 가리키는 수단의 계수를 쓰면서
+    역간격은 자기 것(`SPACING[mode]`)을 쓴다 — 그래야 역이 적은 만큼 싸진다.
     """
+    dummy = dummy or mode
     beta, modes = model['beta'], model['modes']
     log_cost = beta[0] + beta[1] * np.log(length_km)
     i = 2
@@ -126,7 +150,7 @@ def predict_cost(model, mode, ug, length_km, stations=None,
         log_cost = log_cost + beta[i] * ug
         i += 1
     elif ug_coef is not None:
-        log_cost = log_cost + ug_coef * (ug - BASE_UG.get(mode, 0.0))
+        log_cost = log_cost + ug_coef * (ug - BASE_UG.get(dummy, 0.0))
     if model['with_stations']:
         log_cost = log_cost + beta[i] * np.log(stations)
         i += 1
@@ -134,13 +158,13 @@ def predict_cost(model, mode, ug, length_km, stations=None,
         # 표준 역간격일 때를 기준으로, 역수가 그보다 많고 적은 만큼만 보정
         log_cost = log_cost + station_coef * np.log(stations / (length_km / SPACING[mode]))
     for m in modes[1:]:
-        if m == mode:
+        if m == dummy:
             log_cost = log_cost + beta[i]
         i += 1
     return np.exp(log_cost)
 
 
-def fit_additive(model, mode, ug, ug_coef=None, station_coef=None):
+def fit_additive(model, mode, ug, ug_coef=None, station_coef=None, dummy=None):
     """
     log-log 예측면을 '고정비 + 연장×단가 + 역수×역당단가' 로 근사한다.
     연장만 훑으면 역수가 연장에 묶여 두 계수가 분리되지 않으므로,
@@ -154,7 +178,7 @@ def fit_additive(model, mode, ug, ug_coef=None, station_coef=None):
             L.append(length)
             N.append(stations)
             cost.append(float(predict_cost(model, mode, ug, length, stations,
-                                           ug_coef, station_coef)))
+                                           ug_coef, station_coef, dummy)))
     L, N, cost = np.array(L), np.array(N), np.array(cost)
     X = np.column_stack([np.ones(len(L)), L, N])
     beta, _ = ols(X, cost)
@@ -182,8 +206,16 @@ def to_sql(rows, model, path):
         '-- =====================================================',
         'SET NAMES utf8mb4;',
         '',
-        '-- scenario_result 가 FK 로 참조해 TRUNCATE 가 막힌다. DELETE 로 비운다',
-        'DELETE FROM cost_standard;',
+        '-- 지우지 않고 **내린다** (is_active=FALSE). 이유가 둘이다:',
+        '--  ① scenario_result 가 standard_id 를 FK 로 참조해 DELETE 가 막힌다.',
+        '--     TRUNCATE 는 참조 행이 없어도 막히고, DELETE 는 있으면 막힌다 —',
+        '--     저장된 비교표가 하나라도 있으면 시드를 다시 넣을 수 없었다.',
+        '--  ② 저장해 둔 B/C 가 **어느 기준값으로 계산됐는지** 남는다. 지워 버리면',
+        '--     과거 결과의 근거가 사라져 재현할 수 없다. 이 프로젝트에서 값보다',
+        '--     중요한 것이 출처다.',
+        '-- 백엔드는 findByActiveTrue() 로 읽으므로 내린 행은 계산에 쓰이지 않는다.',
+        '-- 기준값이 바뀌면 화면이 "다시 계산해 주세요" 를 띄운다 (낡은 결과 알림).',
+        'UPDATE cost_standard SET is_active = FALSE WHERE is_active = TRUE;',
         '',
     ]
     for mode, structure, fixed, per_km, per_st, note in rows:
@@ -194,7 +226,43 @@ def to_sql(rows, model, path):
     Path(path).write_text('\n'.join(lines) + '\n', encoding='utf-8')
 
 
+def check_spacing_matches_s1():
+    """`SPACING` 이 S1 의 `spacing_km` 과 어긋나면 멈춘다.
+
+    **실제로 어긋나 있었다.** S1 의 복선전철 역간격이 4.98 → 4.30 으로 바뀌었는데
+    여기가 4.98 로 남았다.
+
+    **다만 그게 숫자를 망치지는 않았다 — 재 봤다.** 직선 근사의 격자 중심이
+    실제 쓰이는 역수에서 비껴도, log-log 면이 그 구간에서 거의 직선이라
+    근사 오차는 0.79%(어긋난 상태) vs 0.95%(맞춘 상태)로 둘 다 1% 안이다.
+    모델 자체의 교차검증 오차가 1.25배인데 비하면 없는 셈이다.
+
+    그래도 검사로 막는 이유는 **같은 값이 두 파일에서 다르면 어느 쪽이 맞는지
+    알 수 없게 되기 때문**이다. 재현성 문제이지 정확도 문제가 아니다 —
+    오차가 작다는 것을 확인하기 전까지는 그걸 알 수도 없었다.
+    """
+    text = (DB_SEED / 'S1__mode_capacity.sql').read_text(encoding='utf-8')
+    s1 = {}
+    for m in re.finditer(r"\('([A-Z_]+)'\s*,\s*'[^']*'\s*,"
+                         r"(?:\s*(?:NULL|[0-9.]+)\s*,){4}"
+                         r"\s*(NULL|[0-9.]+)\s*,", text):
+        if m.group(2) != 'NULL':
+            s1[m.group(1)] = float(m.group(2))
+
+    missing = [k for k in SPACING if k not in s1]
+    if missing:
+        raise SystemExit(f'S1 에 역간격이 없는 수단: {missing} — S1 을 먼저 고칠 것')
+    bad = {k: (SPACING[k], s1[k]) for k in SPACING if abs(SPACING[k] - s1[k]) > 1e-9}
+    if bad:
+        lines = '\n'.join(f'  {k}: cost_model {v[0]} vs S1 {v[1]}' for k, v in bad.items())
+        raise SystemExit('역간격이 S1 과 어긋납니다 — 같은 값이 두 곳에서 달라 어느 쪽이 '
+                         f'맞는지 알 수 없습니다 (근사 오차 자체는 둘 다 1% 안입니다):\n{lines}')
+    print(f'역간격 S1 일치 확인 — {len(SPACING)}개 수단')
+
+
 def main():
+    check_spacing_matches_s1()
+
     # 전체 표본 — 역수가 없는 건까지 포함. 역수가 없는 수단(단선전철·개량·BRT 저급형)용
     sample = load_sample()
     m1 = fit_model(sample, with_ug=False)
@@ -216,20 +284,24 @@ def main():
     print()
     print('[수단×구조별 계수 — 2025년 환산 억원]')
     for mode, structures in MODE_STRUCTURES.items():
-        n = int((a_sample.mode_type == mode).sum())
-        n_all = int((sample.mode_type == mode).sum())
+        dummy = COST_ALIAS.get(mode, mode)      # 계수를 빌려 쓸 수단
+        n = int((a_sample.mode_type == dummy).sum())
+        n_all = int((sample.mode_type == dummy).sum())
         if n_all == 0:
             print(f'  {mode:<12} 표본 없음 — 건너뜀')
             continue
-        use_m2 = mode in m2['modes'] and n >= 2
+        use_m2 = dummy in m2['modes'] and n >= 2
         model = m2 if use_m2 else m1
         for structure in structures:
             fixed, per_km, per_st, fit_r2 = fit_additive(
                 model, mode, STRUCTURE_UG[structure],
                 None if use_m2 else ug_coef,
-                None if use_m2 else station_coef)
+                None if use_m2 else station_coef, dummy)
             note = (f'A등급 모델 n={n}' if use_m2
                     else f'전체표본 모델+보정 n={n_all} (역수 표본 없음)')
+            if dummy != mode:
+                note += (f' — {dummy} 계수를 빌려 씀 (잔차로 가를 근거를 못 봤다,'
+                         f' 검출 한계 1.50배) / 역간격 {SPACING[mode]}km 는 자기 것')
             if max(n, n_all) < 5:
                 note += ' — 표본 부족, 참고용'
             rows.append((mode, structure, fixed, per_km, per_st, note))

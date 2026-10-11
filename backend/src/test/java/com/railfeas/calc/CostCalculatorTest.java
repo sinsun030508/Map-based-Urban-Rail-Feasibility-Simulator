@@ -202,4 +202,71 @@ class CostCalculatorTest {
         assertThat(r.getStations()).allSatisfy(
                 s -> assertThat(s.getEstimatedDailyUsers()).isNull());
     }
+
+    // =========================================================
+    // 복선전철 / 광역급행 — 같은 노선에 역간격만 다르게 주면
+    // =========================================================
+    //
+    // 복선전철의 역간격 분포가 쌍봉(급행 6.92km / 일반 2.62km)인데 중앙값 4.30km 를
+    // 쓰고 있었다. 가운데는 아무 노선도 없는 틈이라 어느 집단도 설명하지 못했다.
+    // **비용 계수는 같다** — 잔차로 가를 근거를 못 봤다(t=+0.12, 검출 한계 1.50배).
+    // 그래서 두 수단의 차이는 오직 역간격에서 나와야 한다.
+
+    @Test
+    @DisplayName("급행은 역간격이 넓어 역이 적고, 그래서 더 싸다")
+    void expressHasFewerStationsAndCostsLess() {
+        var normal = run(scenario(30.0),
+                capacity(ModeType.DOUBLE_ELEC, null, 60_000, 2.62, 47.6, null));
+        var express = run(scenario(30.0),
+                capacity(ModeType.EXPRESS_RAIL, null, 60_000, 6.92, 91.8, null));
+
+        var n = normal.results().get(0);
+        var e = express.results().get(0);
+
+        // 30 / 2.62 = 11.5 → 11역,  30 / 6.92 = 4.3 → 4역
+        assertThat(n.getStationCount()).isEqualTo(11);
+        assertThat(e.getStationCount()).isEqualTo(4);
+
+        // 비용 계수가 같으니(standard() 가 같은 값을 준다) 차이는 역수뿐이다
+        assertThat(e.getTotalCost()).isLessThan(n.getTotalCost());
+        assertThat(n.getTotalCost() - e.getTotalCost())
+                .isEqualTo(7L * 200L);   // 역 7개 차이 × 역당 200
+    }
+
+    @Test
+    @DisplayName("급행은 빨라서 통행시간이 짧다 — 편익이 거기서 나온다")
+    void expressIsFasterSoTravelTimeIsShorter() {
+        var normal = run(scenario(30.0),
+                capacity(ModeType.DOUBLE_ELEC, null, 60_000, 2.62, 47.6, null));
+        var express = run(scenario(30.0),
+                capacity(ModeType.EXPRESS_RAIL, null, 60_000, 6.92, 91.8, null));
+
+        var n = normal.results().get(0);
+        var e = express.results().get(0);
+        assertThat(e.getTravelTimeMin()).isLessThan(n.getTravelTimeMin());
+
+        // 91.8 / 47.6 = 1.93 배 빠르다 → 시간은 그 역수만큼. 역을 옆으로 옮긴
+        // 만큼 연장이 달라질 수 있어 比가 정확히 1.93 은 아니다 — 범위로 박는다
+        double ratio = n.getTravelTimeMin().doubleValue() / e.getTravelTimeMin().doubleValue();
+        assertThat(ratio).isBetween(1.8, 2.1);
+    }
+
+    @Test
+    @DisplayName("같은 역간격이면 두 수단은 똑같다 — 수단 이름이 값을 바꾸지 않는다")
+    void modeNameAloneChangesNothing() {
+        // **이것이 "비용을 가르지 않았다"의 뜻이다.** 급행이라는 이름 자체는
+        // 아무 효과가 없고, 역간격과 속도만이 결과를 가른다. 나중에 누가
+        // 수단 이름으로 분기를 넣으면 이 테스트가 깨진다.
+        var a = run(scenario(30.0),
+                capacity(ModeType.DOUBLE_ELEC, null, 60_000, 4.0, 60.0, null));
+        var b = run(scenario(30.0),
+                capacity(ModeType.EXPRESS_RAIL, null, 60_000, 4.0, 60.0, null));
+
+        assertThat(b.results().get(0).getTotalCost())
+                .isEqualTo(a.results().get(0).getTotalCost());
+        assertThat(b.results().get(0).getStationCount())
+                .isEqualTo(a.results().get(0).getStationCount());
+        assertThat(b.results().get(0).getTravelTimeMin())
+                .isEqualTo(a.results().get(0).getTravelTimeMin());
+    }
 }

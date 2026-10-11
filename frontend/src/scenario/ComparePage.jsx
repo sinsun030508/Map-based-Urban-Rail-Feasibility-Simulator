@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { resultKey } from './resultKey';
 import { isStale, STALE_MESSAGE } from './stale';
+import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
 
 /**
  * 시나리오 비교 (제안서 기능 8).
@@ -12,11 +13,6 @@ import { isStale, STALE_MESSAGE } from './stale';
  * 목록 API 는 요약만 주므로 고른 시나리오의 상세를 따로 받는다. 한 번에 서너 개라
  * 호출 수가 문제되지 않고, 요약에 필드를 더하면 목록이 무거워진다.
  */
-const MODE_LABEL = {
-  HEAVY_METRO: '지하철', LIGHT_RAIL: '경전철', TRAM: '트램',
-  BRT_HIGH: 'BRT 고급형', BRT_LOW: 'BRT 저급형', DOUBLE_ELEC: '복선전철',
-};
-const STRUCTURE_LABEL = { UNDERGROUND: '지하', ELEVATED: '고가', AT_GRADE: '지상' };
 const MAX_COMPARE = 4;
 
 function money(eok) {

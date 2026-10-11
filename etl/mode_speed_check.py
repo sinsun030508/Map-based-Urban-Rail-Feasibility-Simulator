@@ -22,8 +22,13 @@
   연장이 5% 안에서 맞을 때만 받아들인다(`TOL`). 이 프로젝트가 OSM 역수를 ±2 로
   검증한 것과 같은 방식이다.
 
-  **회귀 범위를 넘겨 쓰면 안 된다.** 적합 구간은 역간격 0.71~2.09km 다. GTX(7.67km)는
-  예측 132 vs 실측 90 으로 0.68배다 — 속도는 포화한다. 범위 밖 예측은 과대다.
+  **회귀 범위를 넘겨 쓰면 안 된다.** 적합 구간은 역간격 0.71~2.09km 다. 급행(GTX)은
+  예측의 0.68배밖에 안 나온다 — 속도는 포화한다. 범위 밖 예측은 과대다.
+
+  **그 급행을 표본에 넣으면 안 된다.** 포화를 보이려면 포화한 점이 표본 **밖**에
+  있어야 한다. `load_pairs` 는 `EXPRESS_RAIL` 을 빼고, `saturation_pairs` 가 그것만
+  따로 내놓는다. 전에는 급행 속도 90.14 와 역간격 7.667 이 이 스크립트에 손으로
+  박혀 있었다 — csv 를 고쳐도 따라오지 않는 자리였다 (테스트로 막아 뒀다).
 
     cd etl && python mode_speed_check.py
 """
@@ -40,6 +45,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 TOL = 0.05            # 연장이 이 비율 안에서 맞을 때만 노선을 짝짓는다
 FIT_MIN_N = 8         # 이보다 표본이 적으면 적합하지 않는다
+
+# 급행은 적합 표본에서 빼고 포화 검증에만 쓴다 (머리말 참고).
+# 수단으로 가르는 이유: 역간격에 기준선을 그으면 "2.5km" 같은 임의의 숫자가 생긴다.
+SATURATED_MODES = ('EXPRESS_RAIL',)
 
 
 def norm(s):
@@ -67,6 +76,36 @@ def match_line(key, length, candidates):
 
 
 def load_pairs():
+    """적합에 쓸 (수단, 노선, 역간격, 속도) — 급행은 뺀다.
+
+    급행을 빼는 이유는 머리말에 있다. 포화를 보일 점이 표본 안에 있으면
+    직선이 그 점을 향해 휘어서 "벗어난다"고 말할 수 없게 된다.
+    """
+    pairs, skipped = _all_pairs()
+    return [p for p in pairs if p[0] not in SATURATED_MODES], skipped
+
+
+def express_speed():
+    """급행 표정속도 중앙값 — `rail_speed.csv` 의 `EXPRESS_RAIL` 행에서 읽는다.
+
+    **노선 단위로 짝지을 수 없다.** `rail_speed.csv` 는 운행 구간으로 적혀 있고
+    (`운정중앙~서울역` 32.3km) `reference_line` 은 사업 단위다
+    (`수도권광역급행철도(A노선)` 46.0km) — 이름도 연장도 맞지 않는다.
+    그래서 급행만은 중앙값끼리 견준다. 역간격은 `express_spacing()` 이 준다.
+    """
+    rows = list(csv.DictReader((ROOT / 'data/seed/rail_speed.csv').open(encoding='utf-8')))
+    v = [float(r['speed_kmh']) for r in rows
+         if r['mode'] == 'EXPRESS_RAIL' and r['use_for_median'] == '1']
+    return statistics.median(v) if v else None
+
+
+def express_spacing():
+    """급행 역간격 중앙값 — `reference_line` 의 복선전철 중 이름에 `급행` 이 든 것."""
+    de = double_elec_split()
+    return statistics.median(de[de.급행].avg_spacing_km.tolist())
+
+
+def _all_pairs():
     """(수단, 노선, 역간격, 속도) — 연장이 맞는 것만."""
     df = pd.read_csv(ROOT / 'data/build/reference_line.csv', encoding='utf-8-sig')
     df['is_outlier'] = df['is_outlier'].astype(str).str.upper().isin(['TRUE', '1'])
@@ -134,6 +173,60 @@ def double_elec_split():
     return de
 
 
+def welch_t(a, b):
+    """두 묶음의 평균 차이를 표준오차로 나눈 값과, 그 표준오차.
+
+    분산이 다를 수 있으므로 합치지 않고 각자 센다(Welch). 표본이 작을 때
+    **검출 한계**(2×표준오차)를 함께 돌려주는 것이 중요하다 — `|t| < 2` 를
+    "차이가 없다"로 읽으면 안 되고 "이보다 작은 차이는 안 보인다"로 읽어야 한다.
+    """
+    import statistics as st
+    sa, sb = st.variance(a) / len(a), st.variance(b) / len(b)
+    se = (sa + sb) ** 0.5
+    return (st.mean(a) - st.mean(b)) / se, se
+
+
+def cost_residual_t(rule='name'):
+    """비용 회귀 잔차가 급행/일반에서 쏠리는지 — `(t, 검출 한계 배수)`.
+
+    **왜 이걸 재나.** km당 사업비만 보면 급행 579 / 일반 1,064 억으로 두 배 갈린다.
+    그걸 보고 "급행은 비용 계수를 따로 둬야 한다"고 결론내면 틀린다 — 회귀에 이미
+    `log(역수)` 가 있어서, 역수를 알고 나면 그 차이가 남는지를 봐야 한다.
+    남는 몫이 잔차다. 관측된 잔차 차이는 1.02배로 거의 없다.
+
+    **다만 "없다"고 말하면 과한 주장이다.** 급행 n=4 · 일반 n=6 이고 급행 쪽
+    잔차 표준편차가 0.385(=1.47배)나 되어, **1.50배 미만의 차이는 이 표본에서
+    보이지 않는다.** `log(역수)` 를 아예 빼고 돌려 봐도 t가 +0.12 → −0.79 로
+    움직일 뿐 2를 넘지 않았다 — 즉 이 검정은 메커니즘을 확인해 준 것이 아니라
+    **어느 쪽도 가리지 못한다.**
+
+    그래도 결론은 같다: 표본 4개에 더미를 하나 더 붙이는 것은 과적합이고,
+    1.5배 미만일 수도 있는 차이를 쫓을 근거가 없다. 급행은 복선전철의 비용 계수를
+    그대로 쓰고 역이 적어서 저절로 싸진다. **"차이가 없음을 보였다"가 아니라
+    "볼 힘이 없다"가 이 숫자의 뜻이다** — 보고서에 그렇게 쓸 것.
+
+    `rule` 은 가르는 기준이다 — `'name'` 은 노선명의 `급행`(S1 과 같은 규칙),
+    `'spacing'` 은 역간격 4.5km. 어느 쪽으로 갈라도 결론이 같아야 한다.
+    """
+    import numpy as np
+    import cost_model
+
+    s = cost_model.load_sample(grade=('A',))
+    s = s[s.underground_ratio.notna() & s.station_count.notna()]
+    m = cost_model.fit_model(s, with_ug=True, with_stations=True)
+    X, _ = cost_model.design(s, m['modes'], True, True)
+    resid = np.log(s.total_cost_2025.values.astype(float)) - X @ m['beta']
+
+    de = (s.mode_type == 'DOUBLE_ELEC') & (s.station_count >= 2)
+    r = resid[de.values]
+    sub = s[de]
+    grp = (sub.line_name.astype(str).str.contains('급행').values if rule == 'name'
+           else (sub.avg_spacing_km >= 4.5).values)
+    t, se = welch_t(list(r[grp]), list(r[~grp]))
+    import math
+    return float(t), math.exp(2 * se)
+
+
 def main():
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
@@ -152,8 +245,10 @@ def main():
     lo, hi = min(x for x, _ in pts), max(x for x, _ in pts)
     print('속도 = %.2f + %.2f x 역간격   (노선 %d개, R² %.3f)' % (a, b, len(pts), r2))
     print('  적합 구간은 역간격 %.2f~%.2f km 다. **이 밖으로 쓰지 말 것** —' % (lo, hi))
-    print('  속도는 포화한다 (GTX 7.67km: 예측 %.0f vs 실측 90.14 = 0.68배).'
-          % (a + b * 7.667))
+    x_sat, y_sat = express_spacing(), express_speed()
+    print('  속도는 포화한다 (급행 %.2fkm: 예측 %.0f vs 실측 %.2f = %.2f배).'
+          % (x_sat, a + b * x_sat, y_sat, y_sat / (a + b * x_sat)))
+    print('  급행은 이 표본 **밖**이다 — 그래야 벗어남을 보일 수 있다.')
     print()
 
     print('수단별 짝이 맞는지 (S1 기준)')
@@ -165,7 +260,8 @@ def main():
         'TRAM': '느린 것이 당연하다 — 노면 주행',
         'BRT_HIGH': '가정값이다 (실측 중)',
         'BRT_LOW': '가정값이다 (실측 중)',
-        'DOUBLE_ELEC': '**역간격과 속도가 다른 노선 집합에서 왔다** — 아래 참고',
+        'DOUBLE_ELEC': '일반 광역으로 좁혔다 — 속도 출처(신분당선 2.09km)와 같은 집단',
+        'EXPRESS_RAIL': '포화 구간이다 — 예측이 과대한 것이고 값이 틀린 게 아니다',
     }
     for code, name, spc, spd in s1_modes():
         if spc is None or spd is None:
@@ -192,21 +288,36 @@ def main():
     print('  %-10s n=%-3d 중앙값 %5.2f  범위 %.2f~%.2f'
           % ('일반 광역', len(nor), statistics.median(nor), min(nor), max(nor)))
     print()
-    print('가르면 짝이 맞아 간다 (속도 출처를 그대로 두고 역간격만 바꿔 본다)')
+    print('가른 효과 (속도 출처를 그대로 두고 역간격만 바꿔 본다)')
     print('  %-16s %8s %8s %10s %8s' % ('', '역간격', '속도', '예측', '차이'))
     for label, spc, spd, src in [
-            ('현재 S1', statistics.median(allv), 47.6, '신분당선(역간격 2.09)'),
+            ('가르기 전', statistics.median(allv), 47.6, '신분당선(역간격 2.09)'),
             ('일반 광역', statistics.median(nor), 47.6, '신분당선(역간격 2.09)'),
-            ('급행', statistics.median(exp), 90.14, 'GTX-A(역간격 7.67)')]:
+            ('급행', statistics.median(exp), express_speed(), 'GTX-A 두 구간 중앙값')]:
         pred = a + b * spc
         print('  %-16s %8.2f %8.2f %10.1f %7.0f%%   속도 출처 %s'
               % (label, spc, spd, pred, (spd / pred - 1) * 100, src))
     print()
-    print('일반 광역으로 가르면 어긋남이 크게 줄어든다. 급행은 적합 구간 밖이라')
+    print('일반 광역으로 좁히면 어긋남이 크게 줄어든다. 급행은 적합 구간 밖이라')
     print('예측 자체가 과대하므로 그 차이를 어긋남으로 읽지 말 것.')
     print()
-    print('**이 스크립트는 값을 고치지 않는다.** 수단을 쪼개는 것은 S1·S5·백엔드 enum·')
-    print('비용 회귀 더미를 모두 건드리는 모델링 결정이다 — CLAUDE.md 다음 할 일 ②·⑧.')
+
+    print('비용은 가를 근거가 있나 — 회귀 잔차가 쏠리는지 본다')
+    for rule, label in (('name', '이름에 "급행"'), ('spacing', '역간격 >= 4.5km')):
+        t, lim = cost_residual_t(rule)
+        print('  %-16s t=%+.2f  %s   검출 한계 %.2f배'
+              % (label, t, '쏠리지 않는다' if abs(t) < 2 else '**쏠린다**', lim))
+    print('  km당 579 vs 1,064 억 차이는 `log(역수)` 가 이미 설명한다 —')
+    print('  급행은 "급행이라서" 싼 게 아니라 역이 적어서 싸다.')
+    print()
+    print('  **다만 이 검정은 어느 쪽도 가리지 못한다.** 급행 n=4 라 검출 한계가')
+    print('  위 배수만큼 크다. `log(역수)` 를 빼고 돌려도 t가 2를 넘지 않았다.')
+    print('  "차이가 없다" 가 아니라 **"그보다 작은 차이는 못 본다"** 가 맞는 해석이다.')
+    print('  결론은 같다 — 표본 4개에 더미를 더 붙이는 것은 과적합이므로 급행은')
+    print('  복선전철의 비용 계수를 그대로 쓴다(S5). 표본이 늘면 테스트가 알려 준다.')
+    print()
+    print('**이 스크립트는 값을 고치지 않는다.** 검사만 한다 —')
+    print('값은 db/seed/S1__mode_capacity.sql 과 data/seed/rail_speed.csv 가 원본이다.')
 
 
 if __name__ == '__main__':
