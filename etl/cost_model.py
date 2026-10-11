@@ -80,6 +80,32 @@ def load_sample(grade=('A', 'B')):
     return m
 
 
+# 집단을 갈라 잔차를 견줄 때 한쪽이 이보다 적으면 t 를 믿지 않는다.
+#
+# **n=2 에서 실제로 속았다.** `계획 사업비` 가 붙은 두 노선(7호선 청라연장·송파하남선)의
+# 잔차가 소수점 5자리까지 같았다(둘 다 1.3243배 — 사업비 15,828 / 18,356 로 서로 다른
+# 숫자인데 우연히 겹쳤다). 분산이 **정확히 0** 이라 표준오차가 0 이 되고 t 가 7.75 로
+# 튀었다. 두 값이 log 0.4 만 벌어져도 t 는 1.46 으로 내려간다 — 즉 "유의함"의 전부가
+# 그 우연이었다.
+#
+# 작은 n 에서는 t 가 아니라 **검출 한계**를 봐야 한다. n=2 일 때 한계가 1.08배로 나오는데,
+# 그건 정밀해서가 아니라 분산을 잴 수 없어서다.
+MIN_SPLIT_N = 3
+
+
+def welch_t(a, b):
+    """두 묶음의 평균 차이를 표준오차로 나눈 값과, 그 표준오차.
+
+    분산이 다를 수 있으므로 합치지 않고 각자 센다(Welch). 표본이 작을 때
+    **검출 한계**(2×표준오차)를 함께 돌려주는 것이 중요하다 — `|t| < 2` 를
+    "차이가 없다"로 읽으면 안 되고 "이보다 작은 차이는 안 보인다"로 읽어야 한다.
+    """
+    import statistics as st
+    sa, sb = st.variance(a) / len(a), st.variance(b) / len(b)
+    se = (sa + sb) ** 0.5
+    return (st.mean(a) - st.mean(b)) / se, se
+
+
 def ols(X, y):
     """계수와 표준오차를 함께 돌려준다 — 계수를 믿을 수 있는지 봐야 하므로."""
     beta, *_ = np.linalg.lstsq(X, y, rcond=None)
@@ -260,6 +286,77 @@ def check_spacing_matches_s1():
     print(f'역간격 S1 일치 확인 — {len(SPACING)}개 수단')
 
 
+def residuals(sample=None):
+    """A등급 표본에 지금 모델을 적합하고 `resid`(log 잔차)를 붙여 돌려준다."""
+    s = load_sample(grade=('A',)) if sample is None else sample
+    s = s[s.underground_ratio.notna() & s.station_count.notna()]
+    m = fit_model(s, with_ug=True, with_stations=True)
+    X, _ = design(s, m['modes'], True, True)
+    return s.assign(resid=np.log(s.total_cost_2025.values.astype(float)) - X @ m['beta']), m
+
+
+def candidate_splits():
+    """"이 변수를 비용 모델에 넣어야 하나" 를 잔차로 가린다.
+
+    `(이름, n참, n거짓, 비율, t, 검출한계, 판정)` 목록.
+
+    **쓰는 법.** 어떤 변수를 넣고 싶으면 먼저 여기 넣어 본다. 모델이 이미 설명하는
+    것이면 잔차가 쏠리지 않는다 — 급행이 그랬다(km당 사업비는 두 배 갈리는데
+    `log(역수)` 를 넣고 나면 차이가 1.02배였다).
+
+    **판정을 t 로만 읽지 말 것.** 한쪽 n 이 `MIN_SPLIT_N` 보다 작으면 t 를 아예
+    내놓지 않는다(위 주석의 n=2 사고). 그보다 커도 n 이 작으면 검출 한계가 커서,
+    `|t| < 2` 는 "차이가 없다"가 아니라 "그보다 작은 차이는 못 본다"는 뜻이다.
+    """
+    s, _ = residuals()
+    seed = pd.read_csv(ROOT / 'data/seed/metro_seed.csv')
+    note = dict(zip(seed.line_name.astype(str), seed.note.fillna('').astype(str)))
+    s = s.assign(note=s.line_name.astype(str).map(lambda n: note.get(n, '')))
+
+    cands = {
+        # 공법 — 다음 할 일 ⑤ 가 묻던 것. 표본이 없어 못 만든다 (아래 출력이 보여 준다)
+        '저심도':          s.note.str.contains('저심도'),
+        '지상 위주':        s.note.str.contains('지상'),
+        '고무차륜·모노레일':   s.note.str.contains('고무차륜|모노레일'),
+        # 사업 성격
+        '차량기지 포함':      s.note.str.contains('차량기지'),
+        '민자 사업':         s.note.str.contains('민자'),
+        '계획 사업비':        s.note.str.contains('계획 사업비'),
+        # 이미 변수로 있는 것 — 잔차가 쏠리면 그 변수가 부족하다는 뜻이다
+        '수도권':           s.region_class == 'CAPITAL',
+        '역간격 >= 4.5km':   s.avg_spacing_km >= 4.5,
+        '기준연도가 미래':      s.base_year > 2025,
+    }
+    out = []
+    for name, mask in cands.items():
+        a, b = list(s.resid[mask].values), list(s.resid[~mask].values)
+        if min(len(a), len(b)) < MIN_SPLIT_N:
+            out.append((name, len(a), len(b), None, None, None,
+                        f'표본 부족 (한쪽 {min(len(a), len(b))}개 < {MIN_SPLIT_N}) — 잴 수 없다'))
+            continue
+        t, se = welch_t(a, b)
+        ratio = float(np.exp(np.mean(a) - np.mean(b)))
+        limit = float(np.exp(2 * se))
+        verdict = '**쏠린다 — 변수로 검토**' if abs(t) >= 2 else '쏠리지 않는다'
+        out.append((name, len(a), len(b), ratio, float(t), limit, verdict))
+    return out
+
+
+def report_candidates():
+    print()
+    print('[후보 변수 — 잔차가 쏠리는지 본다]')
+    print('  "이 변수를 넣어야 하나" 를 넣어 보기 전에 가린다. 모델이 이미 설명하면 안 쏠린다.')
+    print(f'  {"변수":<18}{"n(참)":>6}{"n(거짓)":>7}{"비율":>7}{"t":>8}{"검출한계":>9}  판정')
+    for name, na, nb, ratio, t, limit, verdict in candidate_splits():
+        if t is None:
+            print(f'  {name:<18}{na:>6}{nb:>7}{"":>7}{"":>8}{"":>9}  {verdict}')
+        else:
+            print(f'  {name:<18}{na:>6}{nb:>7}{ratio:>7.2f}{t:>+8.2f}{limit:>8.2f}배  {verdict}')
+    print()
+    print('  **t 보다 검출 한계를 먼저 볼 것.** n 이 작으면 한계가 커서 어지간한 차이는')
+    print('  보이지 않는다 — |t| < 2 는 "차이가 없다"가 아니라 "그보다 작으면 못 본다"다.')
+
+
 def main():
     check_spacing_matches_s1()
 
@@ -312,6 +409,9 @@ def main():
     to_sql(rows, m2, DB_SEED / 'S5__cost_standard.sql')
     print()
     print(f'{DB_SEED / "S5__cost_standard.sql"} 생성 — {len(rows)}행')
+
+    if '--candidates' in sys.argv:
+        report_candidates()
 
 
 if __name__ == '__main__':
