@@ -927,6 +927,57 @@ def report():
     print('%s 에 표본 %d개 저장' % (out, len(samples)))
 
 
+def preflight(only=None):
+    """수집하지 않고 **내일 수집이 통과해야 할 것**만 미리 본다.
+
+    왜 따로 두나: 수집은 한 번에 2~3시간이고 예약으로 돈다. API 가 바뀌었거나
+    노선 선형이 달라졌으면 `collect()` 가 `check_shape()` 에서 멈추는데,
+    그걸 **새벽 6시 50분에 알게 되면 그날을 날린다.** 미리 1분 만에 가린다.
+
+        python etl/sejong_brt_speed.py --preflight
+
+    선형은 캐시되므로 두 번째부터는 네트워크를 거의 안 쓴다. 그래서 실시간
+    위치 API 도 한 번 찔러 본다 — 그쪽이 바뀌면 선형만 멀쩡해도 못 모은다.
+    """
+    ids = [r for r in ROUTES
+           if only is None or ROUTES[r]['name'] in only or r in only]
+    if not ids:
+        print('--only 가 아무 노선과도 맞지 않습니다: %s' % (only,))
+        print('쓸 수 있는 이름: %s' % ', '.join(sorted({m['name'] for m in ROUTES.values()})))
+        return False
+    print('수집 전 점검 — 노선 %d개' % len(ids))
+    bad = []
+    for rid in ids:
+        name = ROUTES[rid]['name'] + ' ' + ROUTES[rid]['direction']
+        try:
+            check_shape(route_shape(rid), rid)
+            print('  OK      %s' % name)
+        except SystemExit as e:
+            print('  **멈춤** %s: %s' % (name, e))
+            bad.append(name)
+        except Exception as e:
+            print('  **오류** %s: %s %s' % (name, type(e).__name__, e))
+            bad.append(name)
+
+    try:
+        res = post('/web/traffic/searchBusRealLocationDetail.do', busRouteId=ids[0])
+        live = 'busRealLocList' in res
+        print('  %s 실시간 위치 API' % ('OK     ' if live else '**바뀜**'))
+        if not live:
+            bad.append('실시간 위치 API 응답 모양이 다르다: %s' % list(res)[:5])
+    except Exception as e:
+        print('  **오류** 실시간 위치 API: %s %s' % (type(e).__name__, e))
+        bad.append('실시간 위치 API')
+
+    if bad:
+        print()
+        print('막힌 것 %d개 — **수집을 걸기 전에 고칠 것**' % len(bad))
+        return False
+    print()
+    print('전부 통과 — 수집을 걸어도 된다')
+    return True
+
+
 def main():
     # 한글 출력이 cp949 콘솔에서 깨지지 않게 한다. import 하는 쪽을 건드리지
     # 않으려고 모듈이 아니라 여기서 감싼다
@@ -936,7 +987,11 @@ def main():
     ap.add_argument('--report', action='store_true', help='쌓인 관측으로 집계한다')
     ap.add_argument('--only', nargs='+', metavar='노선', help='이 노선만 수집한다 (예: B4 1005)')
     ap.add_argument('--obs', default='observations.csv', help='관측을 쓸 파일 이름')
+    ap.add_argument('--preflight', action='store_true',
+                    help='수집하지 않고 API·선형만 점검한다 (예약 수집 전에 돌릴 것)')
     a = ap.parse_args()
+    if a.preflight:
+        raise SystemExit(0 if preflight(only=a.only) else 1)
     if a.collect:
         collect(a.collect, only=a.only, obs_name=a.obs)
     if a.report or not a.collect:

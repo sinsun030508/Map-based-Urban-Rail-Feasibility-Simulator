@@ -507,7 +507,13 @@ FK 로 참조해 저장된 비교표가 하나라도 있으면 `DELETE` 가 막�
   시간대 격자의 빈 칸을 보여 준다. 관측은 `data/cache/brt/` 에 쌓이고 다시 돌리면 더해진다.
   **대조군(1005)을 BRT 와 같은 시간대에 함께 돌릴 것** — 따로 재면 비교가 안 된다
 
+- **수집을 걸기 전에 `--preflight` 를 돌릴 것.** 수집은 한 번에 2~3시간이고 예약으로 도는데,
+  API 가 바뀌었거나 노선 선형이 달라졌으면 `check_shape()` 에서 멈춘다 — **그걸 새벽 6시 50분에
+  알게 되면 그날을 날린다.** 전 노선 선형과 실시간 위치 API 를 1분 만에 가리고, 막히면
+  종료코드 1 을 낸다. 선형은 캐시되므로 두 번째부터는 네트워크를 거의 안 쓴다
+
   ```bash
+  python etl/sejong_brt_speed.py --preflight
   python etl/sejong_brt_speed.py --collect 120 --only B4 B2 B1 B3 --obs observations_peak.csv
   python etl/sejong_brt_speed.py --collect 120 --only 1005 --obs observations_peak_1005.csv
   ```

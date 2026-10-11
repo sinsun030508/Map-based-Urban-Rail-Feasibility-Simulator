@@ -480,3 +480,50 @@ class Test시간해상도:
         s, why = brt.measure_leg(run, '전구간', 0.0, 30.0)
         assert s is not None, why
         assert s['coarse'] is False
+
+
+class Test수집전점검:
+    """`--preflight` — 수집을 걸기 전에 1분 만에 가린다.
+
+    수집은 한 번에 2~3시간이고 예약으로 돈다. API 가 바뀌었거나 노선 선형이
+    달라졌으면 `collect()` 가 `check_shape()` 에서 멈추는데, **그걸 새벽 6시 50분에
+    알게 되면 그날을 날린다.**
+
+    선형·API 검사는 네트워크를 쓰므로 여기서는 **네트워크 없이 도는 부분**만 가린다.
+    """
+
+    def test_없는_노선을_주면_쓸_수_있는_이름을_알려_준다(self, capsys):
+        """**반환값만 보면 안 된다 — 돌연변이로 확인했다.**
+
+        빈 목록 가드를 꺼도 `preflight` 는 똑같이 `False` 를 돌려준다. `ids[0]` 이
+        터지는데 그 `IndexError` 가 API 검사의 `except` 에 잡혀 `bad` 에 쌓이기
+        때문이다. 그래서 `is False` 만 보는 테스트는 **못으로 박힌 것이 아니었다.**
+
+        가드가 지키는 것은 반환값이 아니라 **메시지**다. 꺼 두면 쓰는 사람이
+        `IndexError list index out of range` 를 보고 자기가 오타를 냈다는 것을
+        알 수 없다.
+        """
+        assert brt.preflight(only=['B99']) is False
+        out = capsys.readouterr().out
+        assert '아무 노선과도 맞지 않습니다' in out
+        assert 'B4' in out and '1005' in out, '쓸 수 있는 이름을 안 알려 준다'
+        assert 'IndexError' not in out, '속사정이 그대로 샌다'
+
+    def test_빈_목록일_때_네트워크를_건드리지_않는다(self):
+        """막힌 줄도 모르고 API 를 찌르면 안 된다."""
+        called = []
+        real_shape, real_post = brt.route_shape, brt.post
+        brt.route_shape = lambda rid: called.append(('shape', rid))
+        brt.post = lambda *a, **k: called.append(('post', a, k)) or {}
+        try:
+            brt.preflight(only=['없는노선'])
+        finally:
+            brt.route_shape, brt.post = real_shape, real_post
+        assert called == [], f'네트워크를 {len(called)}번 건드렸다'
+
+    def test_노선_이름으로_고를_수_있다(self):
+        """`--only B4 1005` 처럼 이름으로 거른다 — id 를 외울 수 없다."""
+        names = {m['name'] for m in brt.ROUTES.values()}
+        assert 'B4' in names and '1005' in names
+        ids = [r for r in brt.ROUTES if brt.ROUTES[r]['name'] in ('B4', '1005')]
+        assert len(ids) == 4        # B4 양방향 + 1005 양방향
