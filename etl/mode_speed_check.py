@@ -48,6 +48,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from cost_model import welch_t      # 통계는 비용 모델 쪽에 한 벌만 둔다
+
 ROOT = Path(__file__).resolve().parent.parent
 TOL = 0.05            # 연장이 이 비율 안에서 맞을 때만 노선을 짝짓는다
 FIT_MIN_N = 8         # 이보다 표본이 적으면 적합하지 않는다
@@ -252,19 +254,6 @@ def double_elec_split():
             & ~df.is_outlier & (df.station_count >= 2)].copy()
     de['급행'] = de.line_name.astype(str).str.contains('급행')
     return de
-
-
-def welch_t(a, b):
-    """두 묶음의 평균 차이를 표준오차로 나눈 값과, 그 표준오차.
-
-    분산이 다를 수 있으므로 합치지 않고 각자 센다(Welch). 표본이 작을 때
-    **검출 한계**(2×표준오차)를 함께 돌려주는 것이 중요하다 — `|t| < 2` 를
-    "차이가 없다"로 읽으면 안 되고 "이보다 작은 차이는 안 보인다"로 읽어야 한다.
-    """
-    import statistics as st
-    sa, sb = st.variance(a) / len(a), st.variance(b) / len(b)
-    se = (sa + sb) ** 0.5
-    return (st.mean(a) - st.mean(b)) / se, se
 
 
 def cost_residual_t(rule='name'):
