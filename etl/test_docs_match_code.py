@@ -31,10 +31,17 @@ CLAUDE = (Path(__file__).resolve().parent.parent / 'CLAUDE.md').read_text(encodi
 
 
 def one(pattern, what):
-    """CLAUDE.md 에서 하나만 뽑는다. 못 찾거나 여럿이면 실패시킨다."""
+    """CLAUDE.md 에서 값을 뽑는다. 못 찾으면 실패시킨다.
+
+    **여러 곳에 있어도 되지만 전부 같아야 한다.** 처음엔 "한 곳에만 있어야 한다"로
+    두었는데 그게 너무 셌다 — 기술 절과 「보고서에 명시할 한계」 절에 같은 숫자가
+    나오는 것은 자연스럽다. 금지할 일이 아니라 **어긋나는지를 볼 일**이다.
+    (실제로 한계 절을 다시 쓰다가 이 테스트에 걸렸고, 그래서 규칙을 고쳤다.)
+    """
     hits = re.findall(pattern, CLAUDE)
     assert hits, f'CLAUDE.md 에서 {what} 을 못 찾았다 — 문장이 바뀌었으면 정규식도 고칠 것'
-    assert len(hits) == 1, f'{what} 이 {len(hits)}곳에 있다 — 한 곳만 고치면 어긋난다: {hits}'
+    assert len(set(hits)) == 1, (
+        f'{what} 이 {len(hits)}곳에 서로 다르게 적혀 있다 — 한 곳만 고친 것이다: {sorted(set(hits))}')
     return hits[0]
 
 
