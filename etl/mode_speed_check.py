@@ -22,8 +22,14 @@
   연장이 5% 안에서 맞을 때만 받아들인다(`TOL`). 이 프로젝트가 OSM 역수를 ±2 로
   검증한 것과 같은 방식이다.
 
-  **회귀 범위를 넘겨 쓰면 안 된다.** 적합 구간은 역간격 0.71~2.09km 다. 급행(GTX)은
-  예측의 0.68배밖에 안 나온다 — 속도는 포화한다. 범위 밖 예측은 과대다.
+  **회귀 범위를 넘겨 쓰면 안 된다.** 적합 구간은 역간격 0.71~2.36km 다. 급행(GTX)은
+  예측의 0.86배밖에 안 나온다 — 속도는 포화한다. 범위 밖 예측은 과대다.
+
+  **구간 위쪽 두 점이 서로 어긋난다 — 아직 설명하지 못한다.** 김포 골드라인(2.36km)이
+  신분당선(2.09km)보다 **역간격이 넓은데 더 느리다**(45.08 vs 47.60). 직선이 예측하는
+  것과 반대 방향이다. 차량 한계 때문인가 보려고 찾아봤더니 **둘 다 운행 최고속도가
+  80km/h 로 같았다**(김포 ATO 77) — 가설이 틀렸다. R² 가 0.958(16개)에서 0.925(18개)로
+  떨어진 것이 이 어긋남이다. **0.958 은 구간이 좁아서 나온 값이었다.**
 
   **그 급행을 표본에 넣으면 안 된다.** 포화를 보이려면 포화한 점이 표본 **밖**에
   있어야 한다. `load_pairs` 는 `EXPRESS_RAIL` 을 빼고, `saturation_pairs` 가 그것만
@@ -49,6 +55,16 @@ FIT_MIN_N = 8         # 이보다 표본이 적으면 적합하지 않는다
 # 급행은 적합 표본에서 빼고 포화 검증에만 쓴다 (머리말 참고).
 # 수단으로 가르는 이유: 역간격에 기준선을 그으면 "2.5km" 같은 임의의 숫자가 생긴다.
 SATURATED_MODES = ('EXPRESS_RAIL',)
+
+# **자를 만드는 데는 실측만 쓴다.** 설계값·시운전값을 넣으면 자가 가정을 재게 된다.
+#
+# 대전 2호선(설계 22.06)이 그 예다. 미개통이라 실측이 없는데, 하필 그 값이 **S1 의
+# TRAM `speed_kmh` 그 자체**다 — 넣으면 "TRAM 이 회귀와 맞는가"를 TRAM 의 값으로
+# 재는 완전한 순환이 된다. 넣어 보면 R² 가 0.924 → 0.862 로 떨어지는데, 그건
+# 자료가 나빠서가 아니라 **노면전차가 원래 직선 아래**라서다(0.76배).
+#
+# 중전철이 표본의 다수라 생기는 **부분적** 순환은 남아 있다 — S1 비교표에 적어 둔다.
+FIT_BASIS = ('실측',)
 
 
 def norm(s):
@@ -76,13 +92,24 @@ def match_line(key, length, candidates):
 
 
 def load_pairs():
-    """적합에 쓸 (수단, 노선, 역간격, 속도) — 급행은 뺀다.
+    """적합에 쓸 (수단, 노선, 역간격, 속도) — 급행과 비실측을 뺀다.
 
     급행을 빼는 이유는 머리말에 있다. 포화를 보일 점이 표본 안에 있으면
     직선이 그 점을 향해 휘어서 "벗어난다"고 말할 수 없게 된다.
+    비실측을 빼는 이유는 `FIT_BASIS` 주석에 있다 — 자가 가정을 재면 안 된다.
+
+    `(남은 짝, 건너뛴 것)` 을 준다. 건너뛴 것에는 **왜** 가 붙는다.
     """
     pairs, skipped = _all_pairs()
-    return [p for p in pairs if p[0] not in SATURATED_MODES], skipped
+    keep = []
+    for p in pairs:
+        if p[0] in SATURATED_MODES:
+            skipped.append((p[1], '포화 구간 — 자를 만드는 대신 자를 검증한다'))
+        elif p[4] not in FIT_BASIS:
+            skipped.append((p[1], f'{p[4]}값 — 자는 실측으로만 만든다'))
+        else:
+            keep.append(p[:4])
+    return keep, skipped
 
 
 def express_speed():
@@ -106,10 +133,25 @@ def express_spacing():
 
 
 def _all_pairs():
-    """(수단, 노선, 역간격, 속도) — 연장이 맞는 것만."""
+    """(수단, 노선, 역간격, 속도, 기준) — 역간격을 **속도와 같은 출처에서** 뽑는다.
+
+    `rail_speed.csv` 에 `station_count` 가 있으면 그 노선의 `연장 ÷ 역수` 를 쓰고,
+    없으면 `reference_line` 에서 이름·연장으로 찾아 쓴다.
+
+    **csv 를 먼저 보는 이유가 이 프로젝트의 교훈이다.** 복선전철이 틀렸던 까닭이
+    역간격과 속도를 **다른 노선 집합에서** 가져온 것이었다. 운영사 페이지 하나가
+    연장·역수·소요시간을 함께 주면 셋이 서로 맞는지 그 자리에서 검산된다.
+
+    실제로 어긋난 예가 있다 — 인천 1호선은 운영사가 **37.1km / 33역**(검단연장
+    2025-06-28 개통 반영)인데 `reference_line` 은 **30.3km / 30역**(연장 전)이다.
+    연장이 18% 달라 이름으로도 못 붙었고, 그래서 자가 이 노선을 아예 못 썼다.
+    `_crosscheck_spacing()` 이 두 출처가 다른 노선을 찾아 보고한다.
+    """
     df = pd.read_csv(ROOT / 'data/build/reference_line.csv', encoding='utf-8-sig')
     df['is_outlier'] = df['is_outlier'].astype(str).str.upper().isin(['TRUE', '1'])
     pool = df[df.avg_spacing_km.notna() & ~df.is_outlier & (df.station_count >= 2)]
+    cands = [(norm(r['line_name']), float(r['length_km']), float(r['avg_spacing_km']))
+             for _, r in pool.iterrows()]
 
     rows = list(csv.DictReader((ROOT / 'data/seed/rail_speed.csv').open(encoding='utf-8')))
     pairs, skipped = [], []
@@ -121,14 +163,53 @@ def _all_pairs():
         except (TypeError, ValueError):
             skipped.append((s['line'], '연장 없음'))
             continue
-        cands = [(norm(r['line_name']), float(r['length_km']), float(r['avg_spacing_km']))
-                 for _, r in pool.iterrows()]
-        best = match_line(norm(s['line']), length, cands)
-        if best is None:
-            skipped.append((s['line'], '연장이 맞는 행 없음'))
-        else:
-            pairs.append((s['mode'], s['line'], best[2], float(s['speed_kmh'])))
+
+        spacing = _own_spacing(s)
+        if spacing is None:
+            best = match_line(norm(s['line']), length, cands)
+            if best is None:
+                skipped.append((s['line'], '연장이 맞는 행 없음 — csv 에 역수를 적으면 쓸 수 있다'))
+                continue
+            spacing = best[2]
+        pairs.append((s['mode'], s['line'], spacing, float(s['speed_kmh']), s['basis']))
     return pairs, skipped
+
+
+def _own_spacing(row):
+    """`rail_speed.csv` 가 역수를 갖고 있으면 그 노선 자기 역간격 (연장 ÷ 역수)."""
+    try:
+        n = int(row.get('station_count') or 0)
+        return float(row['length_km']) / n if n >= 2 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def crosscheck_spacing():
+    """csv 가 주는 역간격과 `reference_line` 이 주는 역간격이 다른 노선.
+
+    **둘 다 있을 때만 견준다.** 다르면 둘 중 하나가 낡은 것이고, 운영사 페이지가
+    보통 더 새롭다 — 운영현황은 연장 개통을 늦게 반영한다.
+    """
+    df = pd.read_csv(ROOT / 'data/build/reference_line.csv', encoding='utf-8-sig')
+    df['is_outlier'] = df['is_outlier'].astype(str).str.upper().isin(['TRUE', '1'])
+    pool = df[df.avg_spacing_km.notna() & ~df.is_outlier & (df.station_count >= 2)]
+    cands = [(norm(r['line_name']), float(r['length_km']), float(r['avg_spacing_km']))
+             for _, r in pool.iterrows()]
+
+    out = []
+    for s in csv.DictReader((ROOT / 'data/seed/rail_speed.csv').open(encoding='utf-8')):
+        own = _own_spacing(s)
+        if own is None:
+            continue
+        # 이름만 겹치면 되는 넉넉한 탐색 — 연장이 달라 못 붙는 경우를 **찾는 것이 목적**이다
+        key = norm(s['line'])
+        hits = [c for c in cands if key and (key in c[0] or c[0] in key)]
+        if not hits:
+            continue
+        near = min(hits, key=lambda c: abs(c[1] - float(s['length_km'])))
+        if abs(near[2] - own) / own > 0.02:
+            out.append((s['line'], own, near[2], float(s['length_km']), near[1]))
+    return out
 
 
 def fit(points):
@@ -231,10 +312,19 @@ def main():
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
     pairs, skipped = load_pairs()
-    print('노선별 (역간격, 표정속도) 짝 %d개 — 연장이 %.0f%% 안에서 맞는 것만'
-          % (len(pairs), TOL * 100))
-    if skipped:
-        print('  못 붙인 것 %d개: %s' % (len(skipped), ', '.join(n for n, _ in skipped)))
+    print('자를 만드는 데 쓴 (역간격, 표정속도) 짝 %d개' % len(pairs))
+    print('  역간격은 csv 에 역수가 있으면 그 노선 자기 값(연장÷역수), 없으면')
+    print('  reference_line 에서 이름·연장(%.0f%% 안)으로 찾는다' % (TOL * 100))
+    for name, why in skipped:
+        print('  안 씀  %-12s %s' % (name, why))
+
+    diff = crosscheck_spacing()
+    if diff:
+        print()
+        print('두 출처의 역간격이 다르다 — 운영사 페이지가 보통 더 새롭다')
+        for name, own, ref, own_len, ref_len in diff:
+            print('  %-12s csv %.3f (%.1fkm) vs reference_line %.3f (%.1fkm)'
+                  % (name, own, own_len, ref, ref_len))
     if len(pairs) < FIT_MIN_N:
         raise SystemExit('표본이 %d개뿐이라 적합하지 않습니다 (최소 %d개)'
                          % (len(pairs), FIT_MIN_N))
