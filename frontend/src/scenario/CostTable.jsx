@@ -1,17 +1,7 @@
 import BcChart from './BcChart';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
-
-const MODE_LABEL = {
-  HEAVY_METRO: '지하철',
-  LIGHT_RAIL: '경전철',
-  TRAM: '트램',
-  BRT_HIGH: 'BRT 고급형',
-  BRT_LOW: 'BRT 저급형',
-  DOUBLE_ELEC: '복선전철',
-};
-
-const STRUCTURE_LABEL = { UNDERGROUND: '지하', ELEVATED: '고가', AT_GRADE: '지상' };
+import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
 
 /** 억원 → 읽기 쉬운 단위. 1조가 넘으면 조 단위로 끊는다 */
 function money(eok) {

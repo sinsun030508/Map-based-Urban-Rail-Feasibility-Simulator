@@ -89,6 +89,14 @@ button.calc { width: 100%; margin-top: 8px; }
 table.cost { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
 table.cost th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 2px; border-bottom: 1px solid var(--line); }
 table.cost td { padding: 5px 2px; border-bottom: 1px solid var(--line); }
+/* 수단 이름은 접지 않는다. `table-layout: auto` 가 가장 긴 이름에 맞춰 칸을 잡는데,
+   이름 하나만 짧아져도 칸이 줄어 **다른 이름이 대신 접힌다** (`광역급행철도` 를
+   `광역급행` 으로 줄였더니 75 → 68px 이 되어 `BRT 고급형` 이 두 줄이 됐다).
+   B/C 칸이 145px 를 놀리고 있어 가져올 여유가 있다. 패널 폭 항목과 같은 문제다.
+   구조 칸(`지하`·`고가`·`지상`)도 29px 라 두 글자가 `지/상` 으로 접혀 있었다 —
+   이건 원래부터 그랬고 같은 표의 같은 결함이라 함께 묶는다. */
+table.cost th:first-child, table.cost td:first-child,
+table.cost th:nth-child(2), table.cost td:nth-child(2) { white-space: nowrap; }
 table.cost td.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.cost tr.cheapest td { font-weight: 700; }
 table.cost tr.selected { background: #fff4f3; }

@@ -1,4 +1,5 @@
 import { resultKey } from './resultKey';
+import { MODE_LABEL_SHORT as MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
 
 /**
  * 수단별 B/C 막대. 표 바로 위에 두고 **모양만** 보여 준다 — 숫자는 표가 갖고 있다.
@@ -20,11 +21,6 @@ const LABEL_W = 84;
 const VALUE_W = 30;
 const WIDTH = 300;
 
-const MODE_LABEL = {
-  HEAVY_METRO: '지하철', LIGHT_RAIL: '경전철', TRAM: '트램',
-  BRT_HIGH: 'BRT 고급', BRT_LOW: 'BRT 저급', DOUBLE_ELEC: '복선전철',
-};
-const STRUCTURE_LABEL = { UNDERGROUND: '지하', ELEVATED: '고가', AT_GRADE: '지상' };
 
 /** 데이터 끝만 둥글게 — 기준선 쪽은 각지게 둔다 */
 function barPath(x, y, w, h, r) {

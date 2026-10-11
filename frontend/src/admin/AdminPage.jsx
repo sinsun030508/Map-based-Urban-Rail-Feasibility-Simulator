@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { MODE_LABEL } from '../modeLabels';
 
 /**
  * 관리자 기준값 CRUD (제안서 기능 8).
@@ -9,11 +10,6 @@ import { api } from '../api/client';
  *
  * 추가·삭제는 없다. 기준값 목록은 ETL·시드가 만들고, 행이 사라지면 계산이 바로 멈춘다.
  */
-const MODE_LABEL = {
-  HEAVY_METRO: '지하철', LIGHT_RAIL: '경전철', TRAM: '트램',
-  BRT_HIGH: 'BRT 고급형', BRT_LOW: 'BRT 저급형', DOUBLE_ELEC: '복선전철',
-  SINGLE_ELEC: '단선전철', UPGRADE: '기존선 개량',
-};
 
 const MODE_FIELDS = [
   ['pphpdMin', '수요 하한'],
