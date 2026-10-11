@@ -190,3 +190,61 @@ class TestWelch검정:
         _, 좁은se = M.welch_t([10.0, 10.1, 9.9, 10.0], [11.0, 11.1, 10.9, 11.0])
         _, 넓은se = M.welch_t([8.0, 12.0, 9.0, 11.0], [9.0, 13.0, 10.0, 12.0])
         assert 넓은se > 좁은se
+
+
+class Test자기출처역간격:
+    """역간격을 **속도와 같은 출처에서** 뽑는다 — 복선전철이 틀렸던 바로 그 이유다.
+
+    `rail_speed.csv` 에 역수가 있으면 그 노선 자기 `연장 ÷ 역수` 를 쓴다.
+    운영사 페이지 하나가 연장·역수·소요시간을 함께 주면 셋이 서로 검산된다.
+    """
+
+    def test_역수가_있으면_자기_역간격을_쓴다(self):
+        assert M._own_spacing({'length_km': '37.1', 'station_count': '33'}) == \
+            pytest.approx(37.1 / 33)
+
+    def test_역수가_없으면_None(self):
+        assert M._own_spacing({'length_km': '37.1', 'station_count': ''}) is None
+        assert M._own_spacing({'length_km': '37.1'}) is None
+
+    def test_역이_하나면_역간격이_없다(self):
+        """가덕도신공항(16.5km/1역)이 복선전철 중앙값을 밀어 올렸던 것과 같은 규칙."""
+        assert M._own_spacing({'length_km': '16.5', 'station_count': '1'}) is None
+
+    def test_인천1호선은_두_출처가_다르다(self):
+        """운영사 37.1km/33역(검단연장 반영) vs reference_line 30.3km/30역(연장 전).
+
+        **이걸 못 보면 노선이 조용히 자에서 빠진다** — 연장이 18% 달라 이름으로도
+        안 붙어서, 전에는 "연장이 맞는 행 없음" 으로 버려지고 있었다.
+        """
+        diff = dict((d[0], d) for d in M.crosscheck_spacing())
+        assert '인천 1호선' in diff, '두 출처 차이를 못 잡는다'
+        name, own, ref, own_len, ref_len = diff['인천 1호선']
+        assert own == pytest.approx(37.1 / 33, abs=0.001)
+        assert ref == pytest.approx(1.010, abs=0.001)
+
+    def test_김포가_들어와_적합_구간이_넓어졌다(self):
+        """김포 골드라인 역간격 2.36 — 전에는 못 붙어 상한이 2.09 였다."""
+        pairs, _ = M.load_pairs()
+        names = {p[1] for p in pairs}
+        assert '김포 골드라인' in names
+        assert '인천 1호선' in names
+        assert max(p[2] for p in pairs) > 2.3
+
+
+class Test자는실측으로만:
+    """설계값·시운전값은 자를 만드는 데 쓰지 않는다."""
+
+    def test_대전2호선은_자에서_빠진다(self):
+        """미개통 설계값이고, 하필 그 값이 S1 의 TRAM 속도 그 자체라 완전 순환이다."""
+        pairs, skipped = M.load_pairs()
+        assert '대전 2호선' not in {p[1] for p in pairs}
+        why = dict(skipped)['대전 2호선']
+        assert '설계' in why
+
+    def test_빠진_것에는_이유가_붙는다(self):
+        """`못 붙인 것: A, B, C` 만 찍으면 왜 빠졌는지 알 수 없다 —
+        연장이 안 맞은 것과 설계값이라 뺀 것은 전혀 다른 일이다."""
+        _, skipped = M.load_pairs()
+        assert skipped
+        assert all(isinstance(w, str) and w for _, w in skipped)
