@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapStyle, INITIAL_VIEW } from './mapStyle';
+import { routeThroughStations } from '../geo/routeLine';
 import usePopulation3D from './usePopulation3D';
 
 const ROUTE_SOURCE = 'route';
@@ -70,9 +71,12 @@ export default function MapView({ points, zones, stations, show3D, onPick }) {
     const draw = () => {
       const source = map.getSource(ROUTE_SOURCE);
       if (!source) return;
+      // 그린 점만 잇지 않는다 — 역이 선 옆으로 비켜 서 있으면 선도 그리로 돈다.
+      // 비용·편익은 이미 돌아간 길이로 계산하므로(CostCalculator 의 detourKm),
+      // 지도만 직선이면 화면과 숫자가 서로 다른 노선을 말하게 된다
       source.setData({
         type: 'Feature',
-        geometry: { type: 'LineString', coordinates: points },
+        geometry: { type: 'LineString', coordinates: routeThroughStations(points, stations) },
       });
     };
     if (map.isStyleLoaded()) draw();
@@ -93,7 +97,7 @@ export default function MapView({ points, zones, stations, show3D, onPick }) {
       }
       return new maplibregl.Marker({ element: el }).setLngLat(p).addTo(map);
     });
-  }, [points]);
+  }, [points, stations]);
 
   // 자동 배치된 정차역. 종점은 사용자가 찍은 점과 겹치므로 작은 점으로만 둔다
   useEffect(() => {
