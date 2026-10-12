@@ -8,7 +8,7 @@ const STRUCTURES = [
 ];
 
 export default function ScenarioPanel({
-  points, title, structure, scenarios, saving, error, savedLength,
+  points, title, structure, scenarios, scenariosLoaded, saving, error, savedLength,
   savedId, results, calculating, population, selectedResult, stale, editingId, existingLine,
   onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
   onSelectResult,
@@ -96,7 +96,16 @@ export default function ScenarioPanel({
 
       <section>
         <h2>내 시나리오 ({scenarios.length})</h2>
-        {scenarios.length === 0 && <p className="muted">저장된 시나리오가 없습니다.</p>}
+        {/* **"없음"과 "못 불러옴"을 가른다.** 목록이 비었다고 무조건 "없습니다"라고
+            쓰면 서버가 꺼져 있거나 세션이 끊긴 사람에게 저장한 것이 사라졌다고
+            말하는 셈이다 — 그럴듯한데 틀린 답이 가장 나쁘다 */}
+        {scenarios.length === 0 && (
+          <p className="muted">
+            {scenariosLoaded
+              ? '저장된 시나리오가 없습니다.'
+              : '목록을 불러오지 못했습니다 — 저장된 시나리오가 없다는 뜻은 아닙니다.'}
+          </p>
+        )}
         <ul className="list">
           {scenarios.map((s) => (
             <li key={s.id}>

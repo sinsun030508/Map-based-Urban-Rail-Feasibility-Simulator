@@ -24,13 +24,19 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
     private final OAuth2UserService oAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final JwtAuthenticationEntryPoint entryPoint;
+    private final JwtAccessDeniedHandler deniedHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtFilter,
                           OAuth2UserService oAuth2UserService,
-                          OAuth2SuccessHandler oAuth2SuccessHandler) {
+                          OAuth2SuccessHandler oAuth2SuccessHandler,
+                          JwtAuthenticationEntryPoint entryPoint,
+                          JwtAccessDeniedHandler deniedHandler) {
         this.jwtFilter = jwtFilter;
         this.oAuth2UserService = oAuth2UserService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.entryPoint = entryPoint;
+        this.deniedHandler = deniedHandler;
     }
 
     /**
@@ -58,6 +64,14 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/reference/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
+            // **인증 실패는 401, 권한 부족은 403.** 안 걸면 Spring 기본값
+            // Http403ForbiddenEntryPoint 가 **둘 다 403** 으로 내보낸다. 화면은 401 만
+            // 세션 만료로 보도록 일부러 그렇게 돼 있어서(api/client.js), 만료된 토큰이
+            // "세션 끊김"이 아니라 "알 수 없는 오류"가 되고 시나리오 목록이
+            // **"저장된 시나리오가 없습니다"** 라는 거짓말로 뜬다
+            .exceptionHandling(e -> e
+                .authenticationEntryPoint(entryPoint)
+                .accessDeniedHandler(deniedHandler))
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

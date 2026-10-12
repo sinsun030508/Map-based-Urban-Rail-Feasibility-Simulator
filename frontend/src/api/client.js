@@ -1,6 +1,9 @@
 const TOKEN_KEY = 'railfeas.token';
 const USER_KEY = 'railfeas.user';
 
+/** 세션이 끊겼을 때 App 에게 알리는 창구 — 아래 401 처리 참고 */
+export const SESSION_EXPIRED = 'railfeas:session-expired';
+
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -33,9 +36,18 @@ async function request(path, { method = 'GET', body } = {}) {
   });
 
   // 401 만 세션 만료로 본다. 403 을 함께 묶으면 서버의 다른 오류까지
-  // "로그인이 필요합니다"로 보여 원인을 못 찾는다
+  // "로그인이 필요합니다"로 보여 원인을 못 찾는다.
+  // 서버가 인증 실패에 401, 권한 부족에 403 을 주도록 맞춰 뒀다
+  // (`SecurityConfig` 의 exceptionHandling — 전에는 둘 다 403 이었다)
   if (res.status === 401) {
     clearSession();
+    // **저장소만 비우면 화면은 그대로 로그인된 척한다.** localStorage 를 지워도
+    // React 는 마운트 때 읽은 user 를 들고 있어서, 목록이 "저장된 시나리오가
+    // 없습니다"로 뜬다 — 세션이 끊겼다는 말이 아니라 "당신은 저장한 것이 없다"는
+    // 거짓말이다. 저장해 둔 노선이 있는 사람은 지워진 줄 안다.
+    // 만료는 아무 호출에서나 터지므로(저장·계산·삭제·관리자) 호출마다 검사하지
+    // 않고 한 곳에서 알린다. App 이 듣고 로그인 화면으로 내린다.
+    window.dispatchEvent(new Event(SESSION_EXPIRED));
     throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요');
   }
   if (!res.ok) {
