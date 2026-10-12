@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, getUser, clearSession } from './api/client';
+import { api, getUser, clearSession, SESSION_EXPIRED } from './api/client';
 import AdminPage from './admin/AdminPage';
 import LoginPage from './auth/LoginPage';
 import MapView from './map/MapView';
@@ -15,6 +15,10 @@ export default function App() {
   const [title, setTitle] = useState('');
   const [structure, setStructure] = useState('UNDERGROUND');
   const [scenarios, setScenarios] = useState([]);
+  // **"없음"과 "못 불러옴"은 다르다.** 목록이 비었을 때 무조건 "저장된 시나리오가
+  // 없습니다"라고 쓰면, 서버가 꺼져 있거나 세션이 끊긴 사람에게 **저장한 것이 사라졌다고**
+  // 말하는 셈이다. 실제로 오늘 아침 백엔드가 내려가 있을 때 그렇게 보였다
+  const [scenariosLoaded, setScenariosLoaded] = useState(false);
   const [zones, setZones] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -38,13 +42,32 @@ export default function App() {
     api.referenceUpdatedAt().then(setReferenceUpdatedAt).catch(() => {});
   }
 
+  /**
+   * 세션이 끊기면 **로그인 화면으로 내린다.**
+   *
+   * `client.js` 의 `clearSession()` 은 localStorage 만 비운다. React 는 마운트 때 읽은
+   * `user` 를 그대로 들고 있어서, 그것만으로는 화면이 로그인된 척하며 목록을
+   * **"저장된 시나리오가 없습니다"** 로 보여 준다 — 세션이 끊겼다는 말이 아니라
+   * "당신은 저장한 것이 없다"는 **거짓말**이다. 저장해 둔 노선이 있는 사람은 지워진 줄 안다.
+   *
+   * 만료는 아무 호출에서나 터지므로(저장·계산·삭제·관리자) 호출마다 검사하지 않고
+   * 여기 한 곳에서 듣는다.
+   */
+  useEffect(() => {
+    const drop = () => setUser(null);
+    window.addEventListener(SESSION_EXPIRED, drop);
+    return () => window.removeEventListener(SESSION_EXPIRED, drop);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     // 로그인한 사람이 바뀌면 앞 사람의 오류는 치운다. 낡은 토큰으로 403 을 받고 다시
     // 로그인하면 목록은 정상인데 "요청 실패 (403)" 만 화면에 남아 있었다
     setError(null);
+    // 못 불러온 것과 "없음"은 다르다 — 아래 scenariosLoaded 참고
+    setScenariosLoaded(false);
     api.listScenarios()
-      .then((list) => { setScenarios(list); setError(null); })
+      .then((list) => { setScenarios(list); setError(null); setScenariosLoaded(true); })
       .catch((e) => setError(e.message));
     api.zones().then(setZones).catch(() => {});
     refreshReference();
@@ -204,6 +227,7 @@ export default function App() {
           title={title}
           structure={structure}
           scenarios={scenarios}
+          scenariosLoaded={scenariosLoaded}
           saving={saving}
           error={error}
           savedLength={savedLength}
