@@ -35,6 +35,8 @@ export default function App() {
   const [calculatedAt, setCalculatedAt] = useState(null);
   const [existingLine, setExistingLine] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
+  // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
+  const [modes, setModes] = useState([]);
   const [calculating, setCalculating] = useState(false);
 
   /** 기준값이 마지막으로 바뀐 시각 — 저장된 결과가 낡았는지 판단하는 기준이다 */
@@ -70,6 +72,7 @@ export default function App() {
       .then((list) => { setScenarios(list); setError(null); setScenariosLoaded(true); })
       .catch((e) => setError(e.message));
     api.zones().then(setZones).catch(() => {});
+    api.modes().then(setModes).catch(() => {});
     refreshReference();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -104,10 +107,23 @@ export default function App() {
     reset();
   }
 
-  /** 비교표에서 고른 안의 정차역. 안 골랐으면 B/C 가 가장 높은 안을 보여 준다 */
+  /** 그린 노선이 그 수단의 권장 연장을 넘는가 */
+  const overLength = (r) => {
+    const limit = modes.find((m) => m.modeType === r.modeType)?.maxLengthKm;
+    return limit != null && savedLength != null && savedLength > Number(limit);
+  };
+
+  /**
+   * 비교표에서 고른 안의 정차역. 안 골랐으면 **권장 연장 안에 드는** 안 중 B/C 최고안이다.
+   *
+   * 그냥 B/C 최고안을 그렸더니 인천~세종(120km)에서 권장 연장 30km 인 BRT 가 뽑혀
+   * 역 60개가 지도를 덮었다. 표에는 그대로 남기고(선택을 막지 않는다) 행을 누르면
+   * 그린다 — 기본 그림으로 내세우지만 않는다. 맞는 안이 없으면 선만 그린다.
+   */
   const shown = results.length
     ? results.find((r) => resultKey(r) === selectedResult)
-      || [...results].sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
+      || [...results].filter((r) => !overLength(r))
+        .sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
     : null;
 
   /** @param asNew true 면 고치던 시나리오와 별개로 하나 더 만든다 */
@@ -237,7 +253,8 @@ export default function App() {
           population={population}
           stale={isStale(calculatedAt, referenceUpdatedAt)}
           existingLine={existingLine}
-          selectedResult={selectedResult}
+          // 표의 강조는 지도에 실제로 그린 안을 따른다 — 둘이 다른 안을 가리키면 안 된다
+          selectedResult={shown ? resultKey(shown) : null}
           onSelectResult={setSelectedResult}
           onTitle={setTitle}
           onStructure={setStructure}
