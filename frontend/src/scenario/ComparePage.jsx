@@ -150,6 +150,25 @@ export default function ComparePage({ onClose }) {
                     <td key={d.id}>{MODE_LABEL[d.recommendedMode] || '—'}</td>
                   ))}
                 </tr>
+                {/* 신설안끼리만 견주면 **이미 있는 길에 또 짓는 안**이 1위로 올라와도
+                    보이지 않는다. 예타도 신설안만 보지 않고 기존 시설 활용안과 비교한다 —
+                    노선을 고르는 화면이라면 이 줄이 가장 먼저 봐야 할 줄일 수 있다 */}
+                <tr>
+                  <td className="name">이미 있는 수단</td>
+                  {chosen.map((d) => (
+                    <td key={d.id} className="existing">
+                      {d.existingOption ? (
+                        <>
+                          <strong>{d.existingOption.label}</strong>
+                          <br />
+                          <span className="muted small">{d.existingOption.detail}</span>
+                        </>
+                      ) : (
+                        <span className="muted">없음</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
                 <tr>
                   <td className="name">최고 B/C</td>
                   {chosen.map((d) => {

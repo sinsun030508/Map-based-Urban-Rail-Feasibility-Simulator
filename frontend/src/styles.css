@@ -94,8 +94,15 @@ table.cost td { padding: 5px 2px; border-bottom: 1px solid var(--line); }
    `광역급행` 으로 줄였더니 75 → 68px 이 되어 `BRT 고급형` 이 두 줄이 됐다).
    B/C 칸이 145px 를 놀리고 있어 가져올 여유가 있다. 패널 폭 항목과 같은 문제다.
    구조(`지하`·`고가`·`지상`)는 이제 수단 이름과 한 칸이다 — 따로 두면 첫 칸만 읽혀
-   `지하철` 이 두 번 있는 것처럼 보였다. */
-table.cost th:first-child, table.cost td:first-child { white-space: nowrap; }
+   `지하철` 이 두 번 있는 것처럼 보였다.
+
+   **`td:first-child` 로 쓰면 안 된다** — `tfoot` 의 `colSpan=5` 설명 칸도 자기 행의
+   첫 칸이라 함께 걸린다. 그러면 그 긴 문장이 한 줄로 펴지면서 표가 **1,463px** 로
+   부풀어 324px 패널을 뚫고 나가고, 역·소요·건설비·B/C 칸이 통째로 화면 밖으로 밀린다
+   (실제로 그렇게 됐다). 적용 범위를 `thead`·`tbody` 와 기존 수단 행으로 좁힌다. */
+table.cost thead th:first-child,
+table.cost tbody td:first-child,
+table.cost tfoot tr.existing td:first-child { white-space: nowrap; }
 table.cost td.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.cost tr.cheapest td { font-weight: 700; }
 table.cost tr.selected { background: #fff4f3; }
@@ -120,6 +127,17 @@ table.cost .tag { display: block; font-size: 10px; color: #b3261e; text-decorati
   margin-left: 12px; padding: 1px 5px; white-space: nowrap;
   font-size: 11px; font-weight: 600; color: #1f2430;
   background: rgba(255,255,255,.85); border-radius: 3px;
+}
+
+/* 기존 수단 참조 행 — 신설안과 같은 표에 두되 계산 결과와 섞이지 않게 가른다.
+   `tfoot` 이라 정렬·'가장 싼 안' 강조·행 클릭에 끼어들지 않는다 */
+table.cost tfoot tr.existing td {
+  padding-top: 8px; border-top: 2px solid var(--line); border-bottom: none;
+  font-weight: 600; color: #1a56db;
+}
+table.cost tfoot tr.existing-note td {
+  padding: 2px 2px 6px; border-bottom: none;
+  font-size: 11.5px; line-height: 1.5; color: var(--muted);
 }
 
 table.cost tbody tr { cursor: pointer; }
@@ -163,6 +181,8 @@ table.admin-table.compare td { text-align: right; }
 table.admin-table.compare td.name,
 table.admin-table.compare th:first-child { text-align: left; }
 table.admin-table.compare td.top { background: #f0f6ff; font-weight: 700; }
+/* 이미 있는 수단은 문장이라 오른쪽 정렬이 읽히지 않는다 (나머지 칸은 숫자다) */
+table.admin-table.compare td.existing { text-align: left; }
 
 table.cost .tag.note { color: var(--muted); }
 

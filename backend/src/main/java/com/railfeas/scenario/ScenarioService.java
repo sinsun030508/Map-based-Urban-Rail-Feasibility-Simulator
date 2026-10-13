@@ -1,6 +1,7 @@
 package com.railfeas.scenario;
 
 import com.railfeas.calc.CostCalculator;
+import com.railfeas.calc.ExistingOptions;
 import com.railfeas.common.ApiException;
 import com.railfeas.common.ModeType;
 import com.railfeas.common.PointType;
@@ -33,18 +34,20 @@ public class ScenarioService {
     private final ModeCapacityRepository capacities;
     private final RestrictedZoneRepository zones;
     private final CostCalculator calculator;
+    private final ExistingOptions existingOptions;
     private final EntityManager entityManager;
 
     public ScenarioService(ScenarioRepository scenarios, UserRepository users,
                            CostStandardRepository standards, ModeCapacityRepository capacities,
                            RestrictedZoneRepository zones, CostCalculator calculator,
-                           EntityManager entityManager) {
+                           ExistingOptions existingOptions, EntityManager entityManager) {
         this.scenarios = scenarios;
         this.users = users;
         this.standards = standards;
         this.capacities = capacities;
         this.zones = zones;
         this.calculator = calculator;
+        this.existingOptions = existingOptions;
         this.entityManager = entityManager;
     }
 
@@ -57,8 +60,7 @@ public class ScenarioService {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
                     "비용 기준값이 없습니다 — db/seed/S5__cost_standard.sql 적재를 확인하세요");
         }
-        Map<ModeType, ModeCapacity> byMode = capacities.findAll().stream()
-                .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
+        Map<ModeType, ModeCapacity> byMode = byMode();
         var outcome = calculator.calculate(scenario, active, byMode, zones.findAll());
         // 유니크 제약(scenario+수단+구조) 때문에 옛 결과 DELETE 를 새 INSERT 보다 먼저 내보낸다.
         // 한 flush 에 맡기면 Hibernate 가 INSERT 를 앞에 보내 재계산이 1062 로 실패한다
@@ -67,7 +69,7 @@ public class ScenarioService {
         scenario.applyResults(outcome.results(), outcome.population1km(),
                 outcome.recommendedMode());
         scenario.noteExistingLine(outcome.existingLine());
-        return ScenarioDto.DetailResponse.of(scenario);
+        return ScenarioDto.DetailResponse.of(scenario, outcome.existingOption());
     }
 
     @Transactional
@@ -84,7 +86,7 @@ public class ScenarioService {
         Scenario saved = scenarios.save(scenario);
         // created_at/updated_at 은 DB DEFAULT 로 채워져 insert 직후 엔티티엔 반영되지 않는다 — refresh 로 읽어온다
         entityManager.refresh(saved);
-        return ScenarioDto.DetailResponse.of(saved);
+        return ScenarioDto.DetailResponse.of(saved, existingOption(saved));
     }
 
     @Transactional(readOnly = true)
@@ -96,7 +98,8 @@ public class ScenarioService {
 
     @Transactional(readOnly = true)
     public ScenarioDto.DetailResponse get(Long userId, Long scenarioId) {
-        return ScenarioDto.DetailResponse.of(loadOwned(userId, scenarioId));
+        Scenario scenario = loadOwned(userId, scenarioId);
+        return ScenarioDto.DetailResponse.of(scenario, existingOption(scenario));
     }
 
     @Transactional
@@ -109,12 +112,36 @@ public class ScenarioService {
         scenario.clearPoints();
         entityManager.flush();
         scenario.replacePoints(toPoints(request.points()), lengthOf(request.points()));
-        return ScenarioDto.DetailResponse.of(scenario);
+        return ScenarioDto.DetailResponse.of(scenario, existingOption(scenario));
     }
 
     @Transactional
     public void delete(Long userId, Long scenarioId) {
         scenarios.delete(loadOwned(userId, scenarioId));
+    }
+
+    private Map<ModeType, ModeCapacity> byMode() {
+        return capacities.findAll().stream()
+                .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
+    }
+
+    /**
+     * 비교표에 붙일 기존 수단. **저장해 두지 않고 응답할 때마다 다시 찾는다** —
+     * 이유는 {@link ScenarioDto.DetailResponse} 주석에 있다.
+     *
+     * 계산 전(저장 직후)에도 답이 나온다. 서울~부산을 저장하자마자 "이미 KTX 가 있다"가
+     * 보이는 편이 낫다 — 계산을 눌러야 알게 되면 그 전에 수단을 고르고 있다.
+     */
+    private ExistingOptions.Option existingOption(Scenario scenario) {
+        if (scenario.getPoints().size() < 2 || scenario.getTotalLengthKm() == null) {
+            return null;
+        }
+        List<double[]> points = scenario.getPoints().stream()
+                .map(p -> new double[]{p.getLatitude().doubleValue(),
+                        p.getLongitude().doubleValue()})
+                .toList();
+        return existingOptions.find(points, scenario.getTotalLengthKm().doubleValue(),
+                ExistingOptions.urbanMaxKm(byMode()));
     }
 
     private Scenario loadOwned(Long userId, Long scenarioId) {

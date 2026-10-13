@@ -1,5 +1,6 @@
 package com.railfeas.scenario;
 
+import com.railfeas.calc.ExistingOptions;
 import com.railfeas.common.ModeType;
 import com.railfeas.common.PointType;
 import com.railfeas.common.RegionClass;
@@ -71,16 +72,25 @@ public class ScenarioDto {
         }
     }
 
+    /**
+     * `existingOption` 은 **저장된 값이 아니라 응답할 때 다시 찾은 값**이다.
+     *
+     * `scenario.existing_line` 에는 계산 시점의 문구만 150자로 남는데, 비교표에 한 줄로
+     * 그리려면 짧은 이름·설명이 따로 필요하다. 그 구조를 컬럼으로 늘리려면 스키마를 고쳐야
+     * 하고 그러면 `down -v` 가 필요해 **가입 계정과 시나리오가 사라진다.** 판정은 노선
+     * 좌표와 역 좌표 CSV 만으로 정해지는 순수 함수이고 역이 1,124개뿐이라 매번 다시 찾는
+     * 편이 싸다 — 게다가 CSV 가 갱신되면 답도 같이 갱신된다.
+     */
     public record DetailResponse(Long id, String title, BigDecimal totalLengthKm,
                                  RegionClass regionClass, Long population1km,
                                  ModeType recommendedMode, StructureType preferredStructure,
-                                 String existingLine, LocalDateTime createdAt,
+                                 ExistingOptions.Option existingOption, LocalDateTime createdAt,
                                  LocalDateTime calculatedAt,
                                  List<PointResponse> points, List<ResultResponse> results) {
-        static DetailResponse of(Scenario s) {
+        static DetailResponse of(Scenario s, ExistingOptions.Option existingOption) {
             return new DetailResponse(s.getId(), s.getTitle(), s.getTotalLengthKm(),
                     s.getRegionClass(), s.getPopulation1km(), s.getRecommendedMode(),
-                    s.getPreferredStructure(), s.getExistingLine(), s.getCreatedAt(),
+                    s.getPreferredStructure(), existingOption, s.getCreatedAt(),
                     s.getCalculatedAt(),
                     s.getPoints().stream().map(PointResponse::of).toList(),
                     s.getResults().stream().map(ResultResponse::of).toList());

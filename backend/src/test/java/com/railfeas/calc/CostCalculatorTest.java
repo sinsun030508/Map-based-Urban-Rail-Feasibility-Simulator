@@ -66,7 +66,7 @@ class CostCalculatorTest {
         intercity.load();
 
         return new CostCalculator(index, new BenefitCalculator(parameters),
-                new StationPlanner(index), existingLines, intercity);
+                new StationPlanner(index), new ExistingOptions(existingLines, intercity));
     }
 
     private static <T> T newInstance(Class<T> type, Object... nameValues) {
