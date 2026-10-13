@@ -105,6 +105,9 @@ public class ScenarioService {
         Scenario scenario = loadOwned(userId, scenarioId);
         scenario.rename(request.title());
         scenario.changeStructure(request.preferredStructure());
+        // 옛 점 DELETE 를 새 점 INSERT 보다 먼저 내보낸다 — calculate 와 같은 이유
+        scenario.clearPoints();
+        entityManager.flush();
         scenario.replacePoints(toPoints(request.points()), lengthOf(request.points()));
         return ScenarioDto.DetailResponse.of(scenario);
     }
