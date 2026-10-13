@@ -67,7 +67,7 @@ export default function CostTable({
       <table className="cost">
         <thead>
           <tr>
-            <th>수단</th><th>구조</th><th>역</th><th>소요</th>
+            <th>수단</th><th>역</th><th>소요</th>
             <th>건설비</th><th>B/C</th>
           </tr>
         </thead>
@@ -84,8 +84,9 @@ export default function CostTable({
               title={r.warning || ''}
               onClick={() => onSelect?.(resultKey(r))}
             >
-              <td>{MODE_LABEL[r.modeType] || r.modeType}</td>
-              <td>{STRUCTURE_LABEL[r.structureType]}</td>
+              {/* 수단과 구조를 한 칸에 — 칸을 나누면 첫 칸만 읽혀 `지하철` 이 두 번 있는
+                  것처럼 보인다. 막대 그래프·시나리오 비교와 같은 표기다 */}
+              <td>{MODE_LABEL[r.modeType] || r.modeType} {STRUCTURE_LABEL[r.structureType]}</td>
               <td>{r.stationCount}</td>
               <td>{r.travelTimeMin ? `${Math.round(r.travelTimeMin)}분` : '—'}</td>
               <td className="num">{money(r.totalCost)}</td>
