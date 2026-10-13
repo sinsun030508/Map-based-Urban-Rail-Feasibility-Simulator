@@ -33,7 +33,7 @@ export default function App() {
   const [admin, setAdmin] = useState(false);
   const [compare, setCompare] = useState(false);
   const [calculatedAt, setCalculatedAt] = useState(null);
-  const [existingLine, setExistingLine] = useState(null);
+  const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
   const [modes, setModes] = useState([]);
@@ -96,7 +96,7 @@ export default function App() {
     setPopulation(null);
     setSelectedResult(null);
     setCalculatedAt(null);
-    setExistingLine(null);
+    setExistingOption(null);
   }
 
   /** 새 노선을 그리기 시작한다 — 고치던 시나리오와의 연결도 끊는다 */
@@ -145,7 +145,7 @@ export default function App() {
       setResults(saved.results || []);
       setPopulation(saved.population1km ?? null);
       setCalculatedAt(saved.calculatedAt ?? null);
-      setExistingLine(saved.existingLine ?? null);
+      setExistingOption(saved.existingOption ?? null);
       setScenarios(await api.listScenarios());
     } catch (e) {
       setError(e.message);
@@ -167,7 +167,7 @@ export default function App() {
       setResults(s.results || []);
       setPopulation(s.population1km ?? null);
       setCalculatedAt(s.calculatedAt ?? null);
-      setExistingLine(s.existingLine ?? null);
+      setExistingOption(s.existingOption ?? null);
     } catch (e) {
       setError(e.message);
     }
@@ -181,7 +181,7 @@ export default function App() {
       setResults(detail.results || []);
       setPopulation(detail.population1km ?? null);
       setCalculatedAt(detail.calculatedAt ?? null);
-      setExistingLine(detail.existingLine ?? null);
+      setExistingOption(detail.existingOption ?? null);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -252,7 +252,7 @@ export default function App() {
           calculating={calculating}
           population={population}
           stale={isStale(calculatedAt, referenceUpdatedAt)}
-          existingLine={existingLine}
+          existingOption={existingOption}
           // 표의 강조는 지도에 실제로 그린 안을 따른다 — 둘이 다른 안을 가리키면 안 된다
           selectedResult={shown ? resultKey(shown) : null}
           onSelectResult={setSelectedResult}

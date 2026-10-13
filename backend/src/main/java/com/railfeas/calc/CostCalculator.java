@@ -55,8 +55,7 @@ public class CostCalculator {
     private final PopulationIndex population;
     private final BenefitCalculator benefits;
     private final StationPlanner planner;
-    private final ExistingLineFinder existingLines;
-    private final IntercityRailFinder intercity;
+    private final ExistingOptions existingOptions;
 
     /** 가장 가까운 도심까지의 거리. 수도권은 서울시청이 가장 가까워 값이 바뀌지 않는다 */
     private static double nearestCbdKm(double[] point) {
@@ -68,13 +67,11 @@ public class CostCalculator {
     }
 
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
-                          StationPlanner planner, ExistingLineFinder existingLines,
-                          IntercityRailFinder intercity) {
+                          StationPlanner planner, ExistingOptions existingOptions) {
         this.population = population;
         this.benefits = benefits;
         this.planner = planner;
-        this.existingLines = existingLines;
-        this.intercity = intercity;
+        this.existingOptions = existingOptions;
     }
 
     public Outcome calculate(Scenario scenario,
@@ -142,25 +139,10 @@ public class CostCalculator {
             attachStations(result, placed, dailyRiders);
             results.add(result);
         }
-        // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 먼저 알린다
-        ExistingLineFinder.Match existing = existingLines.find(points);
+        // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 비교표에 함께 낸다
         return new Outcome(results, people, recommended(results),
-                existing != null ? existing.message()
-                        : intercityMessage(points, lengthKm, capacities));
-    }
-
-    /**
-     * 도시 간 거리면 기존 KTX 를 먼저 보라고 알린다. 기준 길이는 **도시철도 수단 권장 연장의
-     * 최댓값**(지금 지하철 35km)이다 — 새 상수를 두지 않고 관리자가 고치는 값을 따른다.
-     */
-    private String intercityMessage(List<double[]> points, double lengthKm,
-                                    Map<ModeType, ModeCapacity> capacities) {
-        double urbanMaxKm = capacities.values().stream()
-                .filter(c -> c.getMaxLengthKm() != null)
-                .mapToDouble(c -> c.getMaxLengthKm().doubleValue())
-                .max().orElse(Double.MAX_VALUE);
-        IntercityRailFinder.Match match = intercity.find(points, lengthKm, urbanMaxKm);
-        return match == null ? null : match.message();
+                existingOptions.find(points, lengthKm,
+                        ExistingOptions.urbanMaxKm(capacities)));
     }
 
     /**
@@ -268,6 +250,11 @@ public class CostCalculator {
 
     /** 계산 결과와 함께 시나리오에 기록할 값들 */
     public record Outcome(List<ScenarioResult> results, long population1km,
-                          ModeType recommendedMode, String existingLine) {
+                          ModeType recommendedMode, ExistingOptions.Option existingOption) {
+
+        /** `scenario.existing_line`(VARCHAR 150)에 저장할 문구. 없으면 null */
+        public String existingLine() {
+            return existingOption == null ? null : existingOption.message();
+        }
     }
 }

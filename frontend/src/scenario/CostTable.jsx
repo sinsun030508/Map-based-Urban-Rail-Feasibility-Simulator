@@ -19,7 +19,7 @@ function people(n) {
 }
 
 export default function CostTable({
-  results, structure, population, selected, stale, existingLine, pointCount, onSelect,
+  results, structure, population, selected, stale, existingOption, pointCount, onSelect,
 }) {
   if (!results.length) return null;
 
@@ -45,8 +45,6 @@ export default function CostTable({
     <section>
       <h2>수단별 비교</h2>
       {stale && <p className="error">{STALE_MESSAGE}</p>}
-      {/* 이미 전철이 다니는 길이면 신설안이 1위여도 쓸모가 없다 — 표보다 먼저 알린다 */}
-      {existingLine && <p className="warn"><strong>⚠ {existingLine}</strong></p>}
       <p className="muted small">
         행을 누르면 그 수단의 정차역이 지도에 표시됩니다.
         역수는 수단별 표준 역간격으로 추정했습니다.
@@ -101,6 +99,35 @@ export default function CostTable({
             </tr>
           ))}
         </tbody>
+        {/* 이미 있는 수단은 **신설안과 같은 표 안에** 있어야 한다. 전에는 표 위에 경고
+            문구로만 떠 있어서, 서울~부산을 그리면 324km 트램까지 후보로 늘어놓는데 정작
+            "이미 KTX 가 있고 추가 건설비가 0" 이라는 가장 중요한 비교 대상이 표 밖에
+            있었다. 비교는 표에서 일어난다.
+            `tbody` 가 아니라 `tfoot` 인 것은 이 줄이 계산 결과가 아니기 때문이다 —
+            정렬·'가장 싼 안' 강조·행 클릭(정차역 그리기)에 끼어들면 안 된다 */}
+        {existingOption && (
+          <tfoot>
+            <tr className="existing">
+              <td>{existingOption.label}</td>
+              <td>—</td>
+              <td>—</td>
+              <td className="num">0</td>
+              <td className="num">—</td>
+            </tr>
+            <tr className="existing-note">
+              <td colSpan={5}>
+                {existingOption.detail}
+                <br />
+                이미 지어져 있어 <strong>추가 건설비가 0</strong>입니다. 소요시간과 B/C는
+                비웠습니다 —{' '}
+                {existingOption.kind === 'INTERCITY_RAIL'
+                  ? 'KTX 소요시간은 열차마다 갈립니다(서울~부산 2시간 18분~2시간 40분, 무정차 2시간 10분대). 한 열차의 시각을 대표값으로 적을 수 없습니다.'
+                  : '기존 노선의 소요시간 자료를 아직 받지 못했습니다.'}{' '}
+                이미 있는 시설에 B/C를 매기는 것은 신설안과 범주가 다릅니다.
+              </td>
+            </tr>
+          </tfoot>
+        )}
       </table>
 
       {elevated && (
