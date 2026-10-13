@@ -80,6 +80,23 @@ public class Scenario {
         this.preferredStructure = preferredStructure;
     }
 
+    /**
+     * 좌표를 고치기 전에 옛 좌표와 결과를 버린다.
+     *
+     * `uk_point_seq(scenario_id, sequence)` 때문에 {@link #clearResults()} 와 같은 함정이 있다 —
+     * 한 flush 에 맡기면 새 점 `sequence 0` INSERT 가 옛 점 DELETE 보다 먼저 나가 1062 로
+     * 실패한다. 호출부가 이 메서드 뒤에 flush 를 끼운다 (`ScenarioService.update`).
+     * 실제로 저장된 시나리오를 고쳐 덮어쓰면 **항상** 500 이 났다.
+     */
+    public void clearPoints() {
+        this.points.clear();
+        this.results.clear();
+        this.recommendedMode = null;
+        // 기존 노선 안내도 옛 노선의 판정이다. 남겨 두면 재계산 전까지 바뀐 노선에
+        // 옛 안내("광명역~오송역")가 붙어 보인다
+        this.existingLine = null;
+    }
+
     public void replacePoints(List<RoutePoint> newPoints, BigDecimal totalLengthKm) {
         this.points.clear();
         newPoints.forEach(p -> {

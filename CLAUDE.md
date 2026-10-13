@@ -60,6 +60,11 @@ cd frontend && npm run dev                       # 5173
 - **시드를 고치면 `down -v` 가 필요하다** — initdb 는 볼륨이 빈 경우에만 돈다.
   볼륨을 지우면 **가입 계정과 시나리오도 사라진다**
 - **실행 중인 백엔드를 끄지 않으면 `package` 가 실패한다** (jar 를 잡고 있어 rename 오류)
+- **`./mvnw` 가 조용히 아무것도 안 할 수 있다** — 배포본을 받으려다 `wget: Failed to fetch`
+  로 끝나는데 `-q` 를 붙이면 그 한 줄도 안 보이고, `target/surefire-reports` 에는 **예전
+  결과가 그대로 남아** 통과한 것처럼 읽힌다(실제로 그렇게 잘못 보고했다). 받아 둔 배포본을
+  직접 쓰고, 보고서는 **시각까지** 본다
+  `$(ls -d ~/.m2/wrapper/dists/apache-maven-3.9.9/*/bin/mvn) -o test`
 - **SQL 파일 첫 줄에 `SET NAMES utf8mb4;`** — initdb가 latin1로 읽어 한글이 이중 인코딩된다
   (`복선전철` → `ë³µì„ ì „ì² `). 자동 생성 SQL은 생성기에도 넣을 것
 - **`cost_standard`는 TRUNCATE 불가** — `scenario_result`가 FK로 참조. `DELETE`를 쓴다
@@ -613,6 +618,12 @@ FK 로 참조해 저장된 비교표가 하나라도 있으면 `DELETE` 가 막�
 집단 편집 자료에서 왔기 때문이다. 지방 신설 노선과 미개통 노선은 범위 밖이다
 (운영현황 명단에 없으면 받지 않는다 — 없는 노선을 활용하라고 할 수는 없다). 버스는 범위 밖. 검증: 2호선 강남~잠실 위에 그리면 "기존 2호선 활용 검토(100%)",
 시청~삼성~강남 대각선(여러 노선 가로지름)은 안내가 뜨지 않는다.
+
+**수정 저장(`PUT`)이 늘 500 이었다.** `route_point` 에 `uk_point_seq(scenario_id, sequence)`
+가 있는데 Hibernate 는 한 flush 에서 **INSERT 를 DELETE 보다 먼저** 보낸다 — 옛 0번 점이
+남은 채 새 0번을 넣어 1062 가 났다. 재계산(`uk_result_mode`)과 같은 함정이라 같은 방법
+(지우기 → `flush` → 넣기, `Scenario.clearPoints()`)으로 푼다. **자식 컬렉션을 통째로 바꾸고
+그 자식에 유니크 키가 있으면 언제나 이 함정이다.**
 
 ---
 
