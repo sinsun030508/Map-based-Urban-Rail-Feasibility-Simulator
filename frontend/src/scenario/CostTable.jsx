@@ -62,7 +62,7 @@ export default function CostTable({
         </div>
       )}
 
-      <BcChart results={sorted} selected={selected || resultKey(best)} onSelect={onSelect} />
+      <BcChart results={sorted} selected={selected} onSelect={onSelect} />
 
       <table className="cost">
         <thead>
@@ -77,7 +77,7 @@ export default function CostTable({
               key={resultKey(r)}
               className={[
                 r === best ? 'cheapest' : '',
-                resultKey(r) === (selected || resultKey(best)) ? 'picked' : '',
+                resultKey(r) === selected ? 'picked' : '',
                 r.structureType === structure ? 'selected' : '',
                 r.feasible === false ? 'infeasible' : '',
               ].join(' ')}

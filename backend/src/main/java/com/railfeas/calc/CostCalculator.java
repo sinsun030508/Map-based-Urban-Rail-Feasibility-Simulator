@@ -56,6 +56,7 @@ public class CostCalculator {
     private final BenefitCalculator benefits;
     private final StationPlanner planner;
     private final ExistingLineFinder existingLines;
+    private final IntercityRailFinder intercity;
 
     /** 가장 가까운 도심까지의 거리. 수도권은 서울시청이 가장 가까워 값이 바뀌지 않는다 */
     private static double nearestCbdKm(double[] point) {
@@ -67,11 +68,13 @@ public class CostCalculator {
     }
 
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
-                          StationPlanner planner, ExistingLineFinder existingLines) {
+                          StationPlanner planner, ExistingLineFinder existingLines,
+                          IntercityRailFinder intercity) {
         this.population = population;
         this.benefits = benefits;
         this.planner = planner;
         this.existingLines = existingLines;
+        this.intercity = intercity;
     }
 
     public Outcome calculate(Scenario scenario,
@@ -142,7 +145,22 @@ public class CostCalculator {
         // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 먼저 알린다
         ExistingLineFinder.Match existing = existingLines.find(points);
         return new Outcome(results, people, recommended(results),
-                existing == null ? null : existing.message());
+                existing != null ? existing.message()
+                        : intercityMessage(points, lengthKm, capacities));
+    }
+
+    /**
+     * 도시 간 거리면 기존 KTX 를 먼저 보라고 알린다. 기준 길이는 **도시철도 수단 권장 연장의
+     * 최댓값**(지금 지하철 35km)이다 — 새 상수를 두지 않고 관리자가 고치는 값을 따른다.
+     */
+    private String intercityMessage(List<double[]> points, double lengthKm,
+                                    Map<ModeType, ModeCapacity> capacities) {
+        double urbanMaxKm = capacities.values().stream()
+                .filter(c -> c.getMaxLengthKm() != null)
+                .mapToDouble(c -> c.getMaxLengthKm().doubleValue())
+                .max().orElse(Double.MAX_VALUE);
+        IntercityRailFinder.Match match = intercity.find(points, lengthKm, urbanMaxKm);
+        return match == null ? null : match.message();
     }
 
     /**
