@@ -23,13 +23,13 @@ class IntercityRailFinderTest {
     void setUp() {
         finder = new IntercityRailFinder("없는파일.csv");
         for (String line : List.of("KTX 경부선", "KTX 호남선")) {
-            finder.add(line, "서울", 37.554695, 126.970702);
-            finder.add(line, "광명", 37.416360, 126.884719);
-            finder.add(line, "오송", 36.620240, 127.327286);
+            finder.add(line, "서울", 37.554695, 126.970702, false);   // 선로 계통은 경부선(재래선)
+            finder.add(line, "광명", 37.416360, 126.884719, true);
+            finder.add(line, "오송", 36.620240, 127.327286, true);
         }
-        finder.add("KTX 경부선", "대전", 36.332108, 127.434194);
-        finder.add("KTX 강릉선", "서울", 37.554695, 126.970702);
-        finder.add("KTX 강릉선", "강릉", 37.764500, 128.899500);
+        finder.add("KTX 경부선", "대전", 36.332108, 127.434194, true);
+        finder.add("KTX 강릉선", "서울", 37.554695, 126.970702, false);
+        finder.add("KTX 강릉선", "강릉", 37.764500, 128.899500, false);
     }
 
     @Test
@@ -64,6 +64,44 @@ class IntercityRailFinderTest {
         double[] west = {37.300, 126.740};
         double[] east = {37.670, 127.115};
         assertThat(finder.find(List.of(west, east), 60, URBAN_MAX_KM)).isNull();
+    }
+
+    /**
+     * 거의 같은 거리면 고속선 역을 고른다.
+     *
+     * 부산시청에서 구포 7.67km(경부선) / 부산 7.73km(경부고속)이라 **60m** 차이로 구포가
+     * 뽑히고 있었다. 틀린 답은 아니지만 좌표가 OSM 에서 오므로 편집 한 번에 뒤집힌다.
+     */
+    @Test
+    void 거의_같은_거리면_고속선_역을_고른다() {
+        IntercityRailFinder f = new IntercityRailFinder("없는파일.csv");
+        f.add("KTX 경부선", "서울", 37.554695, 126.970702, false);
+        f.add("KTX 경부선", "구포", 35.205308, 128.997301, false);
+        f.add("KTX 경부선", "부산", 35.115553, 129.042587, true);
+
+        double[] seoulCityHall = {37.5665, 126.9780};
+        double[] busanCityHall = {35.1796, 129.0756};
+        var match = f.find(List.of(seoulCityHall, busanCityHall), 340.5, URBAN_MAX_KM);
+
+        assertThat(match).isNotNull();
+        assertThat(match.toStation()).isEqualTo("부산");
+        // 출발 쪽은 서울역(재래선)이 그대로다 — 고속선이 여유 안에 없다
+        assertThat(match.fromStation()).isEqualTo("서울");
+    }
+
+    /**
+     * **고속선 우선이 "가까움" 을 이기면 안 된다.** 서울역은 선로 계통이 경부선(재래선)이고
+     * 광명역이 경부고속이라, 무조건 고속선을 고르면 서울시청에서 1.5km 떨어진 서울역을
+     * 두고 17km 떨어진 광명역을 안내한다 — 고치기 전보다 나쁘다.
+     */
+    @Test
+    void 고속선이라도_훨씬_멀면_고르지_않는다() {
+        double[] seoulCityHall = {37.5665, 126.9780};
+        var match = finder.find(List.of(seoulCityHall, SEJONG), 120.3, URBAN_MAX_KM);
+
+        assertThat(match).isNotNull();
+        assertThat(match.fromStation()).isEqualTo("서울");     // 광명(경부고속)이 아니다
+        assertThat(match.fromKm()).isLessThan(IntercityRailFinder.HIGH_SPEED_SLACK_KM);
     }
 
     @Test

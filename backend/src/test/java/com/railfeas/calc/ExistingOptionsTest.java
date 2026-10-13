@@ -61,8 +61,8 @@ class ExistingOptionsTest {
     private static IntercityRailFinder ktx() {
         IntercityRailFinder finder = new IntercityRailFinder("없는파일.csv");
         for (String line : List.of("KTX 경부선", "KTX 호남선")) {
-            finder.add(line, "광명", 37.416360, 126.884719);
-            finder.add(line, "오송", 36.620240, 127.327286);
+            finder.add(line, "광명", 37.416360, 126.884719, true);
+            finder.add(line, "오송", 36.620240, 127.327286, true);
         }
         return finder;
     }
@@ -115,8 +115,8 @@ class ExistingOptionsTest {
         // 먼저 KTX 쪽도 실제로 걸리는 상황임을 확인한다 — 안 걸리면 이 테스트는
         // 우선순위를 시험하지 않고 통과한다 (IntercityRailFinderTest 에서 겪은 함정)
         IntercityRailFinder intercity = new IntercityRailFinder("없는파일.csv");
-        intercity.add("KTX 가상선", "남쪽", from[0], from[1]);
-        intercity.add("KTX 가상선", "북쪽", to[0], to[1]);
+        intercity.add("KTX 가상선", "남쪽", from[0], from[1], false);
+        intercity.add("KTX 가상선", "북쪽", to[0], to[1], false);
         assertThat(intercity.find(List.of(from, to), 36.2, URBAN_MAX_KM)).isNotNull();
 
         var option = new ExistingOptions(withStations, intercity)
