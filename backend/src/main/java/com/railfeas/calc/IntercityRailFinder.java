@@ -43,10 +43,32 @@ public class IntercityRailFinder {
 
     static final double ACCESS_KM = 20.0;
     static final double MIN_SPAN_RATIO = 0.5;
+    /**
+     * 고속선 역을 고르는 여유. 가장 가까운 역보다 이만큼 더 멀어도 고속선 역을 고른다.
+     *
+     * **"무조건 고속선" 이면 안 된다.** 서울역은 선로 계통이 `경부선`(재래선)이고 광명역이
+     * `경부고속` 이라, 무조건 고속선을 고르면 서울시청에서 **1.5km 떨어진 서울역을 두고
+     * 17km 떨어진 광명역**을 안내한다 — 지금보다 나쁘다. 그래서 "가까움" 을 이기지 않는
+     * **동점 처리**로만 쓴다.
+     *
+     * 2km 는 판단값이다. 막으려는 것은 **좌표 잡음이 답을 정하는 것**이다 — 부산시청에서
+     * 구포 7.67km / 부산 7.73km 로 **60m** 차이고, 좌표가 OSM 에서 오므로 편집 한 번에
+     * 뒤집힌다. 어차피 역까지 따로 가야 하는 거리(최대 20km)에 견주면 2km 차이는 작고,
+     * 고속선이냐 아니냐는 운행 편수와 속도를 크게 가른다.
+     */
+    static final double HIGH_SPEED_SLACK_KM = 2.0;
 
     private final Path stationFile;
-    /** 노선 → 역 이름 → 좌표. 순서는 의미가 없다 (지선을 오가는 정차 목록이다) */
-    private final Map<String, Map<String, double[]>> byLine = new LinkedHashMap<>();
+    /** 노선 → 역 이름 → 역. 순서는 의미가 없다 (지선을 오가는 정차 목록이다) */
+    private final Map<String, Map<String, Stop>> byLine = new LinkedHashMap<>();
+
+    /**
+     * @param highSpeed 선로 계통이 고속선인가 (`official_line` 에 '고속' 이 들었는가).
+     *                  경부고속·호남고속 둘뿐이다 — 경강선(강릉선)은 250km/h 급이지만
+     *                  공식 자료가 `경강선` 으로 적어 두어 여기서는 재래선으로 센다
+     */
+    record Stop(double lat, double lng, boolean highSpeed) {
+    }
 
     public IntercityRailFinder(@Value("${app.ktx-station-file}") String stationFile) {
         this.stationFile = Path.of(stationFile);
@@ -73,11 +95,19 @@ public class IntercityRailFinder {
             int nameIdx = columns.indexOf("station_name");
             int latIdx = columns.indexOf("latitude");
             int lngIdx = columns.indexOf("longitude");
+            int classIdx = columns.indexOf("official_line");
+            if (classIdx < 0) {
+                // 조용히 false 로 두면 고속선 우선이 **통째로 꺼진 채** 돌아간다
+                throw new IllegalStateException(
+                        stationFile + " 에 official_line 열이 없습니다 — "
+                                + "etl/korail_ktx_stations.py 를 다시 돌리세요");
+            }
             String row;
             while ((row = reader.readLine()) != null) {
                 String[] f = row.split(",");
                 add(f[lineIdx], f[nameIdx],
-                        Double.parseDouble(f[latIdx]), Double.parseDouble(f[lngIdx]));
+                        Double.parseDouble(f[latIdx]), Double.parseDouble(f[lngIdx]),
+                        f[classIdx].contains("고속"));
             }
         } catch (Exception e) {
             throw new IllegalStateException(stationFile + " 를 읽지 못했습니다", e);
@@ -85,8 +115,9 @@ public class IntercityRailFinder {
         log.info("KTX 노선 {}개 적재", byLine.size());
     }
 
-    void add(String line, String station, double lat, double lng) {
-        byLine.computeIfAbsent(line, k -> new LinkedHashMap<>()).put(station, new double[]{lat, lng});
+    void add(String line, String station, double lat, double lng, boolean highSpeed) {
+        byLine.computeIfAbsent(line, k -> new LinkedHashMap<>())
+                .put(station, new Stop(lat, lng, highSpeed));
     }
 
     /**
@@ -103,7 +134,7 @@ public class IntercityRailFinder {
         double direct = km(start, end);
 
         Match best = null;
-        for (Map<String, double[]> stations : byLine.values()) {
+        for (Map<String, Stop> stations : byLine.values()) {
             String a = nearest(stations, start);
             String b = nearest(stations, end);
             if (a == null || b == null || a.equals(b)) {
@@ -124,7 +155,7 @@ public class IntercityRailFinder {
         }
         // 같은 두 역을 잇는 노선을 모두 적는다 (광명~오송은 경부·호남·전라·경전선이 다 선다)
         TreeSet<String> lines = new TreeSet<>();
-        for (Map.Entry<String, Map<String, double[]>> e : byLine.entrySet()) {
+        for (Map.Entry<String, Map<String, Stop>> e : byLine.entrySet()) {
             if (e.getValue().containsKey(best.fromStation())
                     && e.getValue().containsKey(best.toStation())) {
                 lines.add(e.getKey());
@@ -143,17 +174,46 @@ public class IntercityRailFinder {
         return out;
     }
 
-    private static String nearest(Map<String, double[]> stations, double[] point) {
+    /**
+     * 그 노선에서 이 지점에 쓸 역. 기본은 **가장 가까운 역**이고, 가장 가까운 역보다
+     * {@value #HIGH_SPEED_SLACK_KM}km 안에 **고속선 역**이 있으면 그쪽을 고른다.
+     *
+     * 부산시청에서 구포 7.67km(경부선) / 부산 7.73km(경부고속)인데, 60m 차이로 구포가
+     * 뽑히고 있었다. 좌표가 OSM 에서 오므로 편집 한 번에 답이 뒤집히는 자리다.
+     * 여유를 넘어서까지 고속선을 고르지는 않는다 — 그러면 서울시청에서 서울역(1.5km)을
+     * 두고 광명역(17km)을 안내한다.
+     */
+    private static String nearest(Map<String, Stop> stations, double[] point) {
         String best = null;
         double bestKm = Double.MAX_VALUE;
-        for (Map.Entry<String, double[]> e : stations.entrySet()) {
+        for (Map.Entry<String, Stop> e : stations.entrySet()) {
             double d = km(point, e.getValue());
             if (d < bestKm) {
                 bestKm = d;
                 best = e.getKey();
             }
         }
-        return best;
+        if (best == null) {
+            return null;
+        }
+        String fast = null;
+        double fastKm = Double.MAX_VALUE;
+        for (Map.Entry<String, Stop> e : stations.entrySet()) {
+            double d = km(point, e.getValue());
+            if (e.getValue().highSpeed() && d <= bestKm + HIGH_SPEED_SLACK_KM && d < fastKm) {
+                fastKm = d;
+                fast = e.getKey();
+            }
+        }
+        return fast != null ? fast : best;
+    }
+
+    private static double km(double[] a, Stop b) {
+        return Haversine.distanceKm(a[0], a[1], b.lat(), b.lng());
+    }
+
+    private static double km(Stop a, Stop b) {
+        return Haversine.distanceKm(a.lat(), a.lng(), b.lat(), b.lng());
     }
 
     private static double km(double[] a, double[] b) {
