@@ -113,6 +113,17 @@ public class PopulationIndex {
         return (long) Math.floor(lat / CELL) * 100_000L + (long) Math.floor(lng / CELL);
     }
 
+    /**
+     * 인구 집계구가 적재됐는가.
+     *
+     * **"인구 0" 과 "인구를 모름" 은 다르다.** 파일이 없으면 모든 자리가 0 으로 나오는데,
+     * 그걸 "사람이 안 산다" 로 읽으면 {@code StationPlanner} 가 **역을 하나도 안 놓는다.**
+     * 자료가 있을 때만 0 을 "여기엔 아무도 없다" 로 읽는다.
+     */
+    public boolean hasCensus() {
+        return !census.isEmpty();
+    }
+
     public long populationNear(List<double[]> points, double radiusKm) {
         return sumNear(census, points, radiusKm);
     }

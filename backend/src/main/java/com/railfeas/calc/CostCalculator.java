@@ -111,9 +111,15 @@ public class CostCalculator {
             // 역이 옆으로 비켜 선 만큼만 더한다. 선 위에만 있으면 그린 길이 그대로다
             double routeKm = lengthKm + plan.detourKm();
 
+            // **추정 역 수가 아니라 실제로 놓인 역 수로 값을 매긴다.** 물 위처럼 역을
+            // 놓을 수 없는 구간에서는 `StationPlanner` 가 역을 빼므로 둘이 달라진다 —
+            // 짓지도 않을 역의 값을 물리면 안 되고, 화면의 역수와도 어긋난다.
+            // 노선이 뭉개진 경우(길이 0)에는 빈 목록이 오므로 최소값으로 받친다.
+            int stationCount = Math.max(MIN_STATIONS, placed.size());
+
             long cost = std.getFixedCost()
                     + Math.round(std.getCostPerKm() * routeKm)
-                    + (long) std.getCostPerStation() * stations;
+                    + (long) std.getCostPerStation() * stationCount;
 
             Double speed = capacity == null || capacity.getSpeedKmh() == null
                     ? null : capacity.getSpeedKmh().doubleValue();
@@ -125,7 +131,7 @@ public class CostCalculator {
                     .modeType(std.getModeType())
                     .structureType(std.getStructureType())
                     .standardId(std.getId())
-                    .stationCount(stations)
+                    .stationCount(stationCount)
                     .totalCost(cost)
                     .estimatedRidership(dailyRiders)
                     .peakPphpd(peak)
@@ -134,7 +140,8 @@ public class CostCalculator {
                     // B/C 는 양쪽 다 현재가치로 본다. total_cost 에는 명목 총액을 남긴다
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
-                    .warning(warning(routeKm, peak, capacity, zoneWarning, people))
+                    .warning(warning(routeKm, peak, capacity, zoneWarning, people,
+                            stations - stationCount))
                     .build();
             attachStations(result, placed, dailyRiders);
             results.add(result);
@@ -205,8 +212,14 @@ public class CostCalculator {
 
     /** 경고는 계산을 막지 않는다. 판단 근거만 덧붙인다. */
     private String warning(double lengthKm, Integer peak, ModeCapacity capacity,
-                           String zoneWarning, long people) {
+                           String zoneWarning, long people, int dropped) {
         List<String> notes = new ArrayList<>();
+        if (dropped > 0) {
+            // 왜 역이 적은지 말해 주지 않으면 "계산이 덜 됐나" 로 읽힌다. 33km 노선에
+            // 역이 8개뿐인 결과가 실제로 나온다 (소양호 — 가운데 20km 가 물과 산이다)
+            // `warning` 이 VARCHAR(200) 이라 짧게 — 경고가 넷까지 함께 붙는다
+            notes.add(dropped + "곳은 인구가 없어 역을 놓지 않았습니다 (수면·무인 구간)");
+        }
         if (capacity != null && capacity.getMaxLengthKm() != null
                 && lengthKm > capacity.getMaxLengthKm().doubleValue()) {
             notes.add("권장 연장 초과 — 복선전철 대안 참고");

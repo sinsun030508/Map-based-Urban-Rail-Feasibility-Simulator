@@ -257,4 +257,58 @@ class StationPlannerTest {
         assertThat(placed.get(0).lng()).isEqualTo(LNG0);
         assertThat(placed.get(placed.size() - 1).lng()).isEqualTo(LNG0);
     }
+
+    /**
+     * 가운데가 비어 있는 인구 자료 — **강·호수를 건너는 구간**이 이렇게 생겼다.
+     * 수면에는 집계구가 없어 반경 안 인구가 정확히 0 이 된다.
+     */
+    private Path censusWithGap(Path dir, double gapFrom, double gapTo) throws IOException {
+        Path file = dir.resolve("census.csv");
+        StringBuilder sb = new StringBuilder("adm_cd,latitude,longitude,population,dong_name\n");
+        for (int i = 0; i <= 90; i++) {
+            double lat = LAT0 - i * 0.001;
+            if (lat <= gapFrom && lat >= gapTo) {
+                continue;                      // 여기가 물이다
+            }
+            sb.append("x,").append(lat).append(',').append(LNG0).append(",10,뭍동\n");
+        }
+        Files.writeString(file, sb, StandardCharsets.UTF_8);
+        return file;
+    }
+
+    /**
+     * **물 위에는 역을 놓지 않는다.**
+     *
+     * 전에는 창 안 모든 후보가 0 점이라 "동점이면 이상 위치" 규칙이 걸려 **수면 한가운데
+     * 이름 없는 역**(`name` null, 이용객 0)이 그대로 찍혔다. 실제로 송도~영종도를 그리면
+     * 15역 중 8역이 그랬다. 창이 역간격의 ±35% 뿐이라 **넓은 수면에서는 밀어낼 뭍이 창 안에
+     * 없다** — 옮기는 것이 아니라 빼는 것이 맞다.
+     */
+    @Test
+    @DisplayName("반경 안에 사람이 없는 역은 빼고, 종점은 남긴다")
+    void dropsStationsWithNoPopulation(@TempDir Path dir) throws IOException {
+        // 노선 10km 중 2.8~7.2km 가 물이다 — 역 6개면 3.98km·5.97km 자리가 여기 든다
+        StationPlanner planner = planner(censusWithGap(dir, LAT0 - 0.025, LAT0 - 0.065));
+        List<StationPlanner.Placed> placed = planner.plan(ROUTE, 6, 2.0);
+
+        assertThat(placed).hasSizeLessThan(6);
+        assertThat(placed).noneMatch(p -> p.score() == 0);
+        // 종점은 사용자가 찍은 설계 의도라 뺄 수 없다
+        assertThat(placed.get(0).lat()).isEqualTo(LAT0);
+        assertThat(placed.get(placed.size() - 1).lat()).isEqualTo(LAT0 - 0.09);
+    }
+
+    /**
+     * **"인구 0" 과 "인구를 모름" 은 다르다.** 집계구 파일이 없으면 모든 자리가 0 으로
+     * 나오는데, 그걸 "사람이 안 산다" 로 읽으면 **종점 둘만 남고 역이 전부 사라진다.**
+     * 지방 노선이 수집 범위 밖이던 시절이 실제로 그랬다.
+     */
+    @Test
+    @DisplayName("인구 자료가 아예 없으면 한 역도 빼지 않는다")
+    void keepsAllStationsWhenCensusMissing() {
+        List<StationPlanner.Placed> placed = planner(null).plan(ROUTE, 6, 2.0);
+
+        assertThat(placed).hasSize(6);
+        assertThat(placed).allMatch(p -> p.score() == 0);
+    }
 }
