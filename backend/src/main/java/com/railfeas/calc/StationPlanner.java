@@ -95,9 +95,23 @@ public class StationPlanner {
             }
             previous = chosen;
 
+            boolean terminal = i == 0 || i == count - 1;
             double[] on = pointAt(route, cum, chosen);
             // 종점은 사용자가 찍은 자리라 옆으로도 옮기지 않는다
-            double[] at = (i == 0 || i == count - 1) ? on : bestBeside(route, cum, chosen, on);
+            double[] at = terminal ? on : bestBeside(route, cum, chosen, on);
+
+            // **반경 500m 안에 한 명도 없으면 역으로 세지 않는다.**
+            // 강·호수·바다 위가 그렇다 — 집계구가 없어 이름도 못 짓고(`name` 이 null)
+            // 이용객도 0 이라, 그대로 두면 **물 위에 이름 없는 역**이 찍힌다. 창이
+            // 역간격의 ±35%(중전철 ±370m)뿐이라 넓은 수면에서는 **밀어낼 뭍이 창 안에
+            // 없다** — 옮기는 것이 아니라 빼는 것이 맞다. 실제 교량·하저터널 구간에도
+            // 중간역이 없다. 무인 산지도 같이 걸러지는데, 그 역시 역을 놓을 자리가 아니다.
+            //
+            // **종점은 뺄 수 없다.** 사용자가 찍은 설계 의도이고, 양 끝이 사라지면
+            // 노선이 아니게 된다.
+            if (!terminal && population.hasCensus() && score(at) == 0) {
+                continue;        // previous 는 이미 chosen 으로 옮겨 뒀다
+            }
             onLine.add(on);
             out.add(place(at, usedNames));
         }
