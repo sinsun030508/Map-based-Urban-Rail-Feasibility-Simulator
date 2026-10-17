@@ -10,6 +10,7 @@ const STRUCTURES = [
 export default function ScenarioPanel({
   points, title, structure, scenarios, scenariosLoaded, saving, error, savedLength,
   savedId, results, calculating, population, selectedResult, stale, editingId, existingOption,
+  overLength,
   onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
   onSelectResult,
 }) {
@@ -90,6 +91,7 @@ export default function ScenarioPanel({
         selected={selectedResult}
         stale={stale}
         existingOption={existingOption}
+        overLength={overLength}
         pointCount={points.length}
         onSelect={onSelectResult}
       />

@@ -253,6 +253,7 @@ export default function App() {
           population={population}
           stale={isStale(calculatedAt, referenceUpdatedAt)}
           existingOption={existingOption}
+          overLength={overLength}
           // 표의 강조는 지도에 실제로 그린 안을 따른다 — 둘이 다른 안을 가리키면 안 된다
           selectedResult={shown ? resultKey(shown) : null}
           onSelectResult={setSelectedResult}
