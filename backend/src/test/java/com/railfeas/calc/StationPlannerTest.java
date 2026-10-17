@@ -311,4 +311,50 @@ class StationPlannerTest {
         assertThat(placed).hasSize(6);
         assertThat(placed).allMatch(p -> p.score() == 0);
     }
+
+    /** 노선에서 멀리 떨어진 곳에만 집계구가 있는 자료 — "다른 지역은 모았다" 를 흉내낸다 */
+    private Path censusFarAway(Path dir) throws IOException {
+        Path file = dir.resolve("census.csv");
+        StringBuilder sb = new StringBuilder("adm_cd,latitude,longitude,population,dong_name\n");
+        for (int i = 0; i <= 20; i++) {
+            // 노선에서 위도로 2° (약 220km) 떨어뜨린다
+            sb.append("far,").append(LAT0 + 2.0 + i * 0.001).append(',').append(LNG0)
+                    .append(",500,먼동\n");
+        }
+        Files.writeString(file, sb, StandardCharsets.UTF_8);
+        return file;
+    }
+
+    /**
+     * **"여기 인구가 0" 과 "여기 자료를 안 모았다" 는 다르다.**
+     *
+     * 집계구는 기존 역 주변으로 모았기 때문에 서울~부산 직선의 10~90% 구간에는 반경
+     * 500m 집계구가 한 칸도 없다 — 사람이 없어서가 아니라 안 모아서다. 이 구분이
+     * 없을 때 화면이 **"318곳은 인구가 없어 역을 놓지 않았습니다 (수면·무인 구간)"**
+     * 이라고 적었다. 단정할 수 없는 말이었다.
+     */
+    @Test
+    @DisplayName("그 지역 자료를 아예 안 모았으면 역을 빼지 않는다")
+    void keepsStationsWhereTheRegionWasNeverSurveyed(@TempDir Path dir) throws IOException {
+        // 파일은 있지만(hasCensus=true) 노선 언저리 220km 안에 집계구가 없다
+        List<StationPlanner.Placed> placed =
+                planner(censusFarAway(dir)).plan(ROUTE, 6, 2.0);
+
+        assertThat(placed).hasSize(6);
+        assertThat(placed).allMatch(p -> p.score() == 0);
+    }
+
+    /**
+     * 반대쪽 — **그 지역을 모았는데 여기만 비었으면** 물이거나 산이다. 빼는 게 맞다.
+     * 노선 가운데를 비우되 양쪽 뭍은 그대로 두면 `COVERAGE_RADIUS_KM` 안에 집계구가 남는다.
+     */
+    @Test
+    @DisplayName("그 지역은 모았는데 여기만 비었으면 뺀다 — 물이다")
+    void dropsWhereTheRegionIsSurveyedButThisSpotIsEmpty(@TempDir Path dir) throws IOException {
+        List<StationPlanner.Placed> placed =
+                planner(censusWithGap(dir, LAT0 - 0.025, LAT0 - 0.065)).plan(ROUTE, 6, 2.0);
+
+        assertThat(placed).hasSizeLessThan(6);
+        assertThat(placed).noneMatch(p -> p.score() == 0);
+    }
 }

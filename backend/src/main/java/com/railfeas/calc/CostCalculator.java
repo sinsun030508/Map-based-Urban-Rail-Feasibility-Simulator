@@ -246,8 +246,11 @@ public class CostCalculator {
         if (dropped > 0) {
             // 왜 역이 적은지 말해 주지 않으면 "계산이 덜 됐나" 로 읽힌다. 33km 노선에
             // 역이 8개뿐인 결과가 실제로 나온다 (소양호 — 가운데 20km 가 물과 산이다)
+            // **확인한 사실만 적는다.** 전에는 "(수면·무인 구간)" 이라고 단정했는데,
+            // 집계구가 기존 역 주변으로 모아진 자료라 "사람이 없다" 가 아니라 "여기
+            // 자료가 없다" 일 수 있다. 우리가 실제로 본 것은 **반경 500m 안의 인구**뿐이다.
             // `warning` 이 VARCHAR(200) 이라 짧게 — 경고가 넷까지 함께 붙는다
-            notes.add(dropped + "곳은 인구가 없어 역을 놓지 않았습니다 (수면·무인 구간)");
+            notes.add(dropped + "곳은 반경 500m 안에 인구가 없어 역을 놓지 않았습니다");
         }
         if (capacity != null && capacity.getMaxLengthKm() != null
                 && lengthKm > capacity.getMaxLengthKm().doubleValue()) {
