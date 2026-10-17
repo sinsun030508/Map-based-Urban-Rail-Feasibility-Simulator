@@ -17,8 +17,21 @@ import { money, people } from '../format';
 const MAX_COMPARE = 4;
 
 
+/**
+ * 그 노선의 **추천안** — 「추천 수단」 칸이 가리키는 바로 그 안이다.
+ *
+ * 전에는 B/C 최고안을 그냥 집었다. 그러면 서울~부산에서 「추천 수단」은 광역급행인데
+ * 「최고 B/C」는 **340km 짜리 BRT 고급형**이라고 적혀, 한 표가 두 안을 동시에
+ * 가리켰다. 권장 연장을 넘는 수단을 거르는 규칙은 백엔드가 이미 적용해
+ * `recommendedMode` 로 알려 주므로, 화면은 **그 답을 따르기만 하면 된다** —
+ * 여기서 다시 계산하면 또 어긋난다.
+ *
+ * 한 수단에 지하·고가 두 행이 있으므로 그중 B/C 가 높은 쪽을 쓴다.
+ */
 const bestOf = (d) =>
-  (d.results || []).filter((r) => r.bcRatio != null)
+  (d.results || [])
+    .filter((r) => r.bcRatio != null
+      && (d.recommendedMode == null || r.modeType === d.recommendedMode))
     .sort((a, b) => b.bcRatio - a.bcRatio)[0] || null;
 
 export default function ComparePage({ onClose }) {
@@ -159,7 +172,7 @@ export default function ComparePage({ onClose }) {
                   ))}
                 </tr>
                 <tr>
-                  <td className="name">최고 B/C</td>
+                  <td className="name">추천안 B/C</td>
                   {chosen.map((d) => {
                     const b = bestOf(d);
                     return (
@@ -177,7 +190,7 @@ export default function ComparePage({ onClose }) {
                   })}
                 </tr>
                 <tr>
-                  <td className="name">최고안 건설비</td>
+                  <td className="name">추천안 건설비</td>
                   {chosen.map((d) => <td key={d.id}>{money(bestOf(d)?.totalCost)}</td>)}
                 </tr>
               </tbody>
