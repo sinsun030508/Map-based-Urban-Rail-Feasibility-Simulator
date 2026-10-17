@@ -36,6 +36,20 @@ public class StationPlanner {
     private static final double MIN_GAP_RATIO = 0.5;   // 앞 역과 최소 간격 (역간격 대비)
     private static final double LATERAL_KM = 0.5;      // 선에서 옆으로 벗어날 수 있는 한도
     private static final double LATERAL_STEP_KM = 0.25; // 옆쪽을 훑는 간격
+    /**
+     * 이 반경 안에 집계구가 하나라도 있으면 "그 지역 인구 자료는 모았다" 고 본다.
+     *
+     * **"인구 0" 과 "인구를 모름" 은 지역 단위로도 갈라야 한다.** 집계구는 기존 역
+     * 주변으로 모았기 때문에, 서울~부산 직선의 10~90% 구간에는 반경 500m 집계구가
+     * 한 칸도 없다 — 사람이 없어서가 아니라 **안 모아서다.** 이 구분이 없으면
+     * 318곳을 "수면·무인" 이라며 빼 놓고 화면에 그렇게 적는다(실제로 그랬다).
+     *
+     * 10km 는 자료가 또렷하게 갈라 준 값이다 — 같은 반경에서
+     * 인천 앞바다 854칸 · 소양호 405칸(둘 다 자료를 모은 지역의 물)인데
+     * 서울~부산 중간은 **0칸**이다. 한강은 양안 집계구가 반경 500m 안에 들어와
+     * 애초에 이 가지를 타지도 않는다(마포대교 7칸 · 잠실 36칸).
+     */
+    private static final double COVERAGE_RADIUS_KM = 10.0;
 
     private final PopulationIndex population;
 
@@ -109,7 +123,8 @@ public class StationPlanner {
             //
             // **종점은 뺄 수 없다.** 사용자가 찍은 설계 의도이고, 양 끝이 사라지면
             // 노선이 아니게 된다.
-            if (!terminal && population.hasCensus() && score(at) == 0) {
+            if (!terminal && population.hasCensus() && score(at) == 0
+                    && population.hasCensusNear(at[0], at[1], COVERAGE_RADIUS_KM)) {
                 continue;        // previous 는 이미 chosen 으로 옮겨 뒀다
             }
             onLine.add(on);

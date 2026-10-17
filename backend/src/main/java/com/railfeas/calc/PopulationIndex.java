@@ -124,6 +124,18 @@ public class PopulationIndex {
         return !census.isEmpty();
     }
 
+    /**
+     * 이 언저리의 인구 자료를 **모으기는 했는가** — 반경 안에 집계구가 하나라도 있는가.
+     *
+     * {@link #hasCensus()} 가 "파일이 있는가" 라면 이것은 "**여기** 자료가 있는가" 다.
+     * 둘을 가르지 않으면 `StationPlanner` 가 자료를 안 모은 곳을 "사람이 없다" 로 읽는다.
+     * 집계구는 **기존 역 주변으로 모았기 때문에** 서울~부산 직선의 10~90% 구간에는
+     * 반경 500m 집계구가 한 칸도 없다 — 사람이 없어서가 아니라 안 모아서다.
+     */
+    public boolean hasCensusNear(double lat, double lng, double radiusKm) {
+        return !near(census, lat, lng, radiusKm).isEmpty();
+    }
+
     public long populationNear(List<double[]> points, double radiusKm) {
         return sumNear(census, points, radiusKm);
     }
