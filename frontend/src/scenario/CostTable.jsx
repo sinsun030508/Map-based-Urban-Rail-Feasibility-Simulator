@@ -1,25 +1,14 @@
 import BcChart from './BcChart';
+import CostChart from './CostChart';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
+import { money, people } from '../format';
 
-/** 억원 → 읽기 쉬운 단위. 1조가 넘으면 조 단위로 끊는다 */
-function money(eok) {
-  if (eok >= 10000) {
-    const jo = Math.floor(eok / 10000);
-    const rest = Math.round(eok % 10000);
-    return rest ? `${jo}조 ${rest.toLocaleString()}억` : `${jo}조`;
-  }
-  return `${Math.round(eok).toLocaleString()}억`;
-}
-
-function people(n) {
-  if (n == null) return '—';
-  return n >= 10000 ? `${(n / 10000).toFixed(1)}만` : n.toLocaleString();
-}
 
 export default function CostTable({
-  results, structure, population, selected, stale, existingOption, pointCount, onSelect,
+  results, structure, population, selected, stale, existingOption, pointCount,
+  overLength, onSelect,
 }) {
   if (!results.length) return null;
 
@@ -28,7 +17,12 @@ export default function CostTable({
   const sorted = [...results].sort((a, b) =>
     hasDemand ? (b.bcRatio ?? -1) - (a.bcRatio ?? -1) : a.totalCost - b.totalCost
   );
-  const best = sorted[0];
+  // **굵게 강조하는 안도 권장 연장을 따른다.** 서울~부산(340km)에서 340km 짜리
+  // BRT 고급형이 B/C 최고라 굵게 찍혔는데, 지도는 광역급행을 그리고 있었다 —
+  // 화면이 두 안을 동시에 가리킨 셈이다. 지도가 그리는 규칙(`App.jsx` 의 `shown`)과
+  // 백엔드 추천(`CostCalculator.recommended`)이 쓰는 규칙과 같아야 한다.
+  // 맞는 안이 하나도 없으면 맨 위를 쓴다 — 강조가 사라지는 것보다 낫다.
+  const best = (overLength ? sorted.find((r) => !overLength(r)) : null) || sorted[0];
   const riders = results.find((r) => r.estimatedRidership != null)?.estimatedRidership;
   const peak = results.find((r) => r.peakPphpd != null)?.peakPphpd;
 
@@ -61,6 +55,8 @@ export default function CostTable({
       )}
 
       <BcChart results={sorted} selected={selected} onSelect={onSelect} />
+      <CostChart results={sorted} existingOption={existingOption}
+                 selected={selected} onSelect={onSelect} />
 
       <table className="cost">
         <thead>

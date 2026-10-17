@@ -297,4 +297,41 @@ class CostCalculatorTest {
                 capacity(ModeType.SINGLE_ELEC, null, 25_000, null, 45.0, null));
         assertThat(outcome.results().get(0).getStationCount()).isEqualTo(2);
     }
+
+    private ScenarioResult result(ModeType mode, double bc) {
+        return newInstance(ScenarioResult.class, "modeType", mode,
+                "feasible", Boolean.TRUE, "bcRatio", BigDecimal.valueOf(bc));
+    }
+
+    /**
+     * **권장 연장을 넘는 수단은 추천하지 않는다.** 서울~부산(340km)에서 340km 짜리
+     * BRT 고급형이 B/C 7.83 으로 1위에 올라왔다. 표에는 남기되 기본으로 내세우지 않는다 —
+     * 화면이 기본으로 그리는 안과 **같은 규칙**이어야 한다(`App.jsx` 의 `overLength`).
+     */
+    @Test
+    @DisplayName("권장 연장을 넘는 수단은 B/C 가 가장 높아도 추천하지 않는다")
+    void doesNotRecommendModesOverTheirLengthLimit() {
+        var results = List.of(result(ModeType.BRT_HIGH, 7.83),       // 상한 30km — 넘는다
+                result(ModeType.DOUBLE_ELEC, 1.77));                 // 상한 없음
+        var capacities = Map.of(
+                ModeType.BRT_HIGH, capacity(ModeType.BRT_HIGH, null, 35_000, 1.16, 25.0, 30.0),
+                ModeType.DOUBLE_ELEC, capacity(ModeType.DOUBLE_ELEC, null, 60_000, 2.62, 47.6, null));
+
+        assertThat(CostCalculator.recommended(results, capacities, 340.5))
+                .isEqualTo(ModeType.DOUBLE_ELEC);
+        // 상한 안이면 그대로 B/C 최고안이다
+        assertThat(CostCalculator.recommended(results, capacities, 20.0))
+                .isEqualTo(ModeType.BRT_HIGH);
+    }
+
+    @Test
+    @DisplayName("전부 상한을 넘으면 길이를 따지지 않는다 — 추천이 사라지는 것보다 낫다")
+    void fallsBackWhenEveryModeIsOverTheLimit() {
+        var results = List.of(result(ModeType.BRT_HIGH, 7.83));
+        var capacities = Map.of(
+                ModeType.BRT_HIGH, capacity(ModeType.BRT_HIGH, null, 35_000, 1.16, 25.0, 30.0));
+
+        assertThat(CostCalculator.recommended(results, capacities, 340.5))
+                .isEqualTo(ModeType.BRT_HIGH);
+    }
 }

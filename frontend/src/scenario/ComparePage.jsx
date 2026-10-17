@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { resultKey } from './resultKey';
 import { isStale, STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
+import { money, people } from '../format';
 
 /**
  * 시나리오 비교 (제안서 기능 8).
@@ -15,18 +16,6 @@ import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
  */
 const MAX_COMPARE = 4;
 
-function money(eok) {
-  if (eok == null) return '—';
-  if (eok >= 10000) {
-    const jo = Math.floor(eok / 10000);
-    const rest = Math.round(eok % 10000);
-    return rest ? `${jo}조 ${rest.toLocaleString()}억` : `${jo}조`;
-  }
-  return `${Math.round(eok).toLocaleString()}억`;
-}
-
-const people = (n) =>
-  n == null ? '—' : n >= 10000 ? `${(n / 10000).toFixed(1)}만` : n.toLocaleString();
 
 const bestOf = (d) =>
   (d.results || []).filter((r) => r.bcRatio != null)

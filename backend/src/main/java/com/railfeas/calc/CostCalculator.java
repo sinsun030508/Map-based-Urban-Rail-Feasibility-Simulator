@@ -147,7 +147,7 @@ public class CostCalculator {
             results.add(result);
         }
         // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 비교표에 함께 낸다
-        return new Outcome(results, people, recommended(results),
+        return new Outcome(results, people, recommended(results, capacities, lengthKm),
                 existingOptions.find(points, lengthKm,
                         ExistingOptions.urbanMaxKm(capacities)));
     }
@@ -186,13 +186,42 @@ public class CostCalculator {
                 || peak <= capacity.getPphpdMax();
     }
 
-    /** 운행 가능한 안 중 B/C 최대. 수요를 못 구하면 추천하지 않는다 */
-    private ModeType recommended(List<ScenarioResult> results) {
-        return results.stream()
+    /**
+     * 운행 가능한 안 중 B/C 최대. 수요를 못 구하면 추천하지 않는다.
+     *
+     * **권장 연장을 넘는 수단은 추천하지 않는다.** 서울~부산(340km)에서 **340km 짜리
+     * BRT 고급형**이 B/C 7.83 으로 1위에 올라왔다. 표에는 그대로 남긴다 — 선택을 막지
+     * 않는 것이 이 서비스의 방식이고, 다만 **기본으로 내세우지 않는다.**
+     *
+     * **화면이 기본으로 그리는 안과 같은 규칙이어야 한다**(`App.jsx` 의 `overLength`).
+     * 전에는 화면만 걸러서, 지도에는 복선전철 역이 그려지는데 「추천 수단」 칸은 BRT 라고
+     * 적혀 있었다 — 둘이 다른 안을 가리키면 안 된다. 그래서 화면과 같은 **그린 길이**로
+     * 잰다(경고는 돌아간 길이 `routeKm` 로 재는데, 차이는 역이 비켜선 몫뿐이다).
+     *
+     * 걸러서 하나도 안 남으면 길이를 따지지 않는다 — 추천이 아예 사라지는 것보다
+     * 경고 붙은 안이라도 내놓는 편이 낫다 (지금 복선전철·급행은 상한이 NULL 이라
+     * 그런 일이 없지만, 관리자가 상한을 넣으면 생길 수 있다).
+     */
+    static ModeType recommended(List<ScenarioResult> results,
+                                Map<ModeType, ModeCapacity> capacities, double lengthKm) {
+        List<ScenarioResult> usable = results.stream()
                 .filter(r -> Boolean.TRUE.equals(r.getFeasible()) && r.getBcRatio() != null)
+                .toList();
+        List<ScenarioResult> within = usable.stream()
+                .filter(r -> withinLength(r, capacities, lengthKm))
+                .toList();
+        return (within.isEmpty() ? usable : within).stream()
                 .max((a, b) -> a.getBcRatio().compareTo(b.getBcRatio()))
                 .map(ScenarioResult::getModeType)
                 .orElse(null);
+    }
+
+    /** 상한이 없는 수단(복선전철·급행)은 언제나 참이다 */
+    private static boolean withinLength(ScenarioResult result,
+                                        Map<ModeType, ModeCapacity> capacities, double lengthKm) {
+        ModeCapacity capacity = capacities.get(result.getModeType());
+        return capacity == null || capacity.getMaxLengthKm() == null
+                || lengthKm <= capacity.getMaxLengthKm().doubleValue();
     }
 
     private int estimateStations(double lengthKm, ModeCapacity capacity) {
