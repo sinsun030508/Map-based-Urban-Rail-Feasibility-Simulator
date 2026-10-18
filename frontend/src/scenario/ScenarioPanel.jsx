@@ -24,14 +24,20 @@ export default function ScenarioPanel({
     <aside className="panel">
       <section>
         <h2>노선 그리기</h2>
-        <p className="muted">
-          지도에서 출발지와 도착지를 클릭하세요. 정차역은 저장 후 '비용 비교하기'를 누르면
-          수단별 역간격에 맞춰 그 사이에 자동으로 놓입니다.
-        </p>
-        <p className="muted small">
-          노선을 꺾으려면 더 클릭하세요 — 마지막 점이 도착지가 되고 앞의 점은 경유점(◆)이 됩니다.
-          경유점은 정차역이 아닙니다.
-        </p>
+        {/* 안내 두 개가 **조건 없이** 떠 있어, 노선을 다 그린 뒤에도 "출발지와 도착지를
+            클릭하세요" 가 계속 보였다. 292px 패널에서 6~7줄을 영구히 차지한 셈이다.
+            지우지 말고 **필요한 때만** 띄운다 — 그리기 전에는 그리는 법을, 다 그린 뒤에는
+            다음에 무슨 일이 일어나는지를 보여 준다 */}
+        {points.length === 0 ? (
+          <p className="muted small">
+            지도에서 출발지와 도착지를 클릭하세요. 더 누르면 사이에 경유점(◆)이 생깁니다 —
+            경유점은 정차역이 아닙니다.
+          </p>
+        ) : !results?.length && (
+          <p className="muted small">
+            정차역은 저장 후 '비용 비교하기'를 누르면 수단별 역간격에 맞춰 자동으로 놓입니다.
+          </p>
+        )}
         <div className="metric">
           <span>{length.toFixed(3)}</span> km
           {points.length > 2 && <> · 경유점 {points.length - 2}개</>}

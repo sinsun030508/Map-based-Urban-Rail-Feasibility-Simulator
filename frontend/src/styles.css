@@ -189,7 +189,10 @@ table.admin-table.compare td.name,
 table.admin-table.compare th:first-child { text-align: left; }
 table.admin-table.compare td.top { background: #f0f6ff; font-weight: 700; }
 /* 이미 있는 수단은 문장이라 오른쪽 정렬이 읽히지 않는다 (나머지 칸은 숫자다) */
-table.admin-table.compare td.existing { text-align: left; }
+/* 긴 글이 열 폭을 정하지 못하게 막는다. table-layout 이 auto 라 한 칸의 글자가
+   열 전체를 부풀린다 — 상세는 title 로 옮겼지만 이름이 길어질 때를 대비해 둔다 */
+table.admin-table.compare td.existing { text-align: left; max-width: 160px; }
+table.admin-table.compare td.existing[title] { cursor: help; }
 
 table.cost .tag.note { color: var(--muted); }
 
