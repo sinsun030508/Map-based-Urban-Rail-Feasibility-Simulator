@@ -232,6 +232,7 @@ export default function App() {
           points={points}
           zones={zones}
           stations={shown?.stations}
+          existingOption={existingOption}
           show3D={show3D}
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);

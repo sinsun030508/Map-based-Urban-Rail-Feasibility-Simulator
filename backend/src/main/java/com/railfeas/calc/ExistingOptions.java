@@ -56,7 +56,13 @@ public class ExistingOptions {
      * @param message `scenario.existing_line`(VARCHAR 150)에 저장하는 기존 문구.
      *                목록 API 가 이 문자열만 싣는다 — 바꾸면 요약 화면이 함께 바뀐다
      */
-    public record Option(String kind, String label, String detail, String message) {
+    public record Option(String kind, String label, String detail, String message,
+                         Double fromLat, Double fromLng, Double toLat, Double toLng) {
+
+        /** 도시철도 판정은 역을 특정하지 않는다 — 겹침 비율만 본다 */
+        static Option urban(String label, String detail, String message) {
+            return new Option(URBAN_RAIL, label, detail, message, null, null, null, null);
+        }
     }
 
     /**
@@ -82,7 +88,7 @@ public class ExistingOptions {
     public Option find(List<double[]> route, double lengthKm, double urbanMaxKm) {
         ExistingLineFinder.Match line = urban.find(route);
         if (line != null) {
-            return new Option(URBAN_RAIL, "기존 " + line.lineName(),
+            return Option.urban("기존 " + line.lineName(),
                     String.format("노선의 %.0f%% 가 기존 역 1km 안입니다", line.coverage() * 100),
                     line.message());
         }
@@ -92,7 +98,8 @@ public class ExistingOptions {
                     String.format("%s · %s역(출발에서 %.0fkm) ~ %s역(도착에서 %.0fkm) — 역까지는 따로 이동",
                             String.join("·", ktx.lines()),
                             ktx.fromStation(), ktx.fromKm(), ktx.toStation(), ktx.toKm()),
-                    ktx.message());
+                    ktx.message(),
+                    ktx.fromLat(), ktx.fromLng(), ktx.toLat(), ktx.toLng());
         }
         return null;
     }

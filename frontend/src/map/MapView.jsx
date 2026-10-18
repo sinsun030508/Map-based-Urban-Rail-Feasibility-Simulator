@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapStyle, INITIAL_VIEW } from './mapStyle';
@@ -6,6 +6,7 @@ import { routeThroughStations } from '../geo/routeLine';
 import usePopulation3D from './usePopulation3D';
 
 const ROUTE_SOURCE = 'route';
+const EXISTING_SOURCE = 'existing-route';
 
 /**
  * 지도와 노선 표시. 좌표 상태는 App 이 들고 있고 여기서는 그리기만 한다.
@@ -13,11 +14,16 @@ const ROUTE_SOURCE = 'route';
  * stations — 자동 배치된 정차역. 수단마다 다르므로 비교표에서 고른 안의 것을 받는다.
  * show3D — 인구밀도 3D 레이어. 켜면 지도가 기울고 집계구 인구가 높이로 선다.
  */
-export default function MapView({ points, zones, stations, show3D, onPick }) {
+export default function MapView({ points, zones, stations, existingOption, show3D, onPick }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
   const stationMarkersRef = useRef([]);
+  const existingMarkersRef = useRef([]);
+  // **지도가 준비됐는지를 상태로 둔다.** 'load' 이벤트에 직접 매달면
+  // StrictMode 가 지도를 두 번 만드는 개발 환경에서 순서가 어긋나,
+  // 지도가 뜨기 전에 시나리오를 연 경우 점이 영영 안 그려졌다.
+  const [mapReady, setMapReady] = useState(false);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
 
@@ -44,6 +50,26 @@ export default function MapView({ points, zones, stations, show3D, onPick }) {
         source: ROUTE_SOURCE,
         paint: { 'line-color': '#e2483a', 'line-width': 4 },
       });
+
+      // 기존 노선(KTX) — 그린 노선과 **다른 색·점선**으로 둔다.
+      // 점선인 이유: 가진 것이 두 역의 좌표뿐이라 **실제 선형이 아니다.**
+      // 실선으로 그리면 빨간 노선과 같은 급으로 읽혀 "가지도 않는 길" 을 그리는 셈이다.
+      map.addSource(EXISTING_SOURCE, {
+        type: 'geojson',
+        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } },
+      });
+      map.addLayer({
+        id: 'existing-line',
+        type: 'line',
+        source: EXISTING_SOURCE,
+        paint: {
+          'line-color': '#0f766e',
+          'line-width': 4,
+          'line-dasharray': [2, 1.5],
+        },
+      }, 'route-line');        // 그린 노선 아래로
+
+      setMapReady(true);
     });
 
     map.on('click', (e) => onPickRef.current?.([e.lngLat.lng, e.lngLat.lat]));
@@ -123,6 +149,37 @@ export default function MapView({ points, zones, stations, show3D, onPick }) {
         .addTo(map);
     });
   }, [stations]);
+
+  /**
+   * 기존 노선(KTX) 구간 — 먼 거리를 그렸을 때만 나온다.
+   *
+   * **두 역을 이은 점선이지 실제 KTX 선형이 아니다.** 우리가 가진 것은 역 좌표뿐이고
+   * 선형 자료는 없다 (`docs/engineering-notes.md` 의 KTX 절). 점선과 다른 색으로
+   * 그려 그 차이를 드러낸다 — 빨간 실선은 "지을 노선", 청록 점선은 "이미 있는 것".
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+
+    existingMarkersRef.current.forEach((m) => m.remove());
+    existingMarkersRef.current = [];
+
+    const o = existingOption;
+    const ends = o && o.fromLat != null && o.toLat != null
+      ? [[Number(o.fromLng), Number(o.fromLat)], [Number(o.toLng), Number(o.toLat)]]
+      : [];
+
+    map.getSource(EXISTING_SOURCE).setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: ends },
+    });
+    existingMarkersRef.current = ends.map((c) => {
+      const el = document.createElement('div');
+      el.className = 'existing-dot';
+      el.title = `${o.label} — ${o.detail}`;
+      return new maplibregl.Marker({ element: el }).setLngLat(c).addTo(map);
+    });
+  }, [existingOption, mapReady]);
 
   // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다
   useEffect(() => {
