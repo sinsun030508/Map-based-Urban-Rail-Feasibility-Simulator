@@ -157,17 +157,18 @@ export default function ComparePage({ onClose }) {
                     노선을 고르는 화면이라면 이 줄이 가장 먼저 봐야 할 줄일 수 있다 */}
                 <tr>
                   <td className="name">이미 있는 수단</td>
+                  {/* **설명을 칸에 넣지 않는다.** `table-layout: auto` 라 한 칸의 글자가
+                      열 전체 폭을 정한다 — 60자짜리 KTX 설명 때문에 그 열만 460px 로
+                      부풀어(다른 열은 117~130px) 「추천안 B/C」 가 "BRT 고급형 지/상" 으로
+                      줄바꿈됐다. 비용표에서 이미 한 번 겪은 함정이다.
+                      여기서 볼 것은 **있느냐 없느냐**이고, 어느 역을 쓰는지는 그 노선의
+                      비용 비교 화면에 그대로 나온다 */}
                   {chosen.map((d) => (
-                    <td key={d.id} className="existing">
-                      {d.existingOption ? (
-                        <>
-                          <strong>{d.existingOption.label}</strong>
-                          <br />
-                          <span className="muted small">{d.existingOption.detail}</span>
-                        </>
-                      ) : (
-                        <span className="muted">없음</span>
-                      )}
+                    <td key={d.id} className="existing"
+                        title={d.existingOption?.detail || undefined}>
+                      {d.existingOption
+                        ? <strong>{d.existingOption.label}</strong>
+                        : <span className="muted">없음</span>}
                     </td>
                   ))}
                 </tr>
