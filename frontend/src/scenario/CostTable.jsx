@@ -4,6 +4,7 @@ import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
 import { money, people } from '../format';
+import { mergeWarnings } from './warnings';
 
 
 export default function CostTable({
@@ -114,12 +115,13 @@ export default function CostTable({
               <td colSpan={5}>
                 {existingOption.detail}
                 <br />
-                이미 지어져 있어 <strong>추가 건설비가 0</strong>입니다. 소요시간과 B/C는
-                비웠습니다 —{' '}
+                이미 지어져 있어 <strong>추가 건설비가 0</strong>입니다.{' '}
+                {/* 비운 칸은 "못 구했다" 가 아니라 "적으면 안 된다" 는 뜻이다 —
+                    짧게 줄이더라도 이 구분은 남긴다 */}
                 {existingOption.kind === 'INTERCITY_RAIL'
-                  ? 'KTX 소요시간은 열차마다 갈립니다(서울~부산 2시간 18분~2시간 40분, 무정차 2시간 10분대). 한 열차의 시각을 대표값으로 적을 수 없습니다.'
-                  : '기존 노선의 소요시간 자료를 아직 받지 못했습니다.'}{' '}
-                이미 있는 시설에 B/C를 매기는 것은 신설안과 범주가 다릅니다.
+                  ? '소요시간은 열차마다 갈리고(서울~부산 2시간 18분~2시간 40분)'
+                  : '소요시간 자료를 아직 받지 못했고'}, 이미 있는 시설의 B/C는
+                신설안과 범주가 달라 두 칸을 비웠습니다.
               </td>
             </tr>
           </tfoot>
@@ -137,32 +139,44 @@ export default function CostTable({
         </p>
       )}
 
-      {[...new Set(results.map((r) => r.warning).filter(Boolean))].map((w) => (
-        <p key={w} className="small warn">⚠ {w}</p>
+      {/* 수단마다 온 경고를 조각 단위로 합친다 — 전에는 숫자만 다른 같은 말이 여섯 줄
+          쌓였다(`warnings.js`). 정확한 값은 행의 `title` 에 그대로 있다 */}
+      {mergeWarnings(results.map((r) => r.warning)).map((w) => (
+        <p key={w} className="small warn" title="수단별 정확한 값은 표의 행에 마우스를 올리면 나옵니다">
+          ⚠ {w}
+        </p>
       ))}
 
+      {/* 이 줄은 접지 않는다 — 읽고 **할 일이 있는** 안내다(경유점 추가) */}
       {pointCount === 2 && (
         <p className="small note">
-          출발·도착 두 점만 찍어 <strong>직선으로 계산</strong>했습니다. 실제 노선은 돌아가므로
-          연장이 짧게, 따라서 건설비도 적게 잡힙니다. 지도 가운데를 눌러 경유점을 추가하면
-          실제 선형에 가깝게 그릴 수 있습니다.
+          두 점만 찍어 <strong>직선으로 계산</strong>했습니다 — 지도를 눌러 경유점을
+          더하면 실제 선형에 가까워집니다.
         </p>
       )}
 
-      <p className="small muted">
-        비용 모델 오차 1.25배, 수요 모델 오차 1.75배입니다. 단일 값이 아니라 비교용 지표로 보세요.
+      {/* **지우지 않고 접는다.** 근거와 한계를 화면에서 없애면 다음 사람이 이 숫자를
+          공표값으로 읽는다. 대신 가장 중요한 한 줄을 `summary` 에 올려 접힌 채로도
+          읽히게 한다 — 펴야 보이는 경고는 없는 경고다 */}
+      <details className="small notes">
+        <summary>
+          <strong>절대값보다 순위를 보세요</strong> — 계산 근거와 한계
+        </summary>
+        <p>비용 모델 오차 1.25배, 수요 모델 오차 1.75배입니다.</p>
         {hasDemand && (
           <>
-            <br />
-            B/C는 투자평가지침 제7판 원단위(시간가치 7,231원/인·시, 할인율 4.5%·3.5%)로
-            공사 5년과 개통 후 40년을 현재가치 환산한 값입니다. 표의 건설비는 명목 총액이라
-            B/C와 직접 나눠지지 않습니다.
-            <br />
-            <strong>절대값보다 순위를 보세요</strong> — 첨두율과 전환 전 속도는 지침에
-            원단위가 없는 가정값이고, 편익은 통행시간 절감만 셉니다.
+            <p>
+              B/C는 투자평가지침 제7판 원단위(시간가치 7,231원/인·시, 할인율 4.5%·3.5%)로
+              공사 5년과 개통 후 40년을 현재가치 환산한 값입니다. 표의 건설비는 명목
+              총액이라 B/C와 직접 나눠지지 않습니다.
+            </p>
+            <p>
+              첨두율과 전환 전 속도는 지침에 원단위가 없는 <strong>가정값</strong>이고,
+              편익은 통행시간 절감만 셉니다.
+            </p>
           </>
         )}
-      </p>
+      </details>
     </section>
   );
 }

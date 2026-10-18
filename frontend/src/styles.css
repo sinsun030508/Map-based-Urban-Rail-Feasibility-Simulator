@@ -113,6 +113,13 @@ table.cost .tag { display: block; font-size: 10px; color: #b3261e; text-decorati
 .note { margin: 10px 0 4px; }
 .warn { color: #8a6100; margin: 4px 0; }
 .metric.small { font-size: 12px; margin: 6px 0 2px; }
+
+/* 근거와 한계 — 접어 두되 요약 한 줄은 접힌 채로도 읽힌다. summary 안의 strong 이
+   굵게 남아야 "절대값보다 순위를 보세요" 가 눈에 들어온다 */
+details.notes { margin: 10px 0 4px; color: var(--muted); }
+details.notes summary { cursor: pointer; color: #1f2430; }
+details.notes summary strong { color: inherit; }
+details.notes p { margin: 6px 0 0 14px; }
 .metric.small strong { font-size: 13px; }
 
 /* 자동 배치된 정차역 — 노선 꼭짓점 마커보다 작게, 이름을 옆에 붙인다 */
