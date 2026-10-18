@@ -204,3 +204,11 @@ table.cost .tag.note { color: var(--muted); }
 .bc-row.existing { cursor: default; }
 .bc-rule-label { text-anchor: middle; }
 .bc-label { text-anchor: end; }
+
+/* 기존 노선(KTX)의 양 끝 역 — 그린 노선의 빨강·정차역의 파랑과 겹치지 않는 청록.
+   선은 점선이다(두 역 좌표만 있고 실제 선형이 아니다) */
+.existing-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #0f766e; border: 2.5px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+}

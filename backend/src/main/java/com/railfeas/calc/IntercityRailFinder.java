@@ -74,7 +74,12 @@ public class IntercityRailFinder {
         this.stationFile = Path.of(stationFile);
     }
 
+    /**
+     * 좌표는 **지도에 기존 구간을 그리는 데** 쓴다. 가진 것이 두 역의 점뿐이라
+     * 실제 KTX 선형이 아니다 — 화면에서 **점선**으로 그려 개략임을 드러낸다.
+     */
     public record Match(String fromStation, double fromKm, String toStation, double toKm,
+                        double fromLat, double fromLng, double toLat, double toLng,
                         List<String> lines) {
         public String message() {
             return String.format("기존 %s 활용 검토 — %s역(출발에서 %.0fkm) ~ %s역(도착에서 %.0fkm)",
@@ -147,7 +152,8 @@ public class IntercityRailFinder {
                 continue;
             }
             if (best == null || fromKm + toKm < best.fromKm() + best.toKm()) {
-                best = new Match(a, fromKm, b, toKm, List.of());
+                best = new Match(a, fromKm, b, toKm, stations.get(a).lat(), stations.get(a).lng(),
+                        stations.get(b).lat(), stations.get(b).lng(), List.of());
             }
         }
         if (best == null) {
@@ -162,7 +168,7 @@ public class IntercityRailFinder {
             }
         }
         return new Match(best.fromStation(), best.fromKm(), best.toStation(), best.toKm(),
-                compact(lines));
+                best.fromLat(), best.fromLng(), best.toLat(), best.toLng(), compact(lines));
     }
 
     /** `KTX 경부선`, `KTX 호남선` → `KTX 경부선`, `호남선` — 문구가 150자 칸을 넘지 않게 */
