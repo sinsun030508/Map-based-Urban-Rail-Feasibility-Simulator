@@ -15,7 +15,7 @@
       "runtimeExecutable": "C:\\Program Files\\Git\\bin\\bash.exe",
       "runtimeArgs": [
         "-lc",
-        "cd '/d/Projects/Map-based Urban Rail Feasibility Simulator/frontend' && exec npm run dev"
+        "cd '/d/Projects/Map-based Urban Rail Feasibility Simulator/frontend' && exec node node_modules/vite/bin/vite.js"
       ],
       "port": 5173
     }
