@@ -58,6 +58,28 @@ class ExistingOptionsTest {
     }
 
     /** 광명·오송이 경부선·호남선에 함께 선다 — 실제 `ktx_station.csv` 좌표다 */
+    private static ExistingOptions options(ExistingLineFinder urban,
+                                           IntercityRailFinder intercity, KtxTravelTime times) {
+        return new ExistingOptions(urban, intercity, times);
+    }
+
+    /** 소요시간 자료가 없는 상태. 대부분의 테스트는 그 칸을 보지 않는다 */
+    private static KtxTravelTime empty() {
+        return new KtxTravelTime("없는파일.csv");
+    }
+
+    
+    /**
+     * 실제로 받은 2026-10-20 서울~부산 값. 역 이름만 이 테스트의 좌표 고정물
+     * (광명·오송)에 맞춰 놓았다 — 보는 것은 계통이 둘일 때의 표기다.
+     */
+    private static KtxTravelTime seoulBusan() {
+        KtxTravelTime t = new KtxTravelTime("없는파일.csv");
+        t.add("광명", "오송", 1, 44, 164, 143, 176);
+        t.add("광명", "오송", 2, 11, 198, 180, 205);
+        return t;
+    }
+
     private static IntercityRailFinder ktx() {
         IntercityRailFinder finder = new IntercityRailFinder("없는파일.csv");
         for (String line : List.of("KTX 경부선", "KTX 호남선")) {
@@ -71,7 +93,7 @@ class ExistingOptionsTest {
     @DisplayName("도시 안 노선은 기존 도시철도를 낸다")
     void 도시철도(@TempDir Path dir) throws IOException {
         // 역 21개 = 약 4.4km 짜리 노선
-        ExistingOptions options = new ExistingOptions(urban(stations(dir, "2호선", 21)), ktx());
+        ExistingOptions options = options(urban(stations(dir, "2호선", 21)), ktx(), empty());
 
         var option = options.find(List.of(onLadder(0), onLadder(20)), 4.4, URBAN_MAX_KM);
 
@@ -85,7 +107,7 @@ class ExistingOptionsTest {
     @Test
     @DisplayName("도시 간 거리는 기존 KTX 를 낸다")
     void 도시간_KTX() {
-        ExistingOptions options = new ExistingOptions(urban(null), ktx());
+        ExistingOptions options = options(urban(null), ktx(), empty());
 
         var option = options.find(List.of(INCHEON, SEJONG), 120.3, URBAN_MAX_KM);
 
@@ -119,7 +141,7 @@ class ExistingOptionsTest {
         intercity.add("KTX 가상선", "북쪽", to[0], to[1], false);
         assertThat(intercity.find(List.of(from, to), 36.2, URBAN_MAX_KM)).isNotNull();
 
-        var option = new ExistingOptions(withStations, intercity)
+        var option = options(withStations, intercity, empty())
                 .find(List.of(from, to), 36.2, URBAN_MAX_KM);
 
         assertThat(option.kind()).isEqualTo(ExistingOptions.URBAN_RAIL);
@@ -129,7 +151,7 @@ class ExistingOptionsTest {
     @Test
     @DisplayName("어느 쪽도 안 걸리면 아무 줄도 붙이지 않는다")
     void 해당_없음() {
-        ExistingOptions options = new ExistingOptions(urban(null), ktx());
+        ExistingOptions options = options(urban(null), ktx(), empty());
 
         // 짧은 도시 안 노선 — 도시철도 자료가 없고 KTX 판정은 길이에서 막힌다
         assertThat(options.find(List.of(onLadder(0), onLadder(20)), 4.4, URBAN_MAX_KM)).isNull();
@@ -141,5 +163,55 @@ class ExistingOptionsTest {
         // max_length_km 가 없는 수단(복선전철·급행)은 세지 않는다 — 그러면 모든 노선이
         // '권장 연장 안' 이 되어 KTX 안내가 영구히 꺼진다
         assertThat(ExistingOptions.urbanMaxKm(java.util.Map.of())).isEqualTo(Double.MAX_VALUE);
+    }
+
+    @Test
+    @DisplayName("소요시간은 빠른 계통의 중앙값이고, 갈리는 폭은 따로 적는다")
+    void 소요시간을_채운다() {
+        var option = options(urban(null), ktx(), seoulBusan())
+                .find(List.of(INCHEON, SEJONG), 120.3, URBAN_MAX_KM);
+
+        assertThat(option.kind()).isEqualTo(ExistingOptions.INTERCITY_RAIL);
+        assertThat(option.travelMin()).isEqualTo(164);
+        // 좁은 칸에는 한 값만 들어가므로 "그게 전부가 아니다" 를 설명 줄이 말해 준다
+        assertThat(option.travelDetail())
+                .isEqualTo("44편 143~176분(중앙 164분) · 경로가 다른 11편 180~205분(중앙 198분)");
+    }
+
+    @Test
+    @DisplayName("소요시간 자료가 없으면 0 이 아니라 빈 칸이다")
+    void 모르면_비운다() {
+        var option = options(urban(null), ktx(), empty())
+                .find(List.of(INCHEON, SEJONG), 120.3, URBAN_MAX_KM);
+
+        // 0 으로 채우면 비교표에 "0분" 이 찍혀 KTX 가 순간이동하는 것처럼 보인다
+        assertThat(option.travelMin()).isNull();
+        assertThat(option.travelDetail()).isNull();
+    }
+
+    @Test
+    @DisplayName("설명 줄의 단위는 표와 같다 — 분이다")
+    void 설명_줄은_분으로_적는다() {
+        // 칸이 `164분` 인데 이 줄이 `2시간 23분~2시간 56분` 이면 둘을 잇지 못한다.
+        // 표의 신설안 행도 모두 분이라, 비교하려면 같은 단위여야 한다
+        var one = ExistingOptions.spread(List.of(new KtxTravelTime.Leg(1, 44, 164, 143, 176)));
+        assertThat(one).isEqualTo("44편 143~176분(중앙 164분)");
+    }
+
+    @Test
+    @DisplayName("계통이 둘이면 둘 다 적는다 — 칸의 한 숫자가 어느 쪽인지 보이게")
+    void 계통이_둘이면_둘_다_적는다() {
+        var two = ExistingOptions.spread(List.of(
+                new KtxTravelTime.Leg(1, 44, 164, 143, 176),
+                new KtxTravelTime.Leg(2, 11, 198, 180, 205)));
+        assertThat(two).isEqualTo(
+                "44편 143~176분(중앙 164분) · 경로가 다른 11편 180~205분(중앙 198분)");
+    }
+
+    @Test
+    @DisplayName("계통이 없으면 설명 줄도 없다 — 빈 문자열이 아니라 null")
+    void 모르면_설명도_없다() {
+        // 빈 문자열이면 화면이 "— ." 처럼 찍는다. 화면이 분기할 수 있게 null 로 준다
+        assertThat(ExistingOptions.spread(List.of())).isNull();
     }
 }

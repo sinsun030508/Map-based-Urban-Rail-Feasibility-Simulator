@@ -22,19 +22,20 @@ import org.springframework.stereotype.Component;
  * **도시철도가 우선이다.** 둘 다 걸리면 역간격 1km 짜리 판정(출발·도착이 역 1km 안이고
  * 노선의 80% 가 역세권)이 KTX 판정(양 끝에서 20km 안)보다 훨씬 촘촘해 더 강한 근거다.
  *
- * **소요시간은 아직 넣지 않는다 — 받을 데가 없어서가 아니다.** TAGO 「열차정보」
- * (`apis.data.go.kr/1613000/TrainInfo/GetStrtpntAlocFndTrainInfo`) 가 출발·도착역 기준으로
- * 열차마다 시각을 준다. 2026-10-19 에 키로 호출해 확인했다(`resultCode 00`).
+ * **소요시간은 미리 받아 둔 파일에서 읽는다.** TAGO 「열차정보」로 받아
+ * `data/build/ktx_travel_time.csv` 에 적어 두고({@code etl/korail_travel_time.py}),
+ * {@link KtxTravelTime} 이 기동할 때 메모리에 올린다. **요청할 때 외부 API 를 부르지
+ * 않는다** — API 가 느리거나 죽은 날 비교 화면 전체가 같이 멈출 이유가 없다.
  *
- * 안 넣는 이유는 **단일 값이 아니어서**다. 2026-10-20 서울~부산 42편이 138~205분으로
- * 갈리는데, 운임으로 갈라 보면 **계통이 둘**이다 — 경부고속선 33편 138~170분(중앙 162),
- * 구포 경유 9편 182~205분. 열차번호 100번 경계가 운임 경계와 정확히 맞는다.
- * 한 열차의 시각을 "KTX 소요시간" 으로 적으면 출처가 공표값이 되어 다음 사람이 의심하지
- * 않는다 — 세종 S-BRT 의 35km/h 를 쓰지 않은 것과 같은 이유다.
+ * **값 하나가 아니라 계통을 가른다.** 같은 구간에 경로가 둘인 일이 흔하다 — 서울~부산은
+ * 고속선 계통과 더 싸고 느린 우회 계통으로 갈린다. 한 열차의 시각을 "KTX 소요시간" 으로
+ * 적으면 출처가 공표값이 되어 다음 사람이 의심하지 않는다(세종 S-BRT 의 35km/h 를 쓰지
+ * 않은 것과 같은 이유다). 그래서 좁은 표 칸에는 **빠른 계통의 중앙값** 하나만 넣고,
+ * 계통별 편수와 범위는 {@link #spread} 가 표 아래 설명 줄로 돌린다.
  *
- * **넣는다면** 중앙값과 범위를 함께 적고, 계통을 가른다. 그리고 **요청할 때 부르지 않는다** —
- * 다른 기준값처럼 ETL 이 미리 받아 DB 에 넣는다. 화면 한 칸 때문에 비교 전체가
- * 외부 API 응답을 기다리게 둘 이유가 없다. 자세한 것은 `docs/research-log.md`.
+ * **모르는 구간은 비운다.** 직통 KTX 가 없거나 역 이름을 못 맞춘 구간은 {@code null} 이
+ * 오고 화면이 빈 칸과 그 이유를 적는다 — 0 을 넣으면 "0분" 으로 읽힌다.
+ * 자세한 것은 `docs/research-log.md`.
  */
 @Component
 public class ExistingOptions {
@@ -46,10 +47,13 @@ public class ExistingOptions {
 
     private final ExistingLineFinder urban;
     private final IntercityRailFinder intercity;
+    private final KtxTravelTime times;
 
-    public ExistingOptions(ExistingLineFinder urban, IntercityRailFinder intercity) {
+    public ExistingOptions(ExistingLineFinder urban, IntercityRailFinder intercity,
+                           KtxTravelTime times) {
         this.urban = urban;
         this.intercity = intercity;
+        this.times = times;
     }
 
     /**
@@ -63,12 +67,41 @@ public class ExistingOptions {
      *                목록 API 가 이 문자열만 싣는다 — 바꾸면 요약 화면이 함께 바뀐다
      */
     public record Option(String kind, String label, String detail, String message,
-                         Double fromLat, Double fromLng, Double toLat, Double toLng) {
+                         Double fromLat, Double fromLng, Double toLat, Double toLng,
+                         Integer travelMin, String travelDetail) {
 
         /** 도시철도 판정은 역을 특정하지 않는다 — 겹침 비율만 본다 */
         static Option urban(String label, String detail, String message) {
-            return new Option(URBAN_RAIL, label, detail, message, null, null, null, null);
+            return new Option(URBAN_RAIL, label, detail, message,
+                    null, null, null, null, null, null);
         }
+    }
+
+    /**
+     * 계통이 갈리는 폭을 한 줄로. 좁은 칸에는 빠른 계통의 중앙값만 들어가므로
+     * <b>"그 한 값이 전부가 아니다" 를 여기서 말한다.</b> 모르면 null.
+     *
+     * <b>단위를 표와 맞춘다 — 분이다.</b> 전에는 칸이 {@code 164분} 인데 이 줄이
+     * {@code 2시간 23분~2시간 56분} 이어서 읽는 사람이 둘을 잇지 못했다. 표의 신설안
+     * 행도 모두 분이라, 비교하려면 같은 단위여야 한다.
+     *
+     * <b>계통마다 중앙값도 적는다.</b> 칸의 한 숫자가 어느 계통의 것인지 보이게 한다.
+     */
+    static String spread(List<KtxTravelTime.Leg> legs) {
+        if (legs.isEmpty()) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < legs.size(); i++) {
+            KtxTravelTime.Leg leg = legs.get(i);
+            if (i > 0) {
+                sb.append(" · 경로가 다른 ");
+            }
+            sb.append(leg.trains()).append("편 ")
+                    .append(leg.minMin()).append('~').append(leg.maxMin())
+                    .append("분(중앙 ").append(leg.medianMin()).append("분)");
+        }
+        return sb.toString();
     }
 
     /**
@@ -100,12 +133,14 @@ public class ExistingOptions {
         }
         IntercityRailFinder.Match ktx = intercity.find(route, lengthKm, urbanMaxKm);
         if (ktx != null) {
+            List<KtxTravelTime.Leg> legs = times.legs(ktx.fromStation(), ktx.toStation());
             return new Option(INTERCITY_RAIL, "기존 KTX",
                     String.format("%s · %s역(출발에서 %.0fkm) ~ %s역(도착에서 %.0fkm) — 역까지는 따로 이동",
                             String.join("·", ktx.lines()),
                             ktx.fromStation(), ktx.fromKm(), ktx.toStation(), ktx.toKm()),
                     ktx.message(),
-                    ktx.fromLat(), ktx.fromLng(), ktx.toLat(), ktx.toLng());
+                    ktx.fromLat(), ktx.fromLng(), ktx.toLat(), ktx.toLng(),
+                    times.fastestMedian(ktx.fromStation(), ktx.toStation()), spread(legs));
         }
         return null;
     }
