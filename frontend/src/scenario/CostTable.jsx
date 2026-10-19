@@ -107,7 +107,9 @@ export default function CostTable({
             <tr className="existing">
               <td>{existingOption.label}</td>
               <td>—</td>
-              <td>—</td>
+              {/* 좁은 칸이라 **빠른 계통의 중앙값 하나**만 넣는다. 열차마다 갈리는 폭은
+                  아래 설명 줄이 받는다 — 한 칸에 네 숫자를 넣으면 아무도 안 읽는다 */}
+              <td>{existingOption.travelMin ? `${existingOption.travelMin}분` : '—'}</td>
               <td className="num">0</td>
               <td className="num">—</td>
             </tr>
@@ -117,11 +119,13 @@ export default function CostTable({
                 <br />
                 이미 지어져 있어 <strong>추가 건설비가 0</strong>입니다.{' '}
                 {/* 비운 칸은 "못 구했다" 가 아니라 "적으면 안 된다" 는 뜻이다 —
-                    짧게 줄이더라도 이 구분은 남긴다 */}
-                {existingOption.kind === 'INTERCITY_RAIL'
-                  ? '소요시간은 열차마다 갈리고(서울~부산 42편이 2시간 18분~3시간 25분)'
-                  : '소요시간 자료를 아직 받지 못했고'}, 이미 있는 시설의 B/C는
-                신설안과 범주가 달라 두 칸을 비웠습니다.
+                    둘을 섞어 적지 않는다 */}
+                {existingOption.travelDetail
+                  ? <>소요시간은 <strong>빠른 계통의 중앙값</strong>입니다 — {existingOption.travelDetail}. </>
+                  : existingOption.kind === 'INTERCITY_RAIL'
+                    ? '그 구간의 시각표를 아직 받지 못해 소요시간을 비웠습니다. '
+                    : '소요시간 자료를 아직 받지 못했습니다. '}
+                이미 있는 시설의 B/C는 신설안과 범주가 달라 비웠습니다.
               </td>
             </tr>
           </tfoot>
