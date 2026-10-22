@@ -1,5 +1,6 @@
 import BcChart from './BcChart';
 import CostChart from './CostChart';
+import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
@@ -23,8 +24,15 @@ export default function CostTable({
   // 화면이 두 안을 동시에 가리킨 셈이다. 지도가 그리는 규칙(`App.jsx` 의 `shown`)과
   // 백엔드 추천(`CostCalculator.recommended`)이 쓰는 규칙과 같아야 한다.
   // 맞는 안이 하나도 없으면 맨 위를 쓴다 — 강조가 사라지는 것보다 낫다.
-  const best = (overLength ? sorted.find((r) => !overLength(r)) : null) || sorted[0];
+  // **단 B/C 0 은 강조하지 않는다** — 아무 시간도 아끼지 못하는 안이다. 전부 0 이면
+  // 굵은 행이 없는 것이 답이다(백엔드 `recommended` 와 같은 규칙, `noGain`).
+  const candidates = sorted.filter((r) => !gainsNothing(r));
+  const noGain = hasDemand && !candidates.length;
+  const best = (overLength ? candidates.find((r) => !overLength(r)) : null) || candidates[0];
   const riders = results.find((r) => r.estimatedRidership != null)?.estimatedRidership;
+  // 소요시간을 아는 기존 KTX 가 있으면 편익의 전환 전 시간이 시내버스가 아니라 KTX 다
+  // (`ExistingOptions.Option.doorToDoorHours` 가 null 이 아닌 조건과 같다)
+  const ktxBaseline = existingOption?.kind === 'INTERCITY_RAIL' && existingOption.travelMin != null;
   const peak = results.find((r) => r.peakPphpd != null)?.peakPphpd;
 
   // 같은 수단의 지하·고가 차이 — "지하를 고르면 얼마가 더 드는가"
@@ -53,6 +61,13 @@ export default function CostTable({
           주변 인구 <strong>{people(population)}명</strong> · 예상 이용객{' '}
           <strong>{people(riders)}명/일</strong> · 첨두 <strong>{people(peak)}명/시</strong>
         </div>
+      )}
+
+      {noGain && (
+        <p className="small warn">
+          모든 신설안이 {ktxBaseline ? '기존 KTX' : '전환 전 수단'}보다 느려 절감 시간이
+          없습니다 — <strong>추천할 신설안이 없습니다.</strong>
+        </p>
       )}
 
       <BcChart results={sorted} selected={selected} onSelect={onSelect} />
@@ -88,9 +103,14 @@ export default function CostTable({
               <td className="num">
                 {r.bcRatio == null ? '—' : Number(r.bcRatio).toFixed(2)}
                 {r.feasible === false && <span className="tag">수송능력 초과</span>}
-                {/* 0.00 은 계산 실패가 아니라 "전환 전 수단보다 느려 절감이 없다"는 결과다 */}
-                {r.benefitTotal === 0 && (
-                  <span className="tag note">기준 속도 이하 — 절감 시간 없음</span>
+                {/* 0.00 은 계산 실패가 아니라 "전환 전 수단보다 느려 절감이 없다"는 결과다.
+                    기존 KTX 가 기준이면 그렇게 적는다 — "기준 속도" 라고만 하면 229분짜리
+                    급행이 왜 0 인지 표 안에서 이어지지 않는다 */}
+                {/* 전부 0 이면 표 위 한 줄(`noGain`)이 이미 말한다 — 11행에 같은 꼬리표를 달지 않는다 */}
+                {r.benefitTotal === 0 && !noGain && (
+                  <span className="tag note">
+                    {ktxBaseline ? '기존 KTX보다 느림' : '기준 속도 이하'} — 절감 시간 없음
+                  </span>
                 )}
               </td>
             </tr>
@@ -137,7 +157,9 @@ export default function CostTable({
           {MODE_LABEL[pair.modeType]}을 지하로 지으면 고가보다{' '}
           <strong>+{money(pair.totalCost - elevated.totalCost)}</strong> 더 듭니다
           ({(pair.totalCost / elevated.totalCost).toFixed(1)}배)
-          {pair.bcRatio != null && elevated.bcRatio != null && (
+          {/* 둘 다 0 이면 "0.00 → 0.00" 이 되어 비교할 것이 없다 */}
+          {pair.bcRatio != null && elevated.bcRatio != null
+            && !(gainsNothing(pair) && gainsNothing(elevated)) && (
             <> — B/C {Number(elevated.bcRatio).toFixed(2)} → {Number(pair.bcRatio).toFixed(2)}</>
           )}.
         </p>
@@ -178,6 +200,12 @@ export default function CostTable({
               첨두율과 전환 전 속도는 지침에 원단위가 없는 <strong>가정값</strong>이고,
               편익은 통행시간 절감만 셉니다.
             </p>
+            {ktxBaseline && (
+              <p>
+                기존 KTX가 있어 전환 전 시간을 시내버스가 아니라 <strong>KTX</strong>로
+                잡았습니다 — 역까지 이동(시내버스 속도) + 빠른 계통의 중앙값입니다.
+              </p>
+            )}
           </>
         )}
       </details>

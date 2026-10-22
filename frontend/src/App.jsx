@@ -5,6 +5,7 @@ import LoginPage from './auth/LoginPage';
 import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
 import ComparePage from './scenario/ComparePage';
+import { gainsNothing } from './scenario/gainsNothing';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
 import { resultKey } from './scenario/resultKey';
@@ -119,10 +120,13 @@ export default function App() {
    * 그냥 B/C 최고안을 그렸더니 인천~세종(120km)에서 권장 연장 30km 인 BRT 가 뽑혀
    * 역 60개가 지도를 덮었다. 표에는 그대로 남기고(선택을 막지 않는다) 행을 누르면
    * 그린다 — 기본 그림으로 내세우지만 않는다. 맞는 안이 없으면 선만 그린다.
+   *
+   * B/C 0 인 안(절감 시간 없음)도 내세우지 않는다 — 비교표의 굵은 행·백엔드 추천과 같은
+   * 규칙이다. 기존 KTX 보다 느린 서울~부산 신설안이 전부 0 이면 선만 그린다.
    */
   const shown = results.length
     ? results.find((r) => resultKey(r) === selectedResult)
-      || [...results].filter((r) => !overLength(r))
+      || [...results].filter((r) => !overLength(r) && !gainsNothing(r))
         .sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
     : null;
 

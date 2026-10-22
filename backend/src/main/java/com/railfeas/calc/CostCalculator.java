@@ -95,6 +95,14 @@ public class CostCalculator {
         Integer dailyRiders = benefits.estimateDailyRiders(params, people, workers, cbdDistance);
         Integer peak = benefits.peakPphpd(params, dailyRiders, lengthKm);
 
+        // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 비교표에 함께 낸다.
+        // **편익보다 먼저 찾는다.** 기존 KTX 가 있으면 전환 전 시간이 시내버스가 아니라
+        // KTX 다 — 나중에 찾으면 표에는 KTX 가 있는데 편익은 KTX 가 없는 세상에서 센다
+        ExistingOptions.Option existing = existingOptions.find(points, lengthKm,
+                ExistingOptions.urbanMaxKm(capacities));
+        Double existingHours = existing == null ? null
+                : existing.doorToDoorHours(params.get("baseline_speed_kmh"));
+
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
         Map<ModeType, StationPlanner.Plan> plannedByMode = new HashMap<>();
@@ -124,7 +132,7 @@ public class CostCalculator {
             Double speed = capacity == null || capacity.getSpeedKmh() == null
                     ? null : capacity.getSpeedKmh().doubleValue();
             Long benefit = speed == null ? null
-                    : benefits.benefitTotal(params, dailyRiders, routeKm, speed);
+                    : benefits.benefitTotal(params, dailyRiders, routeKm, speed, existingHours);
 
             ScenarioResult result = ScenarioResult.builder()
                     .scenario(scenario)
@@ -146,10 +154,7 @@ public class CostCalculator {
             attachStations(result, placed, dailyRiders);
             results.add(result);
         }
-        // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 비교표에 함께 낸다
-        return new Outcome(results, people, recommended(results, capacities, lengthKm),
-                existingOptions.find(points, lengthKm,
-                        ExistingOptions.urbanMaxKm(capacities)));
+        return new Outcome(results, people, recommended(results, capacities, lengthKm), existing);
     }
 
     /**
@@ -201,11 +206,16 @@ public class CostCalculator {
      * 걸러서 하나도 안 남으면 길이를 따지지 않는다 — 추천이 아예 사라지는 것보다
      * 경고 붙은 안이라도 내놓는 편이 낫다 (지금 복선전철·급행은 상한이 NULL 이라
      * 그런 일이 없지만, 관리자가 상한을 넣으면 생길 수 있다).
+     *
+     * **B/C 0 은 추천하지 않는다.** 아무 시간도 아끼지 못하는 안이다. 기존 KTX 보다 느린
+     * 서울~부산 신설안이 전부 0 인데 복선전철이 추천됐었다. 이때는 추천이 없는 것이 답이고,
+     * 화면도 같은 규칙으로 굵은 행·지도 그림을 비운다(`CostTable.jsx`·`App.jsx`).
      */
     static ModeType recommended(List<ScenarioResult> results,
                                 Map<ModeType, ModeCapacity> capacities, double lengthKm) {
         List<ScenarioResult> usable = results.stream()
-                .filter(r -> Boolean.TRUE.equals(r.getFeasible()) && r.getBcRatio() != null)
+                .filter(r -> Boolean.TRUE.equals(r.getFeasible()) && r.getBcRatio() != null
+                        && r.getBcRatio().signum() > 0)
                 .toList();
         List<ScenarioResult> within = usable.stream()
                 .filter(r -> withinLength(r, capacities, lengthKm))

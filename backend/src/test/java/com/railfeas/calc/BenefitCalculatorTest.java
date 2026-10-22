@@ -62,6 +62,40 @@ class BenefitCalculatorTest {
     }
 
     @Test
+    @DisplayName("기존 수단이 시내버스보다 빠르면 그 시간에서 절감을 센다")
+    void existingFasterOptionCapsBaseline() {
+        // 10km 를 시내버스(20km/h)로 0.5시간, 기존 수단으로 0.4시간. 신설 30km/h 는 1/3시간.
+        // 버스 기준이면 1/6시간을 아끼지만, 이미 0.4시간에 가는 사람은 1/15시간만 아낀다
+        Long capped = calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 0.4);
+
+        double yearly = (0.4 - 10.0 / 30) * 10_000 * 365 * 10_000;
+        assertThat(capped).isEqualTo(Math.round(yearly * DISCOUNT_SUM / 100_000_000.0));
+    }
+
+    @Test
+    @DisplayName("기존 수단보다 느리면 시내버스보다 빨라도 편익이 0이다")
+    void slowerThanExistingEarnsNothing() {
+        // 서울~부산에서 광역급행 고가가 229분, 기존 KTX 가 164분인데 B/C 3.86 이 나왔다.
+        // 기준이 시내버스(349km 를 약 16시간)뿐이라 KTX 를 타던 사람도 12.6시간을 아꼈다고 셌다
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 0.3)).isZero();
+    }
+
+    @Test
+    @DisplayName("기존 수단이 시내버스보다 느리면 시내버스가 기준이다")
+    void slowerExistingDoesNotRaiseBaseline() {
+        // 역까지 멀어 문앞~문앞이 버스보다 오래 걸리면 그 사람은 버스를 탔을 것이다
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 2.0))
+                .isEqualTo(904L);
+    }
+
+    @Test
+    @DisplayName("기존 수단 시간을 모르면 지금처럼 시내버스만 본다")
+    void unknownExistingKeepsBusBaseline() {
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, null))
+                .isEqualTo(904L);
+    }
+
+    @Test
     @DisplayName("수요를 못 구하면 편익도 없다 — 0 이 아니라 미산출이다")
     void unknownDemandGivesNull() {
         assertThat(calculator().benefitTotal(params(), null, 10.0, 30.0)).isNull();

@@ -104,16 +104,33 @@ public class BenefitCalculator {
         return Math.min(ceiling, p.get("peak_direction_coef") / lengthKm);
     }
 
+    /** 기존 수단을 모를 때 — 전환 전 수단은 시내버스뿐이다 */
+    public Long benefitTotal(Params p, Integer dailyRiders, double lengthKm, double speedKmh) {
+        return benefitTotal(p, dailyRiders, lengthKm, speedKmh, null);
+    }
+
     /**
      * 통행시간 절감편익의 현재가치(억원). 전환 전 수단보다 빨라진 만큼만 센다.
      * 수단이 기존 수단보다 느리면 편익은 0 으로 둔다 (음의 편익은 계산하지 않는다).
+     *
+     * <b>전환 전 시간은 시내버스와 기존 수단 중 빠른 쪽이다.</b> 서울~부산에서 광역급행
+     * 고가가 229분인데 B/C 3.86 이 나왔다 — 기존 KTX 는 164분이다. 기준이 시내버스(349km 를
+     * 약 16시간)뿐이라 KTX 를 타던 사람도 12.6시간을 아낀 것으로 셌다. 이미 더 빠른 수단이
+     * 있는 사람은 그보다 빨라진 만큼만 아낀다.
+     *
+     * @param existingHours 기존 수단으로 그린 양 끝 사이를 가는 시간. 모르면 null
+     *                      ({@link ExistingOptions.Option#doorToDoorHours})
      */
-    public Long benefitTotal(Params p, Integer dailyRiders, double lengthKm, double speedKmh) {
+    public Long benefitTotal(Params p, Integer dailyRiders, double lengthKm, double speedKmh,
+                             Double existingHours) {
         if (dailyRiders == null || speedKmh <= 0) {
             return null;
         }
-        double baseline = p.get("baseline_speed_kmh");
-        double savedHours = lengthKm / baseline - lengthKm / speedKmh;
+        double before = lengthKm / p.get("baseline_speed_kmh");
+        if (existingHours != null) {
+            before = Math.min(before, existingHours);
+        }
+        double savedHours = before - lengthKm / speedKmh;
         if (savedHours <= 0) {
             return 0L;
         }
