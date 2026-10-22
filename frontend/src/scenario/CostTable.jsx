@@ -210,6 +210,11 @@ export default function CostTable({
               첨두율과 전환 전 속도는 지침에 원단위가 없는 <strong>가정값</strong>이고,
               편익은 통행시간 절감만 셉니다.
             </p>
+            <p>
+              이용객 한 명은 노선 끝까지가 아니라 <strong>평균 통행거리만큼</strong> 탄다고
+              봅니다(서울 지하철 1회 13.6km, 서울시 2019). 노선이 그보다 길면 B/C가 그만큼
+              작아집니다.
+            </p>
             {existingBaseline && (
               <p>
                 전환 전 시간은 <strong>시내버스와 {existingBaseline} 중 빠른 쪽</strong>입니다.
