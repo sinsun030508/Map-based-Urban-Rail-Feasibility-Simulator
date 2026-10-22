@@ -39,6 +39,16 @@ class ReferenceControllerTest {
         assertThat(controller(later, null).referenceUpdatedAt()).isEqualTo(later);
     }
 
+    /**
+     * 규칙 시각을 **미래로** 적으면 그 시각까지 새로 계산한 결과에도 "다시 계산" 알림이 뜬다.
+     * 시각을 올릴 때 "배포할 즈음" 을 어림해 두 번이나 미래로 적었다 — 고친 시각(지금)을 적는다.
+     */
+    @Test
+    @DisplayName("계산 규칙 시각은 미래가 아니다")
+    void 규칙_시각은_미래가_아니다() {
+        assertThat(CalculationRules.CHANGED_AT).isBeforeOrEqualTo(LocalDateTime.now());
+    }
+
     @Test
     @DisplayName("기준값 시각이 비어 있어도 규칙의 시각은 낸다")
     void 비어도_규칙은_있다() {
