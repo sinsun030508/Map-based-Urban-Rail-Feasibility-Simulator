@@ -12,6 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -81,6 +82,13 @@ public class AdminController {
                 .toList();
     }
 
+    /**
+     * 0 이하가 되면 계산이 **조용히** 망가지는 값. 평균 통행거리가 0 이면 모든 편익이 0 이고,
+     * 기준 속도가 0 이면 0 으로 나눈다 — 화면에는 오류 없이 B/C 0.00 만 줄지어 찍힌다.
+     * 운영비 비율처럼 0 이 정상인 값도 있어 모든 원단위에 걸지 않는다.
+     */
+    static final Set<String> POSITIVE = Set.of("avg_trip_km", "baseline_speed_kmh");
+
     @PutMapping("/parameters/{name}")
     @Transactional
     public ParameterResponse updateParameter(@PathVariable String name,
@@ -88,6 +96,9 @@ public class AdminController {
         BenefitParameter parameter = parameters.findByParamName(name)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                         name + " 기준값이 없습니다"));
+        if (POSITIVE.contains(name) && request.value().signum() <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, name + " 은 0 보다 커야 합니다");
+        }
         parameter.changeValue(request.value(), request.source());
         return ParameterResponse.of(parameter);
     }
