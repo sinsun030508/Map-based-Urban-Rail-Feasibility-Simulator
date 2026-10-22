@@ -178,6 +178,36 @@ class ExistingOptionsTest {
                 .isEqualTo("44편 143~176분(중앙 164분) · 경로가 다른 11편 180~205분(중앙 198분)");
     }
 
+    /**
+     * 편익의 전환 전 시간으로 쓰는 값. 표의 164분은 **역에서 역까지**라 그대로 쓰면 KTX 가
+     * 신설안보다 유리해진다 — 신설안은 그린 점에서 그린 점까지이기 때문이다.
+     */
+    @Test
+    @DisplayName("문앞~문앞 시간은 역까지 이동과 빠른 계통 중앙값의 합이다")
+    void 문앞에서_문앞까지() {
+        var option = options(urban(null), ktx(), seoulBusan())
+                .find(List.of(INCHEON, SEJONG), 120.3, URBAN_MAX_KM);
+        var match = ktx().find(List.of(INCHEON, SEJONG), 120.3, URBAN_MAX_KM);
+
+        assertThat(option.accessKm()).isEqualTo(match.fromKm() + match.toKm());
+        assertThat(option.doorToDoorHours(20.0))
+                .isCloseTo(option.accessKm() / 20.0 + 164 / 60.0,
+                        org.assertj.core.data.Offset.offset(1e-9));
+    }
+
+    @Test
+    @DisplayName("소요시간을 모르면 문앞~문앞 시간도 모른다 — 편익 기준을 바꾸지 않는다")
+    void 모르면_기준을_안_바꾼다(@TempDir Path dir) throws IOException {
+        var ktxUnknown = options(urban(null), ktx(), empty())
+                .find(List.of(INCHEON, SEJONG), 120.3, URBAN_MAX_KM);
+        assertThat(ktxUnknown.doorToDoorHours(20.0)).isNull();
+
+        // 도시철도는 겹침 비율만 보고 소요시간을 재지 않는다
+        var urbanOption = options(urban(stations(dir, "2호선", 21)), ktx(), empty())
+                .find(List.of(onLadder(0), onLadder(20)), 4.4, URBAN_MAX_KM);
+        assertThat(urbanOption.doorToDoorHours(20.0)).isNull();
+    }
+
     @Test
     @DisplayName("소요시간 자료가 없으면 0 이 아니라 빈 칸이다")
     void 모르면_비운다() {

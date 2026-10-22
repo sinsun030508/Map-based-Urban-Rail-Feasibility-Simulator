@@ -334,4 +334,25 @@ class CostCalculatorTest {
         assertThat(CostCalculator.recommended(results, capacities, 340.5))
                 .isEqualTo(ModeType.BRT_HIGH);
     }
+
+    /**
+     * **절감이 없는 안은 추천하지 않는다.** 기존 KTX 를 편익 기준에 넣자 서울~부산의 신설안
+     * 11개가 전부 B/C 0 이 됐는데, 추천 칸에는 여전히 복선전철이 찍혔다 — 아무 시간도
+     * 아끼지 못하는 안을 내세운 셈이다. 답은 "추천할 신설안이 없다" 다.
+     */
+    @Test
+    @DisplayName("B/C 가 0 인 안은 추천하지 않는다 — 전부 0 이면 추천이 없다")
+    void doesNotRecommendZeroBenefit() {
+        var capacities = Map.of(
+                ModeType.DOUBLE_ELEC, capacity(ModeType.DOUBLE_ELEC, null, 60_000, 2.62, 47.6, null),
+                ModeType.EXPRESS_RAIL, capacity(ModeType.EXPRESS_RAIL, null, 60_000, 6.92, 91.8, null));
+
+        assertThat(CostCalculator.recommended(List.of(
+                result(ModeType.DOUBLE_ELEC, 0.0), result(ModeType.EXPRESS_RAIL, 0.0)),
+                capacities, 340.5)).isNull();
+        // 하나라도 절감이 있으면 그 안이다
+        assertThat(CostCalculator.recommended(List.of(
+                result(ModeType.DOUBLE_ELEC, 0.0), result(ModeType.EXPRESS_RAIL, 0.4)),
+                capacities, 340.5)).isEqualTo(ModeType.EXPRESS_RAIL);
+    }
 }

@@ -65,15 +65,34 @@ public class ExistingOptions {
      * @param detail  표 아래 한 줄 설명. 접근 거리·겹침 비율이 여기 들어간다
      * @param message `scenario.existing_line`(VARCHAR 150)에 저장하는 기존 문구.
      *                목록 API 가 이 문자열만 싣는다 — 바꾸면 요약 화면이 함께 바뀐다
+     * @param accessKm 그린 양 끝에서 두 역까지 직선 거리의 합. 도시철도는 null
      */
     public record Option(String kind, String label, String detail, String message,
                          Double fromLat, Double fromLng, Double toLat, Double toLng,
-                         Integer travelMin, String travelDetail) {
+                         Integer travelMin, String travelDetail, Double accessKm) {
 
         /** 도시철도 판정은 역을 특정하지 않는다 — 겹침 비율만 본다 */
         static Option urban(String label, String detail, String message) {
             return new Option(URBAN_RAIL, label, detail, message,
-                    null, null, null, null, null, null);
+                    null, null, null, null, null, null, null);
+        }
+
+        /**
+         * 그린 출발점에서 그린 도착점까지 이 수단으로 걸리는 시간(시간 단위). 편익의
+         * <b>전환 전 시간</b>으로 쓴다. 모르면 null — 그때 편익은 시내버스만 기준으로 본다.
+         *
+         * 표의 {@link #travelMin} 은 역에서 역까지라 그대로 쓰면 KTX 가 유리해진다.
+         * 신설안은 그린 점에서 그린 점까지를 재기 때문이다. 그래서 역까지의 직선 거리를
+         * 전환 전 속도({@code accessSpeedKmh}, 시내버스)로 더한다. 실제 도로는 직선보다
+         * 길어 이 값은 짧은 쪽으로 치우친다 — 신설안의 편익을 덜 세는 방향이다.
+         *
+         * 도시철도는 겹침 비율만 보고 소요시간을 재지 않아 늘 null 이다.
+         */
+        public Double doorToDoorHours(double accessSpeedKmh) {
+            if (travelMin == null || accessKm == null || accessSpeedKmh <= 0) {
+                return null;
+            }
+            return accessKm / accessSpeedKmh + travelMin / 60.0;
         }
     }
 
@@ -140,7 +159,8 @@ public class ExistingOptions {
                             ktx.fromStation(), ktx.fromKm(), ktx.toStation(), ktx.toKm()),
                     ktx.message(),
                     ktx.fromLat(), ktx.fromLng(), ktx.toLat(), ktx.toLng(),
-                    times.fastestMedian(ktx.fromStation(), ktx.toStation()), spread(legs));
+                    times.fastestMedian(ktx.fromStation(), ktx.toStation()), spread(legs),
+                    ktx.fromKm() + ktx.toKm());
         }
         return null;
     }

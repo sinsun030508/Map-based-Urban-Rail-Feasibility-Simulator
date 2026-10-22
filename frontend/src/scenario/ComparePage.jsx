@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
 import { isStale, STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
@@ -27,10 +28,13 @@ const MAX_COMPARE = 4;
  * 여기서 다시 계산하면 또 어긋난다.
  *
  * 한 수단에 지하·고가 두 행이 있으므로 그중 B/C 가 높은 쪽을 쓴다.
+ *
+ * **B/C 0 은 추천안이 아니다**(`gainsNothing`). 백엔드는 전부 0 이면 추천을 비우는데,
+ * 그때 이 함수가 아무거나 집으면 「추천 수단 —」 옆에 「추천안 B/C 0.00」 이 찍힌다.
  */
 const bestOf = (d) =>
   (d.results || [])
-    .filter((r) => r.bcRatio != null
+    .filter((r) => r.bcRatio != null && !gainsNothing(r)
       && (d.recommendedMode == null || r.modeType === d.recommendedMode))
     .sort((a, b) => b.bcRatio - a.bcRatio)[0] || null;
 
