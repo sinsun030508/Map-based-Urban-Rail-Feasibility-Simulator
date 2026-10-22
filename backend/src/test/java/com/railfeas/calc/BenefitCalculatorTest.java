@@ -33,6 +33,7 @@ class BenefitCalculatorTest {
         v.put("peak_hour_ratio", 0.1);
         v.put("peak_direction_coef", 9.0);     // K = 9/연장, 상한 0.3
         v.put("peak_direction_max", 0.3);
+        v.put("avg_trip_km", 13.6);            // 서울시 2019 지하철 1회 이동
         return new BenefitCalculator.Params(v);
     }
 
@@ -93,6 +94,38 @@ class BenefitCalculatorTest {
     void unknownExistingKeepsBusBaseline() {
         assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, null))
                 .isEqualTo(904L);
+    }
+
+    /**
+     * 전에는 이용객 **전원이 노선 끝에서 끝까지 탄다**고 봤다. 그러면 1인당 절감이 연장에
+     * 비례해 커져 긴 노선의 B/C 가 부풀었다. 서울 지하철 1회 이동은 13.6km 다(서울시 2019).
+     */
+    @Test
+    @DisplayName("긴 노선의 1인당 절감은 평균 통행거리만큼이다")
+    void longRouteSavesOnlyAverageTrip() {
+        // 30km 를 20 → 30km/h. 끝까지 타면 1/2시간, 13.6km 만 타면 13.6 × (1/20 − 1/30)
+        Long benefit = calculator().benefitTotal(params(), 10_000, 30.0, 30.0);
+
+        double yearly = 13.6 * (1.0 / 20 - 1.0 / 30) * 10_000 * 365 * 10_000;
+        assertThat(benefit).isEqualTo(Math.round(yearly * DISCOUNT_SUM / 100_000_000.0));
+    }
+
+    @Test
+    @DisplayName("평균 통행거리보다 짧은 노선은 끝까지 탄다")
+    void shortRouteKeepsFullLength() {
+        // 10km < 13.6km — 노선보다 길게 탈 수는 없다. 위 첫 테스트의 904억과 같다
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0)).isEqualTo(904L);
+    }
+
+    @Test
+    @DisplayName("기존 수단은 노선 전체를 가는 시간의 속도로 평균 통행거리를 간다")
+    void existingPaceAppliesToAverageTrip() {
+        // 30km 를 기존 수단으로 1.2시간(시간당 25km) → 13.6km 는 0.544시간.
+        // 신설 30km/h 로는 13.6/30 시간. 버스(13.6/20 = 0.68시간)보다 기존 수단이 빠르다
+        Long benefit = calculator().benefitTotal(params(), 10_000, 30.0, 30.0, 1.2);
+
+        double yearly = 13.6 * (1.2 / 30 - 1.0 / 30) * 10_000 * 365 * 10_000;
+        assertThat(benefit).isEqualTo(Math.round(yearly * DISCOUNT_SUM / 100_000_000.0));
     }
 
     @Test

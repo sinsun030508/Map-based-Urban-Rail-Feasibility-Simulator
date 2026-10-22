@@ -46,7 +46,8 @@ class CostCalculatorTest {
             Map.entry("peak_hour_ratio", 0.1159),
             Map.entry("weekday_factor", 1.1041),
             Map.entry("peak_direction_coef", 10.06),
-            Map.entry("peak_direction_max", 0.395));
+            Map.entry("peak_direction_max", 0.395),
+            Map.entry("avg_trip_km", 13.6));
 
     private CostCalculator calculator() {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");

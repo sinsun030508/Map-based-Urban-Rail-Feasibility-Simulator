@@ -17,10 +17,11 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
-     * 도시철도 탑승 시간을 반올림하지 않고 편익에 쓰기로 한 시각. 그 전(23:39)에 도시철도·KTX 를
+     * 1인당 절감을 평균 통행거리(13.6km)만큼만 세기로 한 시각.
+     * 그 전 — 10-22 23:50 도시철도 탑승 시간을 반올림하지 않기로, 23:39 도시철도·KTX 를
      * 편익의 전환 전 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 10, 22, 23, 50);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 10, 23, 0, 10);
 
     private CalculationRules() {
     }

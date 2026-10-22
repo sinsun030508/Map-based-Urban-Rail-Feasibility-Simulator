@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
  * 수요  log(일이용객) = a + b1·log(인구) + b2·log(종사자) + b3·log(환승노선) + b4·도심거리
  *       계수는 etl/demand_model.py 산출(S6). **교차검증 1.75배 오차**를 안고 있다.
  * 편익  전환 전 수단 대비 통행시간 절감 × 이용객 × 시간가치.
+ *       1인당 절감은 평균 통행거리(노선이 더 짧으면 노선 전체)만큼이다.
  *       차량운행비·사고·환경 편익은 이번 범위 밖 (제안서 한계에 명시).
  * B/C   편익의 현재가치 ÷ 사업비의 현재가치 (지침 6.3.1).
  *
@@ -118,6 +119,15 @@ public class BenefitCalculator {
      * 약 16시간)뿐이라 KTX 를 타던 사람도 12.6시간을 아낀 것으로 셌다. 이미 더 빠른 수단이
      * 있는 사람은 그보다 빨라진 만큼만 아낀다.
      *
+     * <b>1인당 절감은 평균 통행거리({@code avg_trip_km})만큼만 센다.</b> 전에는 이용객 전원이
+     * 노선 끝에서 끝까지 탄다고 봐서 1인당 절감이 연장에 비례해 커졌다 — 33km 노선이면
+     * 모두가 33km 를 탄 셈이다. 서울 지하철 1회 이동은 13.6km 다(서울시 2019 교통 빅데이터).
+     * 노선이 그보다 짧으면 노선 전체를 탄다.
+     *
+     * 기존 수단은 노선 전체를 가는 문앞~문앞 시간을 km 당 시간으로 나눠 평균 통행거리에
+     * 적용한다. 역까지 걷는 몫을 거리에 고르게 나눈 근사다 — 짧게 타는 사람도 역까지는
+     * 가야 하므로 기존 수단을 조금 빠르게 보는 쪽, 즉 <b>신설안의 편익을 덜 세는 방향</b>이다.
+     *
      * @param existingHours 기존 수단으로 그린 양 끝 사이를 가는 시간. 모르면 null
      *                      ({@link ExistingOptions.Option#doorToDoorHours})
      */
@@ -126,11 +136,16 @@ public class BenefitCalculator {
         if (dailyRiders == null || speedKmh <= 0) {
             return null;
         }
-        double before = lengthKm / p.get("baseline_speed_kmh");
-        if (existingHours != null) {
-            before = Math.min(before, existingHours);
+        if (lengthKm <= 0) {
+            return 0L;
         }
-        double savedHours = before - lengthKm / speedKmh;
+        // km 당 걸리는 시간 — 전환 전은 시내버스와 기존 수단 중 빠른 쪽
+        double before = 1 / p.get("baseline_speed_kmh");
+        if (existingHours != null) {
+            before = Math.min(before, existingHours / lengthKm);
+        }
+        double tripKm = Math.min(lengthKm, p.get("avg_trip_km"));
+        double savedHours = tripKm * (before - 1 / speedKmh);
         if (savedHours <= 0) {
             return 0L;
         }
