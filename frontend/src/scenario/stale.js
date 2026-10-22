@@ -10,4 +10,4 @@ export function isStale(calculatedAt, referenceUpdatedAt) {
 }
 
 export const STALE_MESSAGE =
-  '기준값이 이 결과를 계산한 뒤에 바뀌었습니다 — 다시 계산해 주세요';
+  '기준값이나 계산 규칙이 이 결과를 계산한 뒤에 바뀌었습니다 — 다시 계산해 주세요';

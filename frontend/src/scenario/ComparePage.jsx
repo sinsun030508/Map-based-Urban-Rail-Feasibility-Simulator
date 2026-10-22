@@ -119,7 +119,7 @@ export default function ComparePage({ onClose }) {
                     <th key={d.id}>
                       {d.title}
                       {isStale(d.calculatedAt, referenceUpdatedAt) && (
-                        <span className="tag" title={STALE_MESSAGE}>기준값 변경됨</span>
+                        <span className="tag" title={STALE_MESSAGE}>다시 계산 필요</span>
                       )}
                     </th>
                   ))}
