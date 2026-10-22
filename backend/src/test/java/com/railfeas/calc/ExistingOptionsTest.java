@@ -60,7 +60,19 @@ class ExistingOptionsTest {
     /** 광명·오송이 경부선·호남선에 함께 선다 — 실제 `ktx_station.csv` 좌표다 */
     private static ExistingOptions options(ExistingLineFinder urban,
                                            IntercityRailFinder intercity, KtxTravelTime times) {
-        return new ExistingOptions(urban, intercity, times);
+        return options(urban, intercity, times, new UrbanLineSpeed("없는파일.csv"));
+    }
+
+    private static ExistingOptions options(ExistingLineFinder urban, IntercityRailFinder intercity,
+                                           KtxTravelTime times, UrbanLineSpeed speeds) {
+        return new ExistingOptions(urban, intercity, times, speeds);
+    }
+
+    /** 2호선 공표 표정속도 — 실제 `rail_speed.csv` 값이다 */
+    private static UrbanLineSpeed line2() {
+        UrbanLineSpeed speeds = new UrbanLineSpeed("없는파일.csv");
+        speeds.add("서울 2호선", 32.5);
+        return speeds;
     }
 
     /** 소요시간 자료가 없는 상태. 대부분의 테스트는 그 칸을 보지 않는다 */
@@ -202,10 +214,30 @@ class ExistingOptionsTest {
                 .find(List.of(INCHEON, SEJONG), 120.3, URBAN_MAX_KM);
         assertThat(ktxUnknown.doorToDoorHours(20.0)).isNull();
 
-        // 도시철도는 겹침 비율만 보고 소요시간을 재지 않는다
+        // 공표 표정속도를 모르는 도시철도도 마찬가지다 (9호선·코레일 광역선 등)
         var urbanOption = options(urban(stations(dir, "2호선", 21)), ktx(), empty())
                 .find(List.of(onLadder(0), onLadder(20)), 4.4, URBAN_MAX_KM);
         assertThat(urbanOption.doorToDoorHours(20.0)).isNull();
+    }
+
+    /**
+     * 2호선을 따라 지하철을 그리면 2호선을 타던 사람은 시내버스가 아니라 2호선에서 갈아탄다.
+     * 그런데 편익은 시내버스 대비로 셌다 — 이미 있는 노선과 같은 속도의 신설안이 시간을
+     * 아끼는 것처럼 나왔다.
+     */
+    @Test
+    @DisplayName("도시철도는 공표 표정속도로 그린 길이를 환산한다")
+    void 도시철도_소요시간(@TempDir Path dir) throws IOException {
+        var option = options(urban(stations(dir, "2호선", 21)), ktx(), empty(), line2())
+                .find(List.of(onLadder(0), onLadder(20)), 4.4, URBAN_MAX_KM);
+
+        assertThat(option.kind()).isEqualTo(ExistingOptions.URBAN_RAIL);
+        assertThat(option.travelMin()).isEqualTo(8);                 // 4.4 ÷ 32.5 × 60 = 8.1
+        assertThat(option.travelDetail()).isEqualTo("공표 표정속도 32.5km/h 로 그린 길이를 환산한 값");
+        // 양 끝이 역 위에 있으니 역까지 갈 거리가 없다
+        assertThat(option.accessKm()).isCloseTo(0.0, org.assertj.core.data.Offset.offset(1e-6));
+        assertThat(option.doorToDoorHours(20.0)).isCloseTo(8 / 60.0,
+                org.assertj.core.data.Offset.offset(1e-9));
     }
 
     @Test

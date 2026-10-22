@@ -56,8 +56,13 @@ public class ExistingLineFinder {
         this.stationFiles = List.of(Path.of(stationFile), Path.of(regionalFile));
     }
 
-    /** 겹치는 기존 노선. coverage 는 0~1 */
-    public record Match(String lineName, double coverage) {
+    /**
+     * 겹치는 기존 노선. coverage 는 0~1.
+     *
+     * @param accessKm 그린 출발점·도착점에서 그 노선의 가장 가까운 역까지 직선 거리의 합.
+     *                 기존 노선을 타려면 역까지 가야 한다 — 편익의 전환 전 시간에 더한다
+     */
+    public record Match(String lineName, double coverage, double accessKm) {
         public String message() {
             return String.format("기존 %s 활용 검토 — 노선의 %.0f%% 가 기존 역 1km 안이다",
                     lineName, coverage * 100);
@@ -135,7 +140,9 @@ public class ExistingLineFinder {
         for (Map.Entry<String, List<double[]>> entry : byLine.entrySet()) {
             List<double[]> stations = entry.getValue();
             // 양 끝이 그 노선에 붙어 있지 않으면 같은 축이라고 보기 어렵다
-            if (!within(start, stations, TERMINAL_KM) || !within(end, stations, TERMINAL_KM)) {
+            double fromKm = nearestKm(start, stations);
+            double toKm = nearestKm(end, stations);
+            if (fromKm > TERMINAL_KM || toKm > TERMINAL_KM) {
                 continue;
             }
             long covered = samples.stream()
@@ -143,8 +150,16 @@ public class ExistingLineFinder {
                     .count();
             double coverage = (double) covered / samples.size();
             if (coverage >= MIN_COVERAGE && (best == null || coverage > best.coverage())) {
-                best = new Match(entry.getKey(), coverage);
+                best = new Match(entry.getKey(), coverage, fromKm + toKm);
             }
+        }
+        return best;
+    }
+
+    private double nearestKm(double[] point, List<double[]> stations) {
+        double best = Double.MAX_VALUE;
+        for (double[] s : stations) {
+            best = Math.min(best, Haversine.distanceKm(point[0], point[1], s[0], s[1]));
         }
         return best;
     }
