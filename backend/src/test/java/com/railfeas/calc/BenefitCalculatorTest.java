@@ -20,7 +20,7 @@ class BenefitCalculatorTest {
         return new BenefitCalculator(null);
     }
 
-    private BenefitCalculator.Params params() {
+    static BenefitCalculator.Params params() {
         Map<String, Double> v = new HashMap<>();
         v.put("baseline_speed_kmh", 20.0);
         v.put("time_value_won_per_hour", 10_000.0);
