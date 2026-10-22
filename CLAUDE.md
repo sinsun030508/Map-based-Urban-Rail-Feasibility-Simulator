@@ -83,12 +83,14 @@ cd frontend && npm run dev                       # 5173
 - 파생값은 DB 생성 컬럼(직접 INSERT 금지) / 이상치는 `is_outlier=TRUE` / 추정치는 회귀
   학습에서 제외 / **스키마는 JPA 가 만들지 않는다**(`ddl-auto=validate`) — 바꾸면
   엔티티·DTO·리포지토리와 `etl.py` 의 `SQL_COLUMNS` 까지 함께 고친다
+- **편익·비용·추천 규칙을 고치면 `CalculationRules.CHANGED_AT` 을 올린다** — 저장된 결과에
+  "다시 계산" 알림이 뜬다. DB 기준값만 보던 때는 규칙을 바꿔도 낡은 B/C 가 그대로 보였다
 - **자동 생성 SQL 은 생성기를 고쳐 재실행**(생성 시각 금지) / **새 규칙은 여기에**(근거는 노트)
 
 ## 테스트
 
 `cd etl && python -m pytest` (216개 — 파서·측정 규칙·문서 일치) /
-`cd backend && ./mvnw test` (86개 — 계산 로직과 판정 규칙).
+`cd backend && ./mvnw test` (89개 — 계산 로직과 판정 규칙).
 `test_docs_match_code.py` 는 **이 파일의 숫자가 코드·자료와 맞는지** 본다. 깨지면 둘 중
 하나다 — ① 값이 바뀌었는데 문서를 안 고쳤다(문서를 고친다) ② 문장을 다듬어 정규식이
 못 찾는다(정규식을 고치되 **숫자도 같이 바뀌지 않았는지 확인한다**).

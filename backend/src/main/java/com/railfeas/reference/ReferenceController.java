@@ -1,5 +1,6 @@
 package com.railfeas.reference;
 
+import com.railfeas.calc.CalculationRules;
 import com.railfeas.calc.PopulationIndex;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,15 +38,19 @@ public class ReferenceController {
     /**
      * 기준값이 마지막으로 바뀐 시각. 시나리오의 `calculatedAt` 보다 뒤면 저장된 결과가 낡은 것이다.
      * 관리자가 원단위를 고쳐도 이미 계산해 둔 B/C 는 그대로 남기 때문에 화면에서 알려 줘야 한다.
+     *
+     * **계산 규칙이 바뀐 시각({@link CalculationRules#CHANGED_AT})도 함께 본다.** 규칙은
+     * DB 에 없어 코드를 고쳐도 DB 시각이 움직이지 않는다.
      */
     @GetMapping("/updated-at")
     public LocalDateTime referenceUpdatedAt() {
-        LocalDateTime a = parameters.lastUpdatedAt();
-        LocalDateTime b = modes.lastUpdatedAt();
-        if (a == null) {
-            return b;
+        LocalDateTime latest = CalculationRules.CHANGED_AT;
+        for (LocalDateTime t : new LocalDateTime[]{parameters.lastUpdatedAt(), modes.lastUpdatedAt()}) {
+            if (t != null && t.isAfter(latest)) {
+                latest = t;
+            }
         }
-        return b == null || a.isAfter(b) ? a : b;
+        return latest;
     }
 
     @GetMapping("/zones")
