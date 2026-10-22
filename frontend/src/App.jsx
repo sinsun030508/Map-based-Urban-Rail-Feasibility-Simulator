@@ -34,6 +34,8 @@ export default function App() {
   const [admin, setAdmin] = useState(false);
   const [compare, setCompare] = useState(false);
   const [calculatedAt, setCalculatedAt] = useState(null);
+  // 저장된 시나리오를 열 때마다 1씩 올린다 — 지도가 그 노선으로 옮겨 간다(`MapView` 의 `focus`)
+  const [focus, setFocus] = useState(0);
   const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
@@ -172,6 +174,7 @@ export default function App() {
       setPopulation(s.population1km ?? null);
       setCalculatedAt(s.calculatedAt ?? null);
       setExistingOption(s.existingOption ?? null);
+      setFocus((f) => f + 1);
     } catch (e) {
       setError(e.message);
     }
@@ -238,6 +241,7 @@ export default function App() {
           stations={shown?.stations}
           existingOption={existingOption}
           show3D={show3D}
+          focus={focus}
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);
             reset();
