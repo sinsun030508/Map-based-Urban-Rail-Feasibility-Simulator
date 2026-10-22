@@ -13,8 +13,9 @@ const EXISTING_SOURCE = 'existing-route';
  * onPick(lngLat) — 지도를 클릭하면 좌표를 올려보낸다.
  * stations — 자동 배치된 정차역. 수단마다 다르므로 비교표에서 고른 안의 것을 받는다.
  * show3D — 인구밀도 3D 레이어. 켜면 지도가 기울고 집계구 인구가 높이로 선다.
+ * focus — 바뀔 때마다 지도를 노선에 맞춘다. 저장된 시나리오를 열 때만 App 이 올린다.
  */
-export default function MapView({ points, zones, stations, existingOption, show3D, onPick }) {
+export default function MapView({ points, zones, stations, existingOption, show3D, focus, onPick }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -26,6 +27,8 @@ export default function MapView({ points, zones, stations, existingOption, show3
   const [mapReady, setMapReady] = useState(false);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
+  const pointsRef = useRef(points);
+  pointsRef.current = points;
 
   // 지도는 한 번만 만든다 (스타일 로드가 느려 재생성하면 깜빡인다)
   useEffect(() => {
@@ -180,6 +183,21 @@ export default function MapView({ points, zones, stations, existingOption, show3
       return new maplibregl.Marker({ element: el }).setLngLat(c).addTo(map);
     });
   }, [existingOption, mapReady]);
+
+  /**
+   * 저장된 시나리오를 열면 **그 노선으로 지도를 옮긴다.** 전에는 시흥~안양을 열어도 지도가
+   * 서울 도심에 그대로 있어 노선을 찾아 끌어와야 했다. 점을 찍을 때는 옮기지 않는다 —
+   * 그리는 도중에 지도가 튀면 다음 점을 찍을 수 없다. 그래서 `points` 가 아니라 App 이
+   * 열 때만 올리는 `focus` 에 반응하고, 점은 ref 로 읽는다
+   */
+  useEffect(() => {
+    const map = mapRef.current;
+    const pts = pointsRef.current;
+    if (!map || !mapReady || !focus || pts.length < 2) return;
+    const bounds = pts.reduce(
+      (b, p) => b.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0]));
+    map.fitBounds(bounds, { padding: 80, maxZoom: 14, duration: 0 });
+  }, [focus, mapReady]);
 
   // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다
   useEffect(() => {
