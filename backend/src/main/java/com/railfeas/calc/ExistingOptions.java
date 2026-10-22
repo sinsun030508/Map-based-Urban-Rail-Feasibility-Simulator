@@ -68,10 +68,14 @@ public class ExistingOptions {
      * @param message `scenario.existing_line`(VARCHAR 150)에 저장하는 기존 문구.
      *                목록 API 가 이 문자열만 싣는다 — 바꾸면 요약 화면이 함께 바뀐다
      * @param accessKm 그린 양 끝에서 가장 가까운 역까지 직선 거리의 합
+     * @param rideHours 역에서 역까지 탄 시간. {@code travelMin} 은 표에 적을 정수 분이고
+     *                  이것은 편익에 쓰는 <b>반올림하지 않은</b> 값이다 — 반올림한 분을 쓰면
+     *                  기존 노선과 속도가 같은 신설안이 시간을 아끼는 것처럼 나온다
      */
     public record Option(String kind, String label, String detail, String message,
                          Double fromLat, Double fromLng, Double toLat, Double toLng,
-                         Integer travelMin, String travelDetail, Double accessKm) {
+                         Integer travelMin, String travelDetail, Double accessKm,
+                         Double rideHours) {
 
 
         /**
@@ -86,10 +90,10 @@ public class ExistingOptions {
          * 도시철도는 공표 표정속도를 아는 노선만 값이 있다({@link UrbanLineSpeed}).
          */
         public Double doorToDoorHours(double accessSpeedKmh) {
-            if (travelMin == null || accessKm == null || accessSpeedKmh <= 0) {
+            if (rideHours == null || accessKm == null || accessSpeedKmh <= 0) {
                 return null;
             }
-            return accessKm / accessSpeedKmh + travelMin / 60.0;
+            return accessKm / accessSpeedKmh + rideHours;
         }
     }
 
@@ -152,7 +156,8 @@ public class ExistingOptions {
             // 신설안 행의 소요시간과 같은 계산이라 같은 표에서 견줄 수 있다.
             // 노선의 80% 이상이 그 노선 역세권일 때만 여기 오므로 그린 길이를 쓴다
             Double speed = speeds.of(line.lineName());
-            Integer travelMin = speed == null ? null : (int) Math.round(lengthKm / speed * 60);
+            Double rideHours = speed == null ? null : lengthKm / speed;
+            Integer travelMin = rideHours == null ? null : (int) Math.round(rideHours * 60);
             return new Option(URBAN_RAIL, "기존 " + line.lineName(),
                     String.format("노선의 %.0f%% 가 기존 역 1km 안입니다", line.coverage() * 100),
                     line.message(), null, null, null, null,
@@ -160,19 +165,21 @@ public class ExistingOptions {
                     speed == null ? null
                             : String.format("공표 표정속도 %skm/h 로 그린 길이를 환산한 값",
                                     trim(speed)),
-                    line.accessKm());
+                    line.accessKm(), rideHours);
         }
         IntercityRailFinder.Match ktx = intercity.find(route, lengthKm, urbanMaxKm);
         if (ktx != null) {
             List<KtxTravelTime.Leg> legs = times.legs(ktx.fromStation(), ktx.toStation());
+            // 중앙값은 받은 시각표의 분 단위 값이라 그대로가 정확한 값이다
+            Integer median = times.fastestMedian(ktx.fromStation(), ktx.toStation());
             return new Option(INTERCITY_RAIL, "기존 KTX",
                     String.format("%s · %s역(출발에서 %.0fkm) ~ %s역(도착에서 %.0fkm) — 역까지는 따로 이동",
                             String.join("·", ktx.lines()),
                             ktx.fromStation(), ktx.fromKm(), ktx.toStation(), ktx.toKm()),
                     ktx.message(),
                     ktx.fromLat(), ktx.fromLng(), ktx.toLat(), ktx.toLng(),
-                    times.fastestMedian(ktx.fromStation(), ktx.toStation()), spread(legs),
-                    ktx.fromKm() + ktx.toKm());
+                    median, spread(legs),
+                    ktx.fromKm() + ktx.toKm(), median == null ? null : median / 60.0);
         }
         return null;
     }

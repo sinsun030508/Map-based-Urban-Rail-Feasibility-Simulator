@@ -236,8 +236,30 @@ class ExistingOptionsTest {
         assertThat(option.travelDetail()).isEqualTo("공표 표정속도 32.5km/h 로 그린 길이를 환산한 값");
         // 양 끝이 역 위에 있으니 역까지 갈 거리가 없다
         assertThat(option.accessKm()).isCloseTo(0.0, org.assertj.core.data.Offset.offset(1e-6));
-        assertThat(option.doorToDoorHours(20.0)).isCloseTo(8 / 60.0,
+        // 편익에는 반올림한 8분이 아니라 정확한 시간을 쓴다 — 아래 테스트 참고
+        assertThat(option.doorToDoorHours(20.0)).isCloseTo(4.4 / 32.5,
                 org.assertj.core.data.Offset.offset(1e-9));
+    }
+
+    /**
+     * 표의 칸은 정수 분이지만 편익은 정확한 시간으로 센다. 반올림한 분을 쓰면 **기존 노선과
+     * 속도가 같은 신설안**이 시간을 아끼는 것처럼 나온다 — 신분당선(47.6)을 따라 복선전철
+     * (47.6)을 10km 그리면 둘 다 12.6분인데, 기존 쪽이 13분으로 올림되면 신설이 0.4분 빠르다.
+     */
+    @Test
+    @DisplayName("속도가 같은 신설안은 아끼는 시간이 없다 — 반올림하지 않는다")
+    void 같은_속도면_절감이_없다(@TempDir Path dir) throws IOException {
+        UrbanLineSpeed speeds = new UrbanLineSpeed("없는파일.csv");
+        speeds.add("서울 2호선", 47.6);
+        // 역 46개 = 약 10km
+        var option = options(urban(stations(dir, "2호선", 46)), ktx(), empty(), speeds)
+                .find(List.of(onLadder(0), onLadder(45)), 10.0, URBAN_MAX_KM);
+
+        assertThat(option.travelMin()).isEqualTo(13);              // 12.6 → 표에는 13분
+        BenefitCalculator benefits = new BenefitCalculator(null);
+        Long saved = benefits.benefitTotal(BenefitCalculatorTest.params(), 10_000, 10.0, 47.6,
+                option.doorToDoorHours(20.0));
+        assertThat(saved).isZero();
     }
 
     @Test

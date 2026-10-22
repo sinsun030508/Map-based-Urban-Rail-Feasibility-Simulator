@@ -16,8 +16,11 @@ import java.time.LocalDateTime;
  */
 public final class CalculationRules {
 
-    /** 도시철도·KTX 를 편익의 전환 전 수단에 넣고, B/C 0 은 추천하지 않기로 한 시각 */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 10, 22, 23, 39);
+    /**
+     * 도시철도 탑승 시간을 반올림하지 않고 편익에 쓰기로 한 시각. 그 전(23:39)에 도시철도·KTX 를
+     * 편익의 전환 전 수단에 넣고 B/C 0 은 추천하지 않기로 했다
+     */
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 10, 22, 23, 50);
 
     private CalculationRules() {
     }
