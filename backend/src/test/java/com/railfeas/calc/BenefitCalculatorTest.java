@@ -67,7 +67,7 @@ class BenefitCalculatorTest {
     void existingFasterOptionCapsBaseline() {
         // 10km 를 시내버스(20km/h)로 0.5시간, 기존 수단으로 0.4시간. 신설 30km/h 는 1/3시간.
         // 버스 기준이면 1/6시간을 아끼지만, 이미 0.4시간에 가는 사람은 1/15시간만 아낀다
-        Long capped = calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 0.4);
+        Long capped = calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 0.4, true);
 
         double yearly = (0.4 - 10.0 / 30) * 10_000 * 365 * 10_000;
         assertThat(capped).isEqualTo(Math.round(yearly * DISCOUNT_SUM / 100_000_000.0));
@@ -78,21 +78,21 @@ class BenefitCalculatorTest {
     void slowerThanExistingEarnsNothing() {
         // 서울~부산에서 광역급행 고가가 229분, 기존 KTX 가 164분인데 B/C 3.86 이 나왔다.
         // 기준이 시내버스(349km 를 약 16시간)뿐이라 KTX 를 타던 사람도 12.6시간을 아꼈다고 셌다
-        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 0.3)).isZero();
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 0.3, true)).isZero();
     }
 
     @Test
     @DisplayName("기존 수단이 시내버스보다 느리면 시내버스가 기준이다")
     void slowerExistingDoesNotRaiseBaseline() {
         // 역까지 멀어 문앞~문앞이 버스보다 오래 걸리면 그 사람은 버스를 탔을 것이다
-        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 2.0))
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 2.0, true))
                 .isEqualTo(904L);
     }
 
     @Test
     @DisplayName("기존 수단 시간을 모르면 지금처럼 시내버스만 본다")
     void unknownExistingKeepsBusBaseline() {
-        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, null))
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, null, true))
                 .isEqualTo(904L);
     }
 
@@ -122,10 +122,29 @@ class BenefitCalculatorTest {
     void existingPaceAppliesToAverageTrip() {
         // 30km 를 기존 수단으로 1.2시간(시간당 25km) → 13.6km 는 0.544시간.
         // 신설 30km/h 로는 13.6/30 시간. 버스(13.6/20 = 0.68시간)보다 기존 수단이 빠르다
-        Long benefit = calculator().benefitTotal(params(), 10_000, 30.0, 30.0, 1.2);
+        Long benefit = calculator().benefitTotal(params(), 10_000, 30.0, 30.0, 1.2, true);
 
         double yearly = 13.6 * (1.2 / 30 - 1.0 / 30) * 10_000 * 365 * 10_000;
         assertThat(benefit).isEqualTo(Math.round(yearly * DISCOUNT_SUM / 100_000_000.0));
+    }
+
+    /**
+     * KTX 는 역이 수십 km 마다 있어 13.6km 짜리 이동에는 탈 수 없다. 그런데 KTX 의 km 당
+     * 시간(서울~부산 190분 ÷ 349km)을 짧은 이동에 그대로 쓰면 "KTX 보다 느려 절감 없음" 이라는
+     * 말이 안 되는 이유로 B/C 0 이 나왔다. 역이 드문 수단은 통행이 노선 전체를 덮을 때만 쓴다.
+     */
+    @Test
+    @DisplayName("짧은 이동에 못 타는 기존 수단은 노선 전체를 탈 때만 기준이 된다")
+    void sparseExistingOnlyForFullTrips() {
+        // 30km 노선, KTX 같은 수단이 0.3시간(시간당 100km). 13.6km 만 타면 못 탄다 → 버스 기준
+        Long sparse = calculator().benefitTotal(params(), 10_000, 30.0, 30.0, 0.3, false);
+        assertThat(sparse).isEqualTo(calculator().benefitTotal(params(), 10_000, 30.0, 30.0));
+
+        // 노선이 평균 통행거리보다 짧아 끝까지 타면 탈 수 있다 → 그 수단보다 느려 0
+        assertThat(calculator().benefitTotal(params(), 10_000, 10.0, 30.0, 0.1, false)).isZero();
+
+        // 역이 촘촘한 수단(도시철도)은 짧은 이동에도 기준이 된다
+        assertThat(calculator().benefitTotal(params(), 10_000, 30.0, 30.0, 0.3, true)).isZero();
     }
 
     @Test

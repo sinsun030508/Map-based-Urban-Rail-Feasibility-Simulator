@@ -102,6 +102,7 @@ public class CostCalculator {
                 ExistingOptions.urbanMaxKm(capacities));
         Double existingHours = existing == null ? null
                 : existing.doorToDoorHours(params.get("baseline_speed_kmh"));
+        boolean servesShortTrips = existing == null || existing.servesShortTrips();
 
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
@@ -132,7 +133,8 @@ public class CostCalculator {
             Double speed = capacity == null || capacity.getSpeedKmh() == null
                     ? null : capacity.getSpeedKmh().doubleValue();
             Long benefit = speed == null ? null
-                    : benefits.benefitTotal(params, dailyRiders, routeKm, speed, existingHours);
+                    : benefits.benefitTotal(params, dailyRiders, routeKm, speed, existingHours,
+                            servesShortTrips);
 
             ScenarioResult result = ScenarioResult.builder()
                     .scenario(scenario)

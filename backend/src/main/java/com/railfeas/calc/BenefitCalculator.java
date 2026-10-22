@@ -107,7 +107,7 @@ public class BenefitCalculator {
 
     /** 기존 수단을 모를 때 — 전환 전 수단은 시내버스뿐이다 */
     public Long benefitTotal(Params p, Integer dailyRiders, double lengthKm, double speedKmh) {
-        return benefitTotal(p, dailyRiders, lengthKm, speedKmh, null);
+        return benefitTotal(p, dailyRiders, lengthKm, speedKmh, null, true);
     }
 
     /**
@@ -128,23 +128,31 @@ public class BenefitCalculator {
      * 적용한다. 역까지 걷는 몫을 거리에 고르게 나눈 근사다 — 짧게 타는 사람도 역까지는
      * 가야 하므로 기존 수단을 조금 빠르게 보는 쪽, 즉 <b>신설안의 편익을 덜 세는 방향</b>이다.
      *
-     * @param existingHours 기존 수단으로 그린 양 끝 사이를 가는 시간. 모르면 null
-     *                      ({@link ExistingOptions.Option#doorToDoorHours})
+     * <b>역이 드문 기존 수단은 노선 전체를 탈 때만 기준이다.</b> KTX 는 역이 수십 km 마다라
+     * 13.6km 짜리 이동에는 탈 수 없다. 그 km 당 시간을 짧은 이동에 쓰면 "KTX 보다 느려 절감
+     * 없음" 이라는 말이 안 되는 이유로 B/C 0 이 나온다. 역이 1km 마다인 도시철도는 짧은
+     * 이동에도 탈 수 있어 늘 기준이 된다.
+     *
+     * @param existingHours    기존 수단으로 그린 양 끝 사이를 가는 시간. 모르면 null
+     *                         ({@link ExistingOptions.Option#doorToDoorHours})
+     * @param servesShortTrips 기존 수단을 노선 일부 구간만 타는 데 쓸 수 있는가
+     *                         ({@link ExistingOptions.Option#servesShortTrips})
      */
     public Long benefitTotal(Params p, Integer dailyRiders, double lengthKm, double speedKmh,
-                             Double existingHours) {
+                             Double existingHours, boolean servesShortTrips) {
         if (dailyRiders == null || speedKmh <= 0) {
             return null;
         }
         if (lengthKm <= 0) {
             return 0L;
         }
-        // km 당 걸리는 시간 — 전환 전은 시내버스와 기존 수단 중 빠른 쪽
+        double tripKm = Math.min(lengthKm, p.get("avg_trip_km"));
+        // km 당 걸리는 시간 — 전환 전은 시내버스와 (탈 수 있으면) 기존 수단 중 빠른 쪽
         double before = 1 / p.get("baseline_speed_kmh");
-        if (existingHours != null) {
+        boolean usable = servesShortTrips || tripKm >= lengthKm;
+        if (existingHours != null && usable) {
             before = Math.min(before, existingHours / lengthKm);
         }
-        double tripKm = Math.min(lengthKm, p.get("avg_trip_km"));
         double savedHours = tripKm * (before - 1 / speedKmh);
         if (savedHours <= 0) {
             return 0L;

@@ -77,6 +77,14 @@ public class ExistingOptions {
                          Integer travelMin, String travelDetail, Double accessKm,
                          Double rideHours) {
 
+        /**
+         * 노선 일부 구간만 타는 데 쓸 수 있는가. 도시철도는 역이 1km 마다라 그렇고, KTX 는
+         * 역이 수십 km 마다라 평균 통행거리(13.6km)짜리 이동에는 탈 수 없다. 편익의 전환 전
+         * 수단을 고를 때 쓴다({@link BenefitCalculator#benefitTotal}).
+         */
+        public boolean servesShortTrips() {
+            return URBAN_RAIL.equals(kind);
+        }
 
         /**
          * 그린 출발점에서 그린 도착점까지 이 수단으로 걸리는 시간(시간 단위). 편익의
