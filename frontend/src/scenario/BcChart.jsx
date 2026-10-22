@@ -1,5 +1,6 @@
 import { resultKey } from './resultKey';
 import { MODE_LABEL_SHORT as MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
+import { bc } from '../format';
 
 /**
  * 수단별 B/C 막대. 표 바로 위에 두고 **모양만** 보여 준다 — 숫자는 표가 갖고 있다.
@@ -61,7 +62,7 @@ export default function BcChart({ results, selected, onSelect }) {
                onClick={() => onSelect?.(resultKey(r))}>
               <title>
                 {`${MODE_LABEL[r.modeType] || r.modeType} `
-                  + `${STRUCTURE_LABEL[r.structureType]} · B/C ${value.toFixed(2)}`}
+                  + `${STRUCTURE_LABEL[r.structureType]} · B/C ${bc(value)}`}
               </title>
               <rect x={0} y={i * ROW_H} width={WIDTH} height={ROW_H} className="bc-hit" />
               <text x={LABEL_W - 6} y={i * ROW_H + ROW_H / 2 + 4} className="bc-label">
