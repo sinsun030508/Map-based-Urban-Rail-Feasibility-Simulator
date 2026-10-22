@@ -30,11 +30,15 @@ export default function CostTable({
   const noGain = hasDemand && !candidates.length;
   const best = (overLength ? candidates.find((r) => !overLength(r)) : null) || candidates[0];
   const riders = results.find((r) => r.estimatedRidership != null)?.estimatedRidership;
-  // 소요시간을 아는 기존 수단이 있으면 편익의 전환 전 시간은 **시내버스와 그 수단 중
-  // 빠른 쪽**이다 (`ExistingOptions.Option.doorToDoorHours` 가 null 이 아닌 조건과 같다).
-  // 어느 쪽이 빨랐는지는 모른다 — 짧은 노선은 역까지 가는 몫 때문에 버스가 빠를 수 있어
-  // "기존 2호선보다 느림" 이라고 단정하면 틀린 말이 된다
-  const existingBaseline = existingOption?.travelMin != null ? existingOption.label : null;
+  // 소요시간을 아는 기존 **도시철도**가 있으면 편익의 전환 전 시간은 **시내버스와 그 노선
+  // 중 빠른 쪽**이다. 어느 쪽이 빨랐는지는 모른다 — 짧은 노선은 역까지 가는 몫 때문에 버스가
+  // 빠를 수 있어 "기존 2호선보다 느림" 이라고 단정하면 틀린 말이 된다.
+  // **KTX 는 기준에서 빠진다** — 역이 수십 km 마다라 평균 통행거리(13.6km)짜리 이동에는
+  // 탈 수 없다(`Option.servesShortTrips`, `BenefitCalculator.benefitTotal`). 관리자가 평균
+  // 통행거리를 노선보다 길게 고치면 KTX 도 기준이 되는데, 화면은 그 값을 받지 않아 모른다
+  const existingBaseline = existingOption?.kind === 'URBAN_RAIL' && existingOption.travelMin != null
+    ? existingOption.label : null;
+  const ktxExcluded = existingOption?.kind === 'INTERCITY_RAIL';
   const slowerThan = existingBaseline ? `시내버스와 ${existingBaseline} 중 빠른 쪽` : '시내버스';
   const zeroCount = sorted.filter(gainsNothing).length;
   const peak = results.find((r) => r.peakPphpd != null)?.peakPphpd;
@@ -215,6 +219,13 @@ export default function CostTable({
               봅니다(서울 지하철 1회 13.6km, 서울시 2019). 노선이 그보다 길면 B/C가 그만큼
               작아집니다.
             </p>
+            {ktxExcluded && (
+              <p>
+                기존 KTX는 역이 드물어 평균 통행거리만큼의 짧은 이동에는 탈 수 없으므로 전환 전
+                수단에서 뺐습니다. 노선 끝에서 끝까지 가는 사람에게는 KTX가 더 빠를 수 있습니다 —
+                표의 소요시간을 함께 보세요.
+              </p>
+            )}
             {existingBaseline && (
               <p>
                 전환 전 시간은 <strong>시내버스와 {existingBaseline} 중 빠른 쪽</strong>입니다.

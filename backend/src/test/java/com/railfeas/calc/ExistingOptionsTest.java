@@ -185,6 +185,8 @@ class ExistingOptionsTest {
 
         assertThat(option.kind()).isEqualTo(ExistingOptions.INTERCITY_RAIL);
         assertThat(option.travelMin()).isEqualTo(164);
+        // 역이 수십 km 마다라 평균 통행거리(13.6km)짜리 이동에는 못 탄다
+        assertThat(option.servesShortTrips()).isFalse();
         // 좁은 칸에는 한 값만 들어가므로 "그게 전부가 아니다" 를 설명 줄이 말해 준다
         assertThat(option.travelDetail())
                 .isEqualTo("44편 143~176분(중앙 164분) · 경로가 다른 11편 180~205분(중앙 198분)");
@@ -233,6 +235,7 @@ class ExistingOptionsTest {
 
         assertThat(option.kind()).isEqualTo(ExistingOptions.URBAN_RAIL);
         assertThat(option.travelMin()).isEqualTo(8);                 // 4.4 ÷ 32.5 × 60 = 8.1
+        assertThat(option.servesShortTrips()).isTrue();             // 역이 1km 마다다
         assertThat(option.travelDetail()).isEqualTo("공표 표정속도 32.5km/h 로 그린 길이를 환산한 값");
         // 양 끝이 역 위에 있으니 역까지 갈 거리가 없다
         assertThat(option.accessKm()).isCloseTo(0.0, org.assertj.core.data.Offset.offset(1e-6));
@@ -258,7 +261,7 @@ class ExistingOptionsTest {
         assertThat(option.travelMin()).isEqualTo(13);              // 12.6 → 표에는 13분
         BenefitCalculator benefits = new BenefitCalculator(null);
         Long saved = benefits.benefitTotal(BenefitCalculatorTest.params(), 10_000, 10.0, 47.6,
-                option.doorToDoorHours(20.0));
+                option.doorToDoorHours(20.0), option.servesShortTrips());
         assertThat(saved).isZero();
     }
 
