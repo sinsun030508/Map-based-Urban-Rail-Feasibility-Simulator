@@ -231,8 +231,10 @@ export default function ComparePage({ onClose }) {
                         </td>
                         {chosen.map((d) => {
                           const r = cellOf(d, key);
+                          // 0.00 끼리 동점이면 셋 다 굵어졌다(BRT 저급형) — 아끼는 시간이 없는
+                          // 안은 "이 노선에 맞는 수단" 이 아니다
                           const top = best != null && r && r.bcRatio != null
-                            && Number(r.bcRatio) === best;
+                            && !gainsNothing(r) && Number(r.bcRatio) === best;
                           return (
                             <td key={d.id} className={top ? 'top' : ''}>
                               {r?.bcRatio == null ? '—' : Number(r.bcRatio).toFixed(2)}
