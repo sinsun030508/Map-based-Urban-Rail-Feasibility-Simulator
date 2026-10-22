@@ -4,7 +4,7 @@ import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
-import { money, people } from '../format';
+import { bc, money, people } from '../format';
 import { mergeWarnings } from './warnings';
 
 
@@ -76,13 +76,13 @@ export default function CostTable({
           내려가 **짧은 「절감 없음」 조차 7행을 두 줄로** 늘렸다 */}
       {noGain ? (
         <p className="small warn">
-          모든 신설안이 {slowerThan}보다 느려 절감 시간이 없습니다 —{' '}
-          <strong>추천할 신설안이 없습니다.</strong>
+          모든 신설안이 {slowerThan}보다 느리거나 이용객이 너무 적어 아끼는 시간이 (거의)
+          없습니다 — <strong>추천할 신설안이 없습니다.</strong>
         </p>
       ) : hasDemand && zeroCount > 0 && (
         <p className="small note">
-          B/C 0.00 인 {zeroCount}개 안은 {slowerThan}보다 느려 아끼는 시간이 없습니다 —
-          계산 실패가 아닙니다.
+          B/C 0.00 인 {zeroCount}개 안은 {slowerThan}보다 느리거나 이용객이 너무 적어
+          아끼는 시간이 (거의) 없습니다 — 계산 실패가 아닙니다.
         </p>
       )}
 
@@ -120,7 +120,7 @@ export default function CostTable({
                 {r.bcRatio == null ? '—' : (
                   // 0.00 은 흐리게 — 이유는 표 위 한 줄이 말한다
                   <span className={gainsNothing(r) ? 'muted' : undefined}>
-                    {Number(r.bcRatio).toFixed(2)}
+                    {bc(r.bcRatio)}
                   </span>
                 )}
                 {r.feasible === false && <span className="tag">수송능력 초과</span>}
@@ -174,7 +174,7 @@ export default function CostTable({
           {/* 둘 다 0 이면 "0.00 → 0.00" 이 되어 비교할 것이 없다 */}
           {pair.bcRatio != null && elevated.bcRatio != null
             && !(gainsNothing(pair) && gainsNothing(elevated)) && (
-            <> — B/C {Number(elevated.bcRatio).toFixed(2)} → {Number(pair.bcRatio).toFixed(2)}</>
+            <> — B/C {bc(elevated.bcRatio)} → {bc(pair.bcRatio)}</>
           )}.
         </p>
       )}

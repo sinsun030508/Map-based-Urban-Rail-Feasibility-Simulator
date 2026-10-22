@@ -4,7 +4,7 @@ import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
 import { isStale, STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
-import { money, people } from '../format';
+import { bc, money, people } from '../format';
 
 /**
  * 시나리오 비교 (제안서 기능 8).
@@ -184,7 +184,7 @@ export default function ComparePage({ onClose }) {
                       <td key={d.id}>
                         {b ? (
                           <>
-                            <strong>{Number(b.bcRatio).toFixed(2)}</strong>
+                            <strong>{bc(b.bcRatio)}</strong>
                             <span className="muted small">
                               {' '}{MODE_LABEL[b.modeType]} {STRUCTURE_LABEL[b.structureType]}
                             </span>
@@ -237,7 +237,7 @@ export default function ComparePage({ onClose }) {
                             && !gainsNothing(r) && Number(r.bcRatio) === best;
                           return (
                             <td key={d.id} className={top ? 'top' : ''}>
-                              {r?.bcRatio == null ? '—' : Number(r.bcRatio).toFixed(2)}
+                              {bc(r?.bcRatio)}
                               {r && (
                                 <span className="muted small"> ({money(r.totalCost)})</span>
                               )}
