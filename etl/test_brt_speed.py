@@ -527,3 +527,75 @@ class Test수집전점검:
         assert 'B4' in names and '1005' in names
         ids = [r for r in brt.ROUTES if brt.ROUTES[r]['name'] in ('B4', '1005')]
         assert len(ids) == 4        # B4 양방향 + 1005 양방향
+
+
+class Test바꿀조건판정:
+    """가정값(BRT 25.0/18.0)을 실측으로 바꿀 조건 넷 — research-log 에 **결과를 보기 전에**
+    적어 둔 기준이다. 사람이 격자를 보고 맞춰 보면 결과에 맞춰 기준을 읽게 된다.
+
+      ① 대표성  평일 첨두 대조군(1005)이 공표 대전 시내버스의 ±20% 안
+      ② 정밀도  그 등급 표본의 표준오차가 중앙값의 3% 이하
+      ③ 격자    평일 첨두·평일 보통 칸이 모두 찼다
+      ④ 묶기    그 등급 노선에 "구간 표본을 묶을 수 없다" 가 없다
+    """
+
+    def s(self, name, speed, weekday='Mon', hour=8, full=True):
+        rid = next(r for r in brt.ROUTES if brt.ROUTES[r]['name'] == name)
+        return {'route_id': rid, 'speed_kmh': speed, 'full': full, 'leg': '전구간',
+                'plate_no': '가1234', 'weekday': weekday, 'hour': hour}
+
+    def good(self):
+        # B4 는 BRT_HIGH, 1005 는 대조군. 평일 첨두(8시)·보통(11시)을 모두 채운다
+        v = [self.s('1005', 22.0), self.s('1005', 23.0, hour=11)]
+        for h in (8, 8, 11, 11):
+            v += [self.s('B4', 45.0, hour=h), self.s('B4', 45.5, hour=h)]
+        return v
+
+    def ok(self, result, mode, i):
+        return result[mode][i][1]
+
+    def test_넷을_모두_채우면_통과(self):
+        r = brt.verdict(self.good(), published=21.6)
+        assert all(ok for _, ok, _ in r['BRT_HIGH'])
+
+    def test_대조군이_공표값에서_멀면_대표성_실패(self):
+        # 지금까지 평일 첨두 대조군은 28.8 — 공표 21.6 의 1.33배였다
+        v = [x for x in self.good() if x['route_id'] not in self.ctrl_ids()]
+        v += [self.s('1005', 28.8)]
+        assert not self.ok(brt.verdict(v, published=21.6), 'BRT_HIGH', 0)
+
+    def ctrl_ids(self):
+        return {r for r in brt.ROUTES if brt.ROUTES[r]['name'] == '1005'}
+
+    def test_흩어지면_정밀도_실패(self):
+        v = self.good() + [self.s('B4', 25.0, hour=11), self.s('B4', 70.0, hour=8)]
+        assert not self.ok(brt.verdict(v, published=21.6), 'BRT_HIGH', 1)
+
+    def test_평일_보통이_비면_격자_실패(self):
+        v = [x for x in self.good() if x['hour'] != 11]
+        assert not self.ok(brt.verdict(v, published=21.6), 'BRT_HIGH', 2)
+
+    def test_구간마다_다르면_묶기_실패(self):
+        v = self.good() + [self.s('B4', 20.0, full=False), self.s('B4', 50.0, full=False)]
+        assert not self.ok(brt.verdict(v, published=21.6), 'BRT_HIGH', 3)
+
+    def test_표본이_없으면_통과로_치지_않는다(self):
+        # 대표성(①)은 대조군 조건이라 등급과 상관없이 통과할 수 있다. 그 등급 표본으로
+        # 보는 ②③④ 는 표본이 없으면 미달이다 — "못 쟀다" 를 "문제없다" 로 읽지 않는다
+        r = brt.verdict(self.good(), published=21.6)['BRT_LOW']
+        assert [ok for _, ok, _ in r[1:]] == [False, False, False]
+
+    def test_대조군이_늘_빠르면_내삽도_못_한다고_말한다(self):
+        # 범위 밖이면 시간대별 배수를 회귀해 공표값에서 내삽하는 대안이 있다(research-log).
+        # 그런데 대조군이 어느 시간대에도 공표값까지 내려오지 않으면 그건 외삽이다
+        v = [x for x in self.good() if x['route_id'] not in self.ctrl_ids()]
+        v += [self.s('1005', 28.8), self.s('1005', 27.5, hour=11)]
+        why = brt.verdict(v, published=21.6)['BRT_HIGH'][0][2]
+        assert '외삽' in why
+
+    def test_공표값을_끼고_있으면_내삽할_수_있다고_말한다(self):
+        v = [x for x in self.good() if x['route_id'] not in self.ctrl_ids()]
+        v += [self.s('1005', 28.8), self.s('1005', 15.0, hour=11)]
+        r = brt.verdict(v, published=21.6)['BRT_HIGH'][0]
+        assert not r[1] and '내삽' in r[2] and '외삽' not in r[2]
+

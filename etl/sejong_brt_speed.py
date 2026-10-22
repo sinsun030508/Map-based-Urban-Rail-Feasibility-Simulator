@@ -681,6 +681,99 @@ def poolability(samples):
     else:
         print('구간 표본 묶기 - 모든 노선에서 구간별 속도가 %.1f배 안에 있다' % POOL_SPREAD)
     print('')
+    return bad
+
+
+def slot_of(hour):
+    """시간대 칸. 첨두는 7·8·17·18시, 심야는 22~5시, 나머지는 보통이다."""
+    if hour in (7, 8, 17, 18):
+        return '첨두'
+    if 22 <= hour or hour < 6:
+        return '심야'
+    return '보통'
+
+
+# 바꿀 조건의 기준 — research-log 「바꿀 조건」 에 **결과를 보기 전에(2026-10-10)** 적어 둔 값이다.
+# 결과를 보고 고치면 결과에 맞춰 기준을 만드는 셈이 된다
+REP_TOL = 0.20         # ① 평일 첨두 대조군이 공표 시내버스의 ±20% 안
+SE_MAX = 0.03          # ② 표준오차가 중앙값의 3% 이하
+
+
+def verdict(samples, published):
+    """가정값을 실측으로 바꿀 조건 넷을 등급별로 판정한다.
+
+    돌려주는 것: {등급: [(조건 이름, 통과 여부, 근거 문장) × 4]}.
+    **넷을 모두 통과해야 바꾼다.** 표본이 없는 조건은 통과로 치지 않는다 —
+    "못 쟀다" 를 "문제없다" 로 읽으면 안 된다.
+    """
+    import contextlib
+    import io as _io
+    with contextlib.redirect_stdout(_io.StringIO()):
+        bad = poolability(samples)
+    bad_modes = {ROUTES[r]['mode'] for r in ROUTES
+                 if ROUTES[r]['name'] in {name for name, *_ in bad}}
+
+    def weekday(m):
+        return m['weekday'] not in ('Sat', 'Sun')
+
+    ctrl = [m['speed_kmh'] for m in samples
+            if ROUTES[m['route_id']]['mode'] == 'CITY_BUS' and weekday(m)
+            and slot_of(m['hour']) == '첨두']
+    if not ctrl or not published:
+        rep = (False, '평일 첨두 대조군 표본이 없다')
+    else:
+        c = statistics.median(ctrl)
+        lo, hi = published * (1 - REP_TOL), published * (1 + REP_TOL)
+        rep_ok = lo <= c <= hi
+        why = ('대조군 %.2f (n=%d) — 공표 %.1f 의 %.2f배, 허용 %.1f~%.1f'
+               % (c, len(ctrl), published, c / published, lo, hi))
+        if not rep_ok:
+            # 대안: 시간대별 배수를 대조군 속도에 회귀해 공표값에서 내삽한다(research-log).
+            # 공표값이 시간대별 대조군 중앙값 사이에 있어야 내삽이고, 아니면 외삽이라 못 쓴다
+            cells = {}
+            for m in samples:
+                if ROUTES[m['route_id']]['mode'] == 'CITY_BUS':
+                    key = (weekday(m), slot_of(m['hour']))
+                    cells.setdefault(key, []).append(m['speed_kmh'])
+            meds = [statistics.median(x) for x in cells.values()]
+            if meds and min(meds) <= published <= max(meds):
+                why += ' · 시간대별 대조군 %.1f~%.1f 가 공표값을 끼고 있어 내삽은 가능(회귀는 따로)'                        % (min(meds), max(meds))
+            else:
+                why += ' · 시간대별 대조군 %.1f~%.1f 가 공표값에 닿지 않아 회귀해도 외삽'                        % (min(meds), max(meds))
+        rep = (rep_ok, why)
+
+    out = {}
+    for mode in ('BRT_HIGH', 'BRT_LOW'):
+        v = [m for m in samples if ROUTES[m['route_id']]['mode'] == mode]
+        sp = [m['speed_kmh'] for m in v]
+        if len(sp) >= 2:
+            med = statistics.median(sp)
+            se = statistics.stdev(sp) / math.sqrt(len(sp))
+            prec = (se / med <= SE_MAX, '표준오차 %.2f / 중앙값 %.2f = %.1f%% (n=%d)'
+                    % (se, med, se / med * 100, len(sp)))
+        else:
+            prec = (False, '표본 %d개 — 표준오차를 낼 수 없다' % len(sp))
+        cells = {slot_of(m['hour']) for m in v if weekday(m)}
+        need = ('첨두', '보통')
+        grid = (all(c in cells for c in need),
+                '평일 ' + ' · '.join('%s %s' % (c, '있음' if c in cells else '비어 있음')
+                                    for c in need))
+        pool = (bool(v) and mode not in bad_modes,
+                '표본 없음' if not v else
+                ('묶을 수 없는 노선 있음' if mode in bad_modes else '모든 노선 묶을 수 있음'))
+        out[mode] = [('대표성', *rep), ('정밀도', *prec), ('격자', *grid), ('묶기', *pool)]
+    return out
+
+
+def print_verdict(result):
+    print('바꿀 조건 판정 (넷 모두 통과해야 speed_kmh 가정값을 실측으로 바꾼다)')
+    for mode, conds in result.items():
+        passed = all(ok for _, ok, _ in conds)
+        print('  %-9s %s' % (mode, '**바꿀 수 있다**' if passed else '가정값 유지'))
+        for name, ok, why in conds:
+            print('    %s %-4s %s' % ('통과' if ok else '미달', name, why))
+    print('  세 번 이상 독립 측정이 서로 0.1배 안에서 맞는지는 따로 본다 (research-log)')
+    print('')
 
 
 def spacing_report(samples, shapes):
@@ -703,7 +796,7 @@ def spacing_report(samples, shapes):
         sh = shapes[rid]
         spacing = sh['length_km'] / (len(sh['stops']) - 1)
         h = m['hour']
-        slot = '첨두' if h in (7, 8, 17, 18) else ('심야' if (22 <= h or h < 6) else '보통')
+        slot = slot_of(h)
         key = (slot, ROUTES[rid]['name'], round(spacing, 2))
         by_route.setdefault(key, []).append(m['speed_kmh'])
 
@@ -885,13 +978,7 @@ def report():
     grid = {}
     for s in samples:
         kind = '주말' if s['weekday'] in ('Sat', 'Sun') else '평일'
-        h = s['hour']
-        if h in (7, 8, 17, 18):
-            slot = '첨두'
-        elif 22 <= h or h < 6:
-            slot = '심야'
-        else:
-            slot = '보통'
+        slot = slot_of(s['hour'])
         grid.setdefault((ROUTES[s['route_id']]['mode'], kind, slot), []).append(s['speed_kmh'])
     for mode in ('BRT_HIGH', 'BRT_LOW', 'CITY_BUS'):
         for kind in ('평일', '주말'):
@@ -904,6 +991,8 @@ def report():
     print('반복은 분산(차량별 습관·신호 운)을 줄이지만 치우침은 줄이지 않는다.')
     print('비어 있는 칸이 있으면 그 시간대에 다시 돌릴 것 - 심야에만 20번 재면')
     print('심야 값을 아주 정확하게 잰 것이고, 하루 평균은 여전히 모른다.')
+    print('')
+    print_verdict(verdict(samples, dj))
 
     BUILD.mkdir(parents=True, exist_ok=True)
     out = BUILD / 'brt_speed_samples.csv'
