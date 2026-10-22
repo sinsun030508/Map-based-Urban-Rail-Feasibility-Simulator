@@ -194,7 +194,6 @@ table.admin-table.compare td.top { background: #f0f6ff; font-weight: 700; }
 table.admin-table.compare td.existing { text-align: left; max-width: 160px; }
 table.admin-table.compare td.existing[title] { cursor: help; }
 
-table.cost .tag.note { color: var(--muted); }
 
 /* 수단별 B/C 막대 — 표 위에 모양만 보여 준다 (숫자는 표가 갖고 있다) */
 .bc-chart { margin: 10px 0 4px; }

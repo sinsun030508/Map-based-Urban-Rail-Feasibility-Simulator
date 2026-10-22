@@ -48,12 +48,14 @@ public class ExistingOptions {
     private final ExistingLineFinder urban;
     private final IntercityRailFinder intercity;
     private final KtxTravelTime times;
+    private final UrbanLineSpeed speeds;
 
     public ExistingOptions(ExistingLineFinder urban, IntercityRailFinder intercity,
-                           KtxTravelTime times) {
+                           KtxTravelTime times, UrbanLineSpeed speeds) {
         this.urban = urban;
         this.intercity = intercity;
         this.times = times;
+        this.speeds = speeds;
     }
 
     /**
@@ -65,17 +67,12 @@ public class ExistingOptions {
      * @param detail  표 아래 한 줄 설명. 접근 거리·겹침 비율이 여기 들어간다
      * @param message `scenario.existing_line`(VARCHAR 150)에 저장하는 기존 문구.
      *                목록 API 가 이 문자열만 싣는다 — 바꾸면 요약 화면이 함께 바뀐다
-     * @param accessKm 그린 양 끝에서 두 역까지 직선 거리의 합. 도시철도는 null
+     * @param accessKm 그린 양 끝에서 가장 가까운 역까지 직선 거리의 합
      */
     public record Option(String kind, String label, String detail, String message,
                          Double fromLat, Double fromLng, Double toLat, Double toLng,
                          Integer travelMin, String travelDetail, Double accessKm) {
 
-        /** 도시철도 판정은 역을 특정하지 않는다 — 겹침 비율만 본다 */
-        static Option urban(String label, String detail, String message) {
-            return new Option(URBAN_RAIL, label, detail, message,
-                    null, null, null, null, null, null, null);
-        }
 
         /**
          * 그린 출발점에서 그린 도착점까지 이 수단으로 걸리는 시간(시간 단위). 편익의
@@ -86,7 +83,7 @@ public class ExistingOptions {
          * 전환 전 속도({@code accessSpeedKmh}, 시내버스)로 더한다. 실제 도로는 직선보다
          * 길어 이 값은 짧은 쪽으로 치우친다 — 신설안의 편익을 덜 세는 방향이다.
          *
-         * 도시철도는 겹침 비율만 보고 소요시간을 재지 않아 늘 null 이다.
+         * 도시철도는 공표 표정속도를 아는 노선만 값이 있다({@link UrbanLineSpeed}).
          */
         public Double doorToDoorHours(double accessSpeedKmh) {
             if (travelMin == null || accessKm == null || accessSpeedKmh <= 0) {
@@ -94,6 +91,11 @@ public class ExistingOptions {
             }
             return accessKm / accessSpeedKmh + travelMin / 60.0;
         }
+    }
+
+    /** 32.5 → "32.5", 47.60 → "47.6", 30.69 → "30.69" — 원본에 적힌 자릿수까지만 */
+    static String trim(double v) {
+        return java.math.BigDecimal.valueOf(v).stripTrailingZeros().toPlainString();
     }
 
     /**
@@ -146,9 +148,19 @@ public class ExistingOptions {
     public Option find(List<double[]> route, double lengthKm, double urbanMaxKm) {
         ExistingLineFinder.Match line = urban.find(route);
         if (line != null) {
-            return Option.urban("기존 " + line.lineName(),
+            // 도시철도는 시각표를 받지 않았다. 공표 표정속도로 그린 길이를 환산한다 —
+            // 신설안 행의 소요시간과 같은 계산이라 같은 표에서 견줄 수 있다.
+            // 노선의 80% 이상이 그 노선 역세권일 때만 여기 오므로 그린 길이를 쓴다
+            Double speed = speeds.of(line.lineName());
+            Integer travelMin = speed == null ? null : (int) Math.round(lengthKm / speed * 60);
+            return new Option(URBAN_RAIL, "기존 " + line.lineName(),
                     String.format("노선의 %.0f%% 가 기존 역 1km 안입니다", line.coverage() * 100),
-                    line.message());
+                    line.message(), null, null, null, null,
+                    travelMin,
+                    speed == null ? null
+                            : String.format("공표 표정속도 %skm/h 로 그린 길이를 환산한 값",
+                                    trim(speed)),
+                    line.accessKm());
         }
         IntercityRailFinder.Match ktx = intercity.find(route, lengthKm, urbanMaxKm);
         if (ktx != null) {

@@ -30,9 +30,13 @@ export default function CostTable({
   const noGain = hasDemand && !candidates.length;
   const best = (overLength ? candidates.find((r) => !overLength(r)) : null) || candidates[0];
   const riders = results.find((r) => r.estimatedRidership != null)?.estimatedRidership;
-  // 소요시간을 아는 기존 KTX 가 있으면 편익의 전환 전 시간이 시내버스가 아니라 KTX 다
-  // (`ExistingOptions.Option.doorToDoorHours` 가 null 이 아닌 조건과 같다)
-  const ktxBaseline = existingOption?.kind === 'INTERCITY_RAIL' && existingOption.travelMin != null;
+  // 소요시간을 아는 기존 수단이 있으면 편익의 전환 전 시간은 **시내버스와 그 수단 중
+  // 빠른 쪽**이다 (`ExistingOptions.Option.doorToDoorHours` 가 null 이 아닌 조건과 같다).
+  // 어느 쪽이 빨랐는지는 모른다 — 짧은 노선은 역까지 가는 몫 때문에 버스가 빠를 수 있어
+  // "기존 2호선보다 느림" 이라고 단정하면 틀린 말이 된다
+  const existingBaseline = existingOption?.travelMin != null ? existingOption.label : null;
+  const slowerThan = existingBaseline ? `시내버스와 ${existingBaseline} 중 빠른 쪽` : '시내버스';
+  const zeroCount = sorted.filter(gainsNothing).length;
   const peak = results.find((r) => r.peakPphpd != null)?.peakPphpd;
 
   // 같은 수단의 지하·고가 차이 — "지하를 고르면 얼마가 더 드는가"
@@ -63,10 +67,18 @@ export default function CostTable({
         </div>
       )}
 
-      {noGain && (
+      {/* B/C 0 의 이유는 **표 위 한 줄**로 말하고 행에는 꼬리표를 달지 않는다(숫자만 흐리게).
+          2호선을 따라 그리면 11행 중 7행이 0 인데, 꼬리표가 48px B/C 칸에서 숫자 밑으로
+          내려가 **짧은 「절감 없음」 조차 7행을 두 줄로** 늘렸다 */}
+      {noGain ? (
         <p className="small warn">
-          모든 신설안이 {ktxBaseline ? '기존 KTX' : '전환 전 수단'}보다 느려 절감 시간이
-          없습니다 — <strong>추천할 신설안이 없습니다.</strong>
+          모든 신설안이 {slowerThan}보다 느려 절감 시간이 없습니다 —{' '}
+          <strong>추천할 신설안이 없습니다.</strong>
+        </p>
+      ) : hasDemand && zeroCount > 0 && (
+        <p className="small note">
+          B/C 0.00 인 {zeroCount}개 안은 {slowerThan}보다 느려 아끼는 시간이 없습니다 —
+          계산 실패가 아닙니다.
         </p>
       )}
 
@@ -101,17 +113,13 @@ export default function CostTable({
               <td>{r.travelTimeMin ? `${Math.round(r.travelTimeMin)}분` : '—'}</td>
               <td className="num">{money(r.totalCost)}</td>
               <td className="num">
-                {r.bcRatio == null ? '—' : Number(r.bcRatio).toFixed(2)}
-                {r.feasible === false && <span className="tag">수송능력 초과</span>}
-                {/* 0.00 은 계산 실패가 아니라 "전환 전 수단보다 느려 절감이 없다"는 결과다.
-                    기존 KTX 가 기준이면 그렇게 적는다 — "기준 속도" 라고만 하면 229분짜리
-                    급행이 왜 0 인지 표 안에서 이어지지 않는다 */}
-                {/* 전부 0 이면 표 위 한 줄(`noGain`)이 이미 말한다 — 11행에 같은 꼬리표를 달지 않는다 */}
-                {r.benefitTotal === 0 && !noGain && (
-                  <span className="tag note">
-                    {ktxBaseline ? '기존 KTX보다 느림' : '기준 속도 이하'} — 절감 시간 없음
+                {r.bcRatio == null ? '—' : (
+                  // 0.00 은 흐리게 — 이유는 표 위 한 줄이 말한다
+                  <span className={gainsNothing(r) ? 'muted' : undefined}>
+                    {Number(r.bcRatio).toFixed(2)}
                   </span>
                 )}
+                {r.feasible === false && <span className="tag">수송능력 초과</span>}
               </td>
             </tr>
           ))}
@@ -141,10 +149,12 @@ export default function CostTable({
                 {/* 비운 칸은 "못 구했다" 가 아니라 "적으면 안 된다" 는 뜻이다 —
                     둘을 섞어 적지 않는다 */}
                 {existingOption.travelDetail
-                  ? <>소요시간은 <strong>빠른 계통의 중앙값</strong>입니다 — {existingOption.travelDetail}. </>
+                  ? existingOption.kind === 'INTERCITY_RAIL'
+                    ? <>소요시간은 <strong>빠른 계통의 중앙값</strong>입니다 — {existingOption.travelDetail}. </>
+                    : <>소요시간은 {existingOption.travelDetail}입니다. </>
                   : existingOption.kind === 'INTERCITY_RAIL'
                     ? '그 구간의 시각표를 아직 받지 못해 소요시간을 비웠습니다. '
-                    : '소요시간 자료를 아직 받지 못했습니다. '}
+                    : '이 노선의 공표 표정속도를 아직 구하지 못해 소요시간을 비웠습니다. '}
                 이미 있는 시설의 B/C는 신설안과 범주가 달라 비웠습니다.
               </td>
             </tr>
@@ -200,10 +210,10 @@ export default function CostTable({
               첨두율과 전환 전 속도는 지침에 원단위가 없는 <strong>가정값</strong>이고,
               편익은 통행시간 절감만 셉니다.
             </p>
-            {ktxBaseline && (
+            {existingBaseline && (
               <p>
-                기존 KTX가 있어 전환 전 시간을 시내버스가 아니라 <strong>KTX</strong>로
-                잡았습니다 — 역까지 이동(시내버스 속도) + 빠른 계통의 중앙값입니다.
+                전환 전 시간은 <strong>시내버스와 {existingBaseline} 중 빠른 쪽</strong>입니다.
+                {' '}기존 수단 쪽은 역까지 이동(시내버스 속도)과 표의 소요시간을 더한 값입니다.
               </p>
             )}
           </>

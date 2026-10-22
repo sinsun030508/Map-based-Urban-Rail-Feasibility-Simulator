@@ -66,7 +66,8 @@ class CostCalculatorTest {
         intercity.load();
 
         return new CostCalculator(index, new BenefitCalculator(parameters),
-                new StationPlanner(index), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv")));
+                new StationPlanner(index), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"),
+                        new UrbanLineSpeed("없는파일.csv")));
     }
 
     private static <T> T newInstance(Class<T> type, Object... nameValues) {
