@@ -81,6 +81,24 @@ class UrbanLineSpeedTest {
         assertThat(speeds.of("GTX-A")).isNull();
     }
 
+    /**
+     * **실제 파일**로 본다. 위 테스트들은 손으로 만든 행이라 `rail_speed.csv` 의 표기가 바뀌면
+     * 모른다. 역 좌표 파일(`station_master.csv`·`regional_station.csv`)의 이름 그대로 찾는다.
+     */
+    @Test
+    @DisplayName("저장소의 rail_speed.csv 에서 역 좌표 파일의 이름으로 찾는다")
+    void 실제_파일() {
+        UrbanLineSpeed speeds = new UrbanLineSpeed("../data/seed/rail_speed.csv");
+        speeds.load();
+
+        assertThat(speeds.of("2호선")).isEqualTo(32.5);
+        assertThat(speeds.of("부산 도시철도 1호선")).isEqualTo(30.69);
+        // 광주교통공사 역간 소요시간으로 계산한 값 — 중앙값에서는 빠지지만 기준으로는 쓴다
+        assertThat(speeds.of("광주 도시철도 1호선")).isEqualTo(31.63);
+        // 설계값(대전 2호선 트램)은 들어오지 않는다
+        assertThat(speeds.of("대전 2호선")).isNull();
+    }
+
     @Test
     @DisplayName("모르는 노선과 파일이 없을 때는 null 이다 — 0 이 아니다")
     void 모르면_null(@TempDir Path dir) throws IOException {
