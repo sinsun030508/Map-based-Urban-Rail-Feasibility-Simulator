@@ -100,7 +100,7 @@ export default function ScenarioPanel({
           </select>
         </label>
         <p className="muted small">
-          구조는 비용을 가장 크게 가르는 변수입니다. 지하는 고가의 약 1.8배입니다.
+          구조는 비용을 가장 크게 가르는 변수입니다. 지하는 고가의 약 1.7배입니다.
         </p>
         {error && <p className="error">{error}</p>}
         {/* 불러온 시나리오를 고치는 중이면 덮어쓴다 — 안 그러면 같은 제목이 하나 더 생긴다 */}

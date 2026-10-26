@@ -18,13 +18,13 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
-     * 광주 1호선 표정속도를 기존 수단 기준에 더한 시각(`rail_speed.csv` — 코드가 아니라 자료가
-     * 바뀌어도 그 노선을 따라 그린 결과가 달라지므로 올린다).
-     * 그 전 — 10-23 00:19 역이 드문 KTX 를 짧은 이동의 기준에서 빼기로, 00:10 1인당 절감을
+     * 지하비율 17건을 OSM 실측으로 바꿔 건설비 단가표(`S5__cost_standard.sql`)가 바뀐 시각 —
+     * 지하/고가 배수 1.78→1.67배. 코드가 아니라 자료가 바뀌어도 저장된 B/C 가 달라지므로 올린다.
+     * 그 전 — 10-23 00:44 광주 1호선 표정속도를 기존 수단 기준에 더했고, 00:19 역이 드문 KTX 를 짧은 이동의 기준에서 빼기로, 00:10 1인당 절감을
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 10, 23, 0, 44);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 10, 26, 18, 43);
 
     private CalculationRules() {
     }

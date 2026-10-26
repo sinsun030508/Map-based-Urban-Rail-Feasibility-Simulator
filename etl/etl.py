@@ -612,6 +612,30 @@ def fill_station_counts(df, path):
     return df
 
 
+# 지하비율 추정치를 OSM 실측으로 바꾼다 (`osm_tunnel.py` 가 만든다). 못 잰 구간(공사 중·계획)은
+# 추정치로 남는다 — 「못 잰다」 이지 「틀렸다」 가 아니다
+ESTIMATE_NOTE = '지하비율 추정치 (공식 미공표)'
+MEASURED_NOTE = '지하비율 OSM 실측 (선로 터널 표시)'
+
+
+def apply_measured_underground(df, path):
+    if not path.exists():
+        print(f'**{path.name} 없음 — 지하비율이 전부 추정치로 돌아간다 (python etl/osm_tunnel.py)**')
+        return df
+    for _, r in pd.read_csv(path).iterrows():
+        mask = ((df['line_name'] == clean_text(r['line_name']))
+                & (df['section_name'] == clean_text(r['section_name'])))
+        if mask.sum() != 1:
+            raise ValueError(f"지하비율 실측 매칭 실패: {r['line_name']} {r['section_name']}")
+        df.loc[mask, 'underground_ratio'] = float(r['underground_ratio'])
+        old = df.loc[mask, 'note'].iloc[0]
+        old = old if isinstance(old, str) else ''
+        new = (old.replace(ESTIMATE_NOTE, MEASURED_NOTE) if ESTIMATE_NOTE in old
+               else (f'{old} / {MEASURED_NOTE}' if old else MEASURED_NOTE))
+        df.loc[mask, 'note'] = new
+    return df
+
+
 def flag_known_outliers(df):
     for (name, section), reason in KNOWN_OUTLIERS.items():
         mask = (df['line_name'] == name) & (df['section_name'] == section)
@@ -703,6 +727,7 @@ def build():
     df = flag_known_outliers(df)
     df = drop_same_projects(df)
     df = fill_station_counts(df, SEED / 'rail_station_seed.csv')
+    df = apply_measured_underground(df, BUILD / 'underground_measured.csv')
     # 역수가 채워졌으니 역수에 딸린 파생값을 다시 계산한다
     df['avg_spacing_km'] = (df['length_km'] / df['station_count']).round(3)
     df['data_grade'] = df.apply(grade, axis=1)

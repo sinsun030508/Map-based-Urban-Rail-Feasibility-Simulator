@@ -123,7 +123,7 @@ erDiagram
         int station_count
         bigint total_cost "억원"
         bigint total_cost_2025 "물가 환산"
-        decimal underground_ratio "전부 추정치"
+        decimal underground_ratio "17건 OSM 실측, 나머지 추정치"
         decimal cost_per_km "생성 컬럼"
         decimal avg_spacing_km "생성 컬럼 = 연장÷역수"
         char data_grade "생성 컬럼 A/B/C/D"
