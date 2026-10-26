@@ -221,3 +221,9 @@ table.admin-table.compare td.existing[title] { cursor: help; }
   background: #0f766e; border: 2.5px solid #fff;
   box-shadow: 0 1px 4px rgba(0,0,0,.35);
 }
+
+/* 호수·저수지를 지날 때의 안내 — 경고(빨강)가 아니라 제안이라 차분한 색이다 */
+.water-note { background: #eef6f8; border-left: 3px solid #2b7a8c; padding: 6px 8px; margin: 6px 0; }
+.water-note p { margin: 2px 0; }
+.water-note button { margin: 4px 0; }
+

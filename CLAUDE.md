@@ -22,6 +22,7 @@
 
 ```bash
 python etl/etl.py && python etl/cost_model.py    # 데이터 재생성
+python etl/osm_water.py                          # 호수·저수지 영역 (Overpass, 칸마다 캐시)
 docker compose up -d                             # DB·Redis (시드를 고쳤으면 down -v 먼저)
 set -a && . ./.env && set +a                     # DB 접속·API 키
 cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
@@ -77,6 +78,8 @@ cd frontend && npm run dev                       # 5173
   10km 안에 집계구가 있을 때만** 뺀다 — 집계구는 역 주변으로 모은 자료라 안 모은
   지역을 "무인"으로 읽으면 안 된다. **"인구 0"과 "모름"은 지역 단위로도 다르다.**
   비용은 **실제로 놓인 역 수**로 매긴다. **교량 할증은 없다** (노트 참고)
+- **호수·저수지는 우회를 제안만 한다** — 사용자가 「돌아가는 선형으로 바꾸기」 를 눌러야 점이
+  바뀐다. 우회가 원래 구간의 **1.5배를 넘으면 제안하지 않는다(가정값)**. 강은 대상이 아니다
 - **권장 연장을 넘는 수단은 기본으로 내세우지 않는다**(표에는 남긴다). 지도가 그리는 안 ·
   표의 굵은 행 · 백엔드 추천 **셋이 같은 규칙**이어야 한다 — 340km BRT 가 추천됐었다.
   **B/C 0(절감 시간 없음)인 안도 내세우지 않는다** — 전부 0 이면 추천이 없는 것이 답이다
@@ -89,8 +92,8 @@ cd frontend && npm run dev                       # 5173
 
 ## 테스트
 
-`cd etl && python -m pytest` (224개 — 파서·측정 규칙·문서 일치) /
-`cd backend && ./mvnw test` (99개 — 계산 로직과 판정 규칙) /
+`cd etl && python -m pytest` (229개 — 파서·측정 규칙·문서 일치) /
+`cd backend && ./mvnw test` (105개 — 계산 로직과 판정 규칙) /
 `cd frontend && npm test` (4개 — 뜻이 갈리는 화면 표기, `node --test` 라 의존성 없음).
 `test_docs_match_code.py` 는 **이 파일의 숫자가 코드·자료와 맞는지** 본다. 깨지면 둘 중
 하나다 — ① 값이 바뀌었는데 문서를 안 고쳤다(문서를 고친다) ② 문장을 다듬어 정규식이

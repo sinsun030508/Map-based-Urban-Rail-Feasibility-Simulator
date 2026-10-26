@@ -36,6 +36,8 @@ export default function App() {
   const [calculatedAt, setCalculatedAt] = useState(null);
   // 저장된 시나리오를 열 때마다 1씩 올린다 — 지도가 그 노선으로 옮겨 간다(`MapView` 의 `focus`)
   const [focus, setFocus] = useState(0);
+  // 그린 선이 호수·저수지를 지나는지. 점이 바뀌면 다시 묻고, 묻는 사이 점이 또 바뀌면 버린다
+  const [water, setWater] = useState(null);
   const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
@@ -107,6 +109,32 @@ export default function App() {
     setPoints([]);
     setTitle('');
     setEditingId(null);
+    reset();
+  }
+
+  /**
+   * 점이 바뀌면 0.6초 뒤 호수·저수지를 지나는지 묻는다(`/api/route/detour`).
+   * **보조 기능이라 실패해도 그리기를 막지 않는다** — 안내만 사라진다.
+   * 답이 오는 사이 점이 또 바뀌었으면 그 답은 쓰지 않는다(`key` 로 맞춰 본다).
+   */
+  useEffect(() => {
+    if (points.length < 2) {
+      setWater(null);
+      return undefined;
+    }
+    const key = JSON.stringify(points);
+    const t = setTimeout(() => {
+      api.detour(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })))
+        .then((r) => setWater({ key, ...r }))
+        .catch(() => setWater(null));
+    }, 600);
+    return () => clearTimeout(t);
+  }, [points]);
+  const waterNow = water && water.key === JSON.stringify(points) ? water : null;
+
+  /** 제안된 우회 선형으로 바꾼다 — 바꾸는 것은 사용자다(그린 선이 설계 의도) */
+  function applyDetour() {
+    setPoints(waterNow.points.map((p) => [Number(p.longitude), Number(p.latitude)]));
     reset();
   }
 
@@ -263,6 +291,8 @@ export default function App() {
           stale={isStale(calculatedAt, referenceUpdatedAt)}
           existingOption={existingOption}
           overLength={overLength}
+          water={waterNow}
+          onApplyDetour={applyDetour}
           // 표의 강조는 지도에 실제로 그린 안을 따른다 — 둘이 다른 안을 가리키면 안 된다
           selectedResult={shown ? resultKey(shown) : null}
           onSelectResult={setSelectedResult}

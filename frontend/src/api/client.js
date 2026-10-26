@@ -74,6 +74,8 @@ export const api = {
   updateScenario: (id, body) => request(`/scenarios/${id}`, { method: 'PUT', body }),
   calculate: (id) => request(`/scenarios/${id}/calculate`, { method: 'POST' }),
   deleteScenario: (id) => request(`/scenarios/${id}`, { method: 'DELETE' }),
+  // 호수·저수지를 지나면 돌아가는 선형을 제안한다 — 저장하지 않는다
+  detour: (points) => request('/route/detour', { method: 'POST', body: { points } }),
   // 관리자 기준값 — 서버가 ROLE_ADMIN 을 요구한다
   adminParameters: () => request('/admin/parameters'),
   updateParameter: (name, body) =>

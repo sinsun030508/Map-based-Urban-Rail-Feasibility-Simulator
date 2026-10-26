@@ -10,7 +10,7 @@ const STRUCTURES = [
 export default function ScenarioPanel({
   points, title, structure, scenarios, scenariosLoaded, saving, error, savedLength,
   savedId, results, calculating, population, selectedResult, stale, editingId, existingOption,
-  overLength,
+  overLength, water, onApplyDetour,
   onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
   onSelectResult,
 }) {
@@ -42,6 +42,26 @@ export default function ScenarioPanel({
           <span>{length.toFixed(3)}</span> km
           {points.length > 2 && <> · 경유점 {points.length - 2}개</>}
         </div>
+        {/* 호수·저수지를 지나면 알리고 **제안만** 한다 — 바꾸는 것은 사용자다. 이름 뒤에
+            조사를 붙이지 않는다(「위를」 은 이름이 아니라 「위」 에 붙는다) */}
+        {water?.crossings?.length > 0 && (
+          <div className="water-note small">
+            {water.crossings.map((c) => (
+              <p key={c.name}>
+                <strong>{c.name}</strong> 위를 지납니다 —{' '}
+                {c.detoured ? `돌아가면 ${c.addedKm.toFixed(1)}km 늘어납니다` : c.reason}
+              </p>
+            ))}
+            {water.crossings.some((c) => c.detoured) && (
+              <button onClick={onApplyDetour}>돌아가는 선형으로 바꾸기</button>
+            )}
+            <p className="muted">
+              호수·저수지만 봅니다 — 강은 건너야 해서 빼었으니 돌아간 길이 강을 건널 수
+              있습니다. 돌아가는 길이 1.5배를 넘으면 건너는 편으로
+              둡니다 — 교량 단가 자료가 없어 정한 가정값입니다.
+            </p>
+          </div>
+        )}
         {mismatch && (
           <p className="error">
             서버 계산 {savedLength.toFixed(3)}km 와 다릅니다 — 확인이 필요합니다
