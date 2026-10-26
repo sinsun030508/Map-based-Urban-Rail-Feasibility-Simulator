@@ -131,6 +131,10 @@ export default function App() {
     return () => clearTimeout(t);
   }, [points]);
   const waterNow = water && water.key === JSON.stringify(points) ? water : null;
+  // 지도에 덧그릴 물 위 토막 — 패널과 같은 기준(50m 이상)으로 거른다
+  const waterPieces = (waterNow?.waterKm || [])
+    .filter((w) => w.km >= 0.05)
+    .flatMap((w) => w.pieces || []);
 
   /** 제안된 우회 선형으로 바꾼다 — 바꾸는 것은 사용자다(그린 선이 설계 의도) */
   function applyDetour() {
@@ -270,6 +274,7 @@ export default function App() {
           existingOption={existingOption}
           show3D={show3D}
           focus={focus}
+          waterPieces={waterPieces}
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);
             reset();

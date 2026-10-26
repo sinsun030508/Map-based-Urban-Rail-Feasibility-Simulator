@@ -30,8 +30,11 @@ public class WaterBodies {
     public static final String LAKE = "lake";
     public static final String RIVER = "river";
 
-    /** 물 위를 지나는 길이 — 같은 이름은 더한다 */
-    public record Span(String name, String kind, double km) {
+    /**
+     * 물 위를 지나는 길이 — 같은 이름은 더한다. pieces 는 노선 중 물 위에 있는 토막들
+     * (각 토막은 {시작점, 끝점}, 점은 {위도, 경도}) — 지도에 덧그린다.
+     */
+    public record Span(String name, String kind, double km, List<double[][]> pieces) {
     }
 
     /** 한 물. rings 는 바깥 경계들(여러 조각일 수 있다), 각 점은 {위도, 경도} */
@@ -168,6 +171,7 @@ public class WaterBodies {
     public List<Span> onWater(List<double[]> route) {
         java.util.Map<String, double[]> sum = new java.util.LinkedHashMap<>();
         java.util.Map<String, String> kindOf = new java.util.HashMap<>();
+        java.util.Map<String, List<double[][]>> piecesOf = new java.util.HashMap<>();
         for (int i = 1; i < route.size(); i++) {
             double[] a = route.get(i - 1), b = route.get(i);
             double segKm = com.railfeas.geo.Haversine.distanceKm(a[0], a[1], b[0], b[1]);
@@ -186,22 +190,30 @@ public class WaterBodies {
                 }
                 ts.sort(Double::compare);
                 double inside = 0;
+                List<double[][]> pieces = new ArrayList<>();
                 for (int k = 1; k < ts.size(); k++) {
                     double t0 = ts.get(k - 1), t1 = ts.get(k), tm = (t0 + t1) / 2;
                     if (t1 > t0 && w.contains(a[0] + (b[0] - a[0]) * tm, a[1] + (b[1] - a[1]) * tm)) {
                         inside += t1 - t0;
+                        pieces.add(new double[][]{at(a, b, t0), at(a, b, t1)});
                     }
                 }
                 if (inside > 0) {
                     sum.computeIfAbsent(w.name(), k -> new double[1])[0] += inside * segKm;
                     kindOf.putIfAbsent(w.name(), w.kind());
+                    piecesOf.computeIfAbsent(w.name(), k -> new ArrayList<>()).addAll(pieces);
                 }
             }
         }
         return sum.entrySet().stream()
-                .map(e -> new Span(e.getKey(), kindOf.get(e.getKey()), e.getValue()[0]))
+                .map(e -> new Span(e.getKey(), kindOf.get(e.getKey()), e.getValue()[0],
+                        piecesOf.get(e.getKey())))
                 .sorted((x, y) -> Double.compare(y.km(), x.km()))
                 .toList();
+    }
+
+    private static double[] at(double[] a, double[] b, double t) {
+        return new double[]{a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t};
     }
 
     /** 선분 p1→p2 위에서 q1→q2 와 만나는 자리(0~1). 안 만나면 null */

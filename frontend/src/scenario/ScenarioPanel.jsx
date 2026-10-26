@@ -68,7 +68,7 @@ export default function ScenarioPanel({
           const spans = (water?.waterKm || []).filter((w) => w.km >= 0.05);
           return spans.length > 0 && (
             <p className="water-span small muted">
-              <b>물 위 구간</b>{' '}
+              <b>물 위 구간</b>(지도의 파란 토막){' '}
               {spans.map((w) => `${w.name} ${w.km.toFixed(1)}km`).join(' · ')} — 교량 할증은
               넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다
             </p>

@@ -39,6 +39,19 @@ class WaterBodiesTest {
         assertThat(spans.get(0).km()).isCloseTo(WIDTH_KM, within(0.02));
     }
 
+    /** 지도에 물 위 토막을 파랗게 덧그린다 — 토막의 양 끝은 물가다 */
+    @Test
+    @DisplayName("물 위에 있는 토막의 양 끝을 준다")
+    void 물_위_토막() {
+        var span = water("가강", WaterBodies.RIVER).onWater(List.of(WEST, EAST)).get(0);
+
+        assertThat(span.pieces()).hasSize(1);
+        double[][] piece = span.pieces().get(0);
+        assertThat(piece[0][0]).isCloseTo(37.51, within(1e-9));
+        assertThat(piece[0][1]).isCloseTo(127.00, within(1e-6));     // 서쪽 물가
+        assertThat(piece[1][1]).isCloseTo(127.03, within(1e-6));     // 동쪽 물가
+    }
+
     @Test
     @DisplayName("강은 우회 판정에 들어가지 않는다 — 건너야 하는 물이다")
     void 강은_우회하지_않는다() {
@@ -64,6 +77,7 @@ class WaterBodiesTest {
         var spans = water("가강", WaterBodies.RIVER).onWater(List.of(WEST, EAST, eastNorth, westNorth));
         assertThat(spans).hasSize(1);
         assertThat(spans.get(0).km()).isCloseTo(WIDTH_KM * 2, within(0.04));
+        assertThat(spans.get(0).pieces()).hasSize(2);
     }
 
     @Test

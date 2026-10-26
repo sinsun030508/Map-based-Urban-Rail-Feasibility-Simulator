@@ -7,6 +7,7 @@ import usePopulation3D from './usePopulation3D';
 
 const ROUTE_SOURCE = 'route';
 const EXISTING_SOURCE = 'existing-route';
+const WATER_SOURCE = 'water-pieces';
 
 /**
  * 지도와 노선 표시. 좌표 상태는 App 이 들고 있고 여기서는 그리기만 한다.
@@ -14,8 +15,11 @@ const EXISTING_SOURCE = 'existing-route';
  * stations — 자동 배치된 정차역. 수단마다 다르므로 비교표에서 고른 안의 것을 받는다.
  * show3D — 인구밀도 3D 레이어. 켜면 지도가 기울고 집계구 인구가 높이로 선다.
  * focus — 바뀔 때마다 지도를 노선에 맞춘다. 저장된 시나리오를 열 때만 App 이 올린다.
+ * waterPieces — 노선 중 물 위 토막들([[위도,경도],[위도,경도]]). 빨간 선 위에 파랗게 덧그린다.
  */
-export default function MapView({ points, zones, stations, existingOption, show3D, focus, onPick }) {
+export default function MapView({
+  points, zones, stations, existingOption, show3D, focus, waterPieces, onPick,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -71,6 +75,19 @@ export default function MapView({ points, zones, stations, existingOption, show3
           'line-dasharray': [2, 1.5],
         },
       }, 'route-line');        // 그린 노선 아래로
+
+      // 물 위 토막 — 그린 노선 **위에** 같은 굵기로 덧그려 그 부분만 파랗게 바뀌어 보이게 한다.
+      // 패널의 「물 위 구간 한강 1.2km」 가 선의 어디인지 보여 준다(교량 할증이 빠진 자리)
+      map.addSource(WATER_SOURCE, {
+        type: 'geojson',
+        data: { type: 'Feature', geometry: { type: 'MultiLineString', coordinates: [] } },
+      });
+      map.addLayer({
+        id: 'water-piece-line',
+        type: 'line',
+        source: WATER_SOURCE,
+        paint: { 'line-color': '#1d7fc4', 'line-width': 5 },
+      });
 
       setMapReady(true);
     });
@@ -198,6 +215,18 @@ export default function MapView({ points, zones, stations, existingOption, show3
       (b, p) => b.extend(p), new maplibregl.LngLatBounds(pts[0], pts[0]));
     map.fitBounds(bounds, { padding: 80, maxZoom: 14, duration: 0 });
   }, [focus, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    map.getSource(WATER_SOURCE).setData({
+      type: 'Feature',
+      geometry: {
+        type: 'MultiLineString',
+        coordinates: (waterPieces || []).map((piece) => piece.map(([lat, lng]) => [lng, lat])),
+      },
+    });
+  }, [waterPieces, mapReady]);
 
   // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다
   useEffect(() => {
