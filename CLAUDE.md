@@ -22,7 +22,7 @@
 
 ```bash
 python etl/etl.py && python etl/cost_model.py    # 데이터 재생성
-python etl/osm_water.py                          # 호수·저수지 영역 (Overpass, 칸마다 캐시)
+python etl/osm_water.py                          # 호수·강 수면 영역 (Overpass, 칸마다 캐시)
 docker compose up -d                             # DB·Redis (시드를 고쳤으면 down -v 먼저)
 set -a && . ./.env && set +a                     # DB 접속·API 키
 cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
