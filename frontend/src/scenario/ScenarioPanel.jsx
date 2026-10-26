@@ -62,6 +62,18 @@ export default function ScenarioPanel({
             </p>
           </div>
         )}
+        {/* 물 위 구간 — 교량 할증을 못 넣은 몫이 얼마나 되는지 드러낸다(강·호수 모두).
+            50m 도 안 되게 물가를 스치는 조각은 잡음이라 뺀다. 이름 뒤에 조사를 붙이지 않는다 */}
+        {(() => {
+          const spans = (water?.waterKm || []).filter((w) => w.km >= 0.05);
+          return spans.length > 0 && (
+            <p className="water-span small muted">
+              <b>물 위 구간</b>{' '}
+              {spans.map((w) => `${w.name} ${w.km.toFixed(1)}km`).join(' · ')} — 교량 할증은
+              넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다
+            </p>
+          );
+        })()}
         {mismatch && (
           <p className="error">
             서버 계산 {savedLength.toFixed(3)}km 와 다릅니다 — 확인이 필요합니다

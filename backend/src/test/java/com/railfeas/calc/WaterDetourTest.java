@@ -108,6 +108,24 @@ class WaterDetourTest {
         return best;
     }
 
+    /**
+     * 강은 건너야 하는 물이라 우회 길을 막지 않는다. 막으면 강으로 이어진 호수(의암호 위쪽이
+     * 소양강이다)는 돌아갈 길이 아예 없어진다 — 호수 동쪽에 22km 짜리 강줄기를 둔다.
+     */
+    @Test
+    @DisplayName("강은 우회 길을 막지 않는다 — 호수를 돌아 강을 건넌다")
+    void 강은_막지_않는다() {
+        WaterBodies water = new WaterBodies("없는파일.geojson");
+        water.add("가저수지", List.<double[][]>of(SQUARE));
+        water.add("가강", WaterBodies.RIVER, List.<double[][]>of(new double[][]{
+                {37.40, 127.035}, {37.62, 127.035}, {37.62, 127.038}, {37.40, 127.038}, {37.40, 127.035}}));
+
+        var plan = new WaterDetour(water).plan(List.of(WEST, EAST));
+
+        assertThat(plan.crossings()).extracting(WaterDetour.Crossing::name).containsExactly("가저수지");
+        assertThat(plan.crossings().get(0).detoured()).isTrue();
+    }
+
     @Test
     @DisplayName("돌아가는 길이 1.5배를 넘으면 건넌다 — 선은 그대로 두고 이유를 말한다")
     void 길면_건넌다() {

@@ -25,12 +25,14 @@ class RouteControllerTest {
     void 위경도_순서() {
         WaterBodies water = new WaterBodies("../data/build/water_bodies.geojson");
         org.springframework.test.util.ReflectionTestUtils.invokeMethod(water, "load");
-        RouteController controller = new RouteController(new WaterDetour(water));
+        RouteController controller = new RouteController(new WaterDetour(water), water);
 
         var res = controller.detour(new RouteController.DetourRequest(
                 List.of(p(37.2391, 127.06), p(37.2391, 127.14))));
 
         assertThat(res.crossings()).extracting(WaterDetour.Crossing::name).contains("신갈저수지");
+        // 그린 선 그대로 물 위를 지나는 길이도 함께 준다
+        assertThat(res.waterKm()).extracting(WaterBodies.Span::name).contains("신갈저수지");
         assertThat(res.points().size()).isGreaterThan(2);
         assertThat(res.points().get(0).latitude()).isEqualByComparingTo("37.2391");
         assertThat(res.points().get(0).longitude()).isEqualByComparingTo("127.06");

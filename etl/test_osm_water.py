@@ -78,3 +78,18 @@ class Test단순화:
         pts = sum(len(poly[0]) for poly in b['coordinates'])
         assert pts < 400
         assert abs(b['area_km2'] - w.water_bodies([way(5, ring)], simplify_m=0)[0]['area_km2']) < 0.1
+
+
+class Test강:
+    """강은 우회하지 않고 **건너는 길이**만 잰다(교량 할증을 못 넣은 몫을 드러내려고)."""
+
+    def test_종류가_붙는다(self):
+        assert w.water_bodies([way(10, square(0.02, 0.02))])[0]['kind'] == 'lake'
+        r = w.water_bodies([way(11, square(0.02, 0.02))], kind='river')[0]
+        assert r['kind'] == 'river'
+
+    def test_강은_작은_조각도_남긴다(self):
+        # 0.005° × 0.005° ≈ 0.24km² — 호수로는 빼지만 강 조각으로는 남긴다(강은 여러 조각으로 온다)
+        piece = way(12, square(0.005, 0.005))
+        assert w.water_bodies([piece]) == []
+        assert len(w.water_bodies([piece], **w.KINDS['river']['build'], kind='river')) == 1
