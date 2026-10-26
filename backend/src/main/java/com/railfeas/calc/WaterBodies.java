@@ -122,6 +122,11 @@ public class WaterBodies {
                 rings, minLat, maxLat, minLng, maxLng));
     }
 
+    /** 적재된 호수 수 — 실제 파일을 다 읽었는지 테스트에서 본다 */
+    int size() {
+        return bodies.size();
+    }
+
     /** 선분 a→b 가 지나는 호수들 */
     public List<Body> crossing(double[] a, double[] b) {
         return bodies.stream().filter(w -> w.crossedBy(a, b)).toList();

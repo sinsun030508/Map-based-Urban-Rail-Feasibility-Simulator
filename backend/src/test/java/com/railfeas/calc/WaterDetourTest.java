@@ -144,6 +144,25 @@ class WaterDetourTest {
         assertThat(plan.points().get(plan.points().size() - 1)).containsExactly(inLake);
     }
 
+    /**
+     * **실제 파일**로 본다. GeoJSON 은 [경도, 위도] 순서라 읽을 때 뒤집는데, 이걸 틀려도 오류 없이
+     * **어떤 노선도 호수를 안 지나는 것처럼** 조용히 돈다. 위 테스트들은 손으로 만든 호수라 모른다.
+     */
+    @Test
+    @DisplayName("저장소의 water_bodies.geojson 에서 신갈저수지를 알아본다")
+    void 실제_파일() {
+        WaterBodies water = new WaterBodies("../data/build/water_bodies.geojson");
+        water.load();
+
+        assertThat(water.size()).isGreaterThanOrEqualTo(100);
+        // 용인 기흥 — 신갈저수지 한가운데를 동서로 가로지른다
+        assertThat(water.crossing(new double[]{37.2391, 127.06}, new double[]{37.2391, 127.14}))
+                .extracting(WaterBodies.Body::name).contains("신갈저수지");
+        // 서울시청~강남 — 지나는 호수가 없다
+        assertThat(water.crossing(new double[]{37.5663, 126.9779}, new double[]{37.4979, 127.0276}))
+                .isEmpty();
+    }
+
     @Test
     @DisplayName("선분이 호수를 지나는지 — 가로지르면 걸리고, 옆을 지나면 안 걸린다")
     void 지나는지() {
