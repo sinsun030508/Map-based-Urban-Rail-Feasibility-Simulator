@@ -53,7 +53,8 @@ cd backend && ./mvnw package && java -jar target/railfeas-0.1.0.jar
 cd frontend && npm install && npm run dev      # http://localhost:5173
 ```
 
-`DB_PASSWORD` 는 `.env` 값을 compose 와 백엔드가 함께 읽는다.
+`DB_PASSWORD` 는 **직접 정해 `.env` 에만** 넣는다 — compose 와 백엔드가 함께 읽고, 기본값이 없어 비어 있으면 둘 다 멈춘다.
+`JWT_SECRET` 도 같다(`python -c "import secrets; print(secrets.token_hex(32))"`).
 VWorld 키(`frontend/.env`)가 없으면 OpenFreeMap 타일로 자동 대체된다.
 
 ## 데이터 재생성

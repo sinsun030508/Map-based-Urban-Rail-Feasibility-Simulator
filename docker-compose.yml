@@ -4,14 +4,15 @@ services:
     container_name: railfeas-db
     environment:
       MYSQL_DATABASE: railfeas
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-railfeas}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 를 .env 에 넣으세요 — 기본값을 두지 않는다}
       TZ: Asia/Seoul
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     ports:
-      # 로컬에 MySQL 이 이미 3306 을 쓰고 있어 호스트 쪽만 3307 로 옮겼다
-      - "3307:3306"
+      # 로컬에 MySQL 이 이미 3306 을 쓰고 있어 호스트 쪽만 3307 로 옮겼다.
+      # 127.0.0.1 로 묶는다 — 안 묶으면 같은 망의 다른 기기도 root 로 붙을 수 있다
+      - "127.0.0.1:3307:3306"
     volumes:
       - db-data:/var/lib/mysql
       # initdb.d 는 하위 폴더를 읽지 않으므로 파일 단위로 마운트 (알파벳 순 실행)
