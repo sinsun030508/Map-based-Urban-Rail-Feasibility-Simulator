@@ -63,14 +63,19 @@ export default function ScenarioPanel({
           </div>
         )}
         {/* 물 위 구간 — 교량 할증을 못 넣은 몫이 얼마나 되는지 드러낸다(강·호수 모두).
-            50m 도 안 되게 물가를 스치는 조각은 잡음이라 뺀다. 이름 뒤에 조사를 붙이지 않는다 */}
+            50m 도 안 되게 물가를 스치는 조각은 잡음이라 뺀다. 이름 뒤에 조사를 붙이지 않는다.
+            **지하는 물 밑으로 지난다** — 다리가 아니라 하저터널이고, 우회도 제안하지 않는다.
+            그 이유를 같은 줄에 적는다(안 적으면 지하에서 왜 제안이 사라졌는지 모른다) */}
         {(() => {
           const spans = (water?.waterKm || []).filter((w) => w.km >= 0.05);
+          const under = structure === 'UNDERGROUND';
           return spans.length > 0 && (
             <p className="water-span small muted">
-              <b>물 위 구간</b>(지도의 파란 토막){' '}
-              {spans.map((w) => `${w.name} ${w.km.toFixed(1)}km`).join(' · ')} — 교량 할증은
-              넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다
+              <b>{under ? '물 아래 구간' : '물 위 구간'}</b>(지도의 파란 토막){' '}
+              {spans.map((w) => `${w.name} ${w.km.toFixed(1)}km`).join(' · ')} —{' '}
+              {under && spans.some((w) => w.kind === 'lake') &&
+                '지하라 물 밑으로 지나므로 우회를 제안하지 않습니다. '}
+              {under ? '하저터널' : '교량'} 할증은 넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다
             </p>
           );
         })()}
