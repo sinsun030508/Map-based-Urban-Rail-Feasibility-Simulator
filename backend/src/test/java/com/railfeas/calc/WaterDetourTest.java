@@ -181,6 +181,30 @@ class WaterDetourTest {
                 .isEmpty();
     }
 
+    /**
+     * 길은 100m 격자에서 찾고 판정은 실제 경계선으로 한다 — 둘의 틈으로 물가를 몇 m 스치는
+     * 선이 나왔다. 화면에서는 「돌아가는 선형으로 바꾸기」 를 눌러도 「신갈저수지 위를 지납니다」
+     * 가 그대로 남았다(4m 라 물 위 구간 줄은 50m 기준에 걸려 사라지는데 판정은 남는다).
+     * 손으로 만든 네모 호수는 경계가 격자와 나란해 틈이 안 생겨 몰랐다 — 실제 파일로 본다.
+     */
+    @Test
+    @DisplayName("돌아간 선형을 다시 넣으면 지나는 호수가 없다 (실제 신갈저수지)")
+    void 돌아간_선은_다시_걸리지_않는다() {
+        WaterBodies water = new WaterBodies("../data/build/water_bodies.geojson");
+        water.load();
+        WaterDetour d = new WaterDetour(water);
+        // 신갈저수지를 남북으로 가로지른다 — 이 노선에서 4m 를 스쳤다
+        var plan = d.plan(List.of(new double[]{37.21, 127.098}, new double[]{37.27, 127.098}));
+        assertThat(plan.crossings()).singleElement()
+                .satisfies(c -> assertThat(c.detoured()).isTrue());
+
+        for (int i = 1; i < plan.points().size(); i++) {
+            assertThat(water.crossing(plan.points().get(i - 1), plan.points().get(i)))
+                    .as("구간 %d", i).isEmpty();
+        }
+        assertThat(d.plan(plan.points()).crossings()).isEmpty();
+    }
+
     @Test
     @DisplayName("선분이 호수를 지나는지 — 가로지르면 걸리고, 옆을 지나면 안 걸린다")
     void 지나는지() {

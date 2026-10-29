@@ -206,6 +206,22 @@ public class WaterDetour {
                     }
                 }
             }
+            // 경계선이 지나는 칸도 막는다. 위 스캔라인은 「칸 가운데가 물 안」 인 칸만 칠해서,
+            // 한 칸(100m)보다 가는 물줄기·뾰족한 끝은 어느 칸 가운데에도 안 걸려 통째로 빠진다 —
+            // 신갈저수지 동쪽 끝이 그랬고, 길이 그 끝을 2.5m 차이로 스쳤다
+            for (int i = 1; i < ring.length; i++) {
+                double ya = (ring[i - 1][0] - lat0) * kmLat, xa = (ring[i - 1][1] - lng0) * kmLng;
+                double yb = (ring[i][0] - lat0) * kmLat, xb = (ring[i][1] - lng0) * kmLng;
+                int steps = (int) Math.ceil(Math.hypot(xb - xa, yb - ya) / (cell / 4)) + 1;
+                for (int s = 0; s <= steps; s++) {
+                    double t = (double) s / steps;
+                    int c = (int) Math.round((xa + (xb - xa) * t - x0) / cell);
+                    int r = (int) Math.round((ya + (yb - ya) * t - y0) / cell);
+                    if (r >= 0 && r < ny && c >= 0 && c < nx) {
+                        blocked[r * nx + c] = true;
+                    }
+                }
+            }
         }
 
         /** 물 칸 둘레 한 칸을 더 막는다 — 길이 물가 모서리를 스치지 않게 */
