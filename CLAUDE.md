@@ -99,7 +99,7 @@ cd frontend && npm run dev                       # 5173
 
 ## 테스트
 
-`cd etl && python -m pytest` (260개 — 파서·측정 규칙·문서 일치·비밀값) /
+`cd etl && python -m pytest` (262개 — 파서·측정 규칙·문서 일치·비밀값) /
 `cd backend && ./mvnw test` (116개 — 계산 로직과 판정 규칙) /
 `cd frontend && npm test` (6개 — 뜻이 갈리는 화면 표기·훅 순서, `node --test` 라 의존성 없음).
 `test_docs_match_code.py` 는 **이 파일의 숫자가 코드·자료와 맞는지** 본다. 깨지면 둘 중

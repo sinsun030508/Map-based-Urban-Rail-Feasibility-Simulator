@@ -173,3 +173,37 @@ class Test테스트수:
         }
         for doc, got in docs.items():
             assert {k: int(v) for k, v in got.items()} == real, f'{doc} 의 테스트 수가 실제와 다르다'
+
+
+class Test모델식:
+    """README·engineering-notes 에 적은 비용·수요 식이 지금 모델과 같은지. 수요 계수가 10-08
+    (인구 자료를 지방까지)에 바뀌었는데 두 문서가 11-02 까지 옛 식(2.608·0.437…)이었다."""
+
+    ROOT = Path(__file__).resolve().parent.parent
+    # 클래스 본문의 컴프리헨션은 위의 ROOT 를 못 본다(파이썬 규칙) — 경로를 다시 쓴다
+    DOCS = {n: (Path(__file__).resolve().parent.parent / n).read_text(encoding='utf-8')
+            for n in ('README.md', 'docs/engineering-notes.md')}
+    NUM = r'(-?[0-9]+\.[0-9]+)'
+
+    def test_수요_식이_S6_시드와_같다(self):
+        seed = (self.ROOT / 'db/seed/S6__demand_model.sql').read_text(encoding='utf-8')
+        want = [float(re.search(r"\('demand_%s',\s*(-?[0-9.]+)" % k, seed).group(1))
+                for k in ('intercept', 'pop_elasticity', 'worker_elasticity', 'transfer_elasticity')]
+        want.append(-float(re.search(r"\('demand_cbd_slope',\s*(-?[0-9.]+)", seed).group(1)))
+        pat = (r'log\(일이용객\) = ' + self.NUM + r' \+ ' + self.NUM + r'·log\(인구\) \+ ' + self.NUM
+               + r'·log\(종사자\) \+ ' + self.NUM + r'·log\(환승노선\) − ' + self.NUM + r'·도심거리')
+        for name, text in self.DOCS.items():
+            m = re.search(pat, text)
+            assert m, f'{name} 에서 수요 식을 못 찾았다 — 문장이 바뀌었으면 정규식도 고칠 것'
+            assert [float(g) for g in m.groups()] == pytest.approx(want, abs=0.0006), f'{name} 의 수요 식이 S6 과 다르다'
+
+    def test_비용_식이_지금_적합과_같다(self):
+        _, model = C.residuals()
+        beta = dict(zip(model['names'], model['beta']))
+        want = [beta['절편'], beta['log(연장)'], beta['지하비율'], beta['log(역수)']]
+        pat = (r'log\(사업비\) = ' + self.NUM + r' \+ ' + self.NUM + r'·log\(연장\) \+ ' + self.NUM
+               + r'·지하비율 \+ ' + self.NUM + r'·log\(역수\)')
+        for name, text in self.DOCS.items():
+            m = re.search(pat, text)
+            assert m, f'{name} 에서 비용 식을 못 찾았다 — 문장이 바뀌었으면 정규식도 고칠 것'
+            assert [float(g) for g in m.groups()] == pytest.approx(want, abs=0.0006), f'{name} 의 비용 식이 모델과 다르다'
