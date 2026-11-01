@@ -134,3 +134,42 @@ class Test생성기와시드:
                 assert hasattr(mod, func), f'{cmd} 가 쓰는 {func} 가 없다'
         import sejong_brt_speed
         assert hasattr(sejong_brt_speed, 'preflight')
+
+
+class Test테스트수:
+    """CLAUDE.md·README 에 적은 테스트 수가 실제와 맞는지 — README 가 「14건」 으로 한참
+    낡아 있었다(실제 백엔드 116). 문서끼리도, 실제와도 맞아야 한다."""
+
+    ROOT = Path(__file__).resolve().parent.parent
+    README = (ROOT / 'README.md').read_text(encoding='utf-8')
+
+    def actual(self):
+        import subprocess
+        import sys
+        out = subprocess.run([sys.executable, '-m', 'pytest', '--collect-only', '-q'],
+                             cwd=self.ROOT / 'etl', capture_output=True, text=True,
+                             encoding='utf-8').stdout
+        etl = int(re.search(r'(\d+) tests? collected', out).group(1))
+        java = [p.read_text(encoding='utf-8') for p in (self.ROOT / 'backend/src/test/java').rglob('*.java')]
+        # @Test 하나가 테스트 하나다. 매개변수 테스트가 생기면 이 셈이 틀어진다 — 그때는
+        # surefire 보고서로 세도록 고칠 것
+        assert not any(re.search(r'@(ParameterizedTest|RepeatedTest|TestFactory)\b', t) for t in java), \
+            '@Test 개수로는 못 센다 — 셈 방법을 고칠 것'
+        backend = sum(len(re.findall(r'^\s*@Test\b', t, re.M)) for t in java)
+        front = sum(len(re.findall(r'^test\(', p.read_text(encoding='utf-8'), re.M))
+                    for p in (self.ROOT / 'frontend/src').rglob('*.test.js'))
+        return {'etl': etl, 'backend': backend, 'frontend': front}
+
+    def test_CLAUDE_md_와_README_의_테스트_수가_실제와_같다(self):
+        real = self.actual()
+        docs = {
+            'CLAUDE.md': {'etl': one(r'python -m pytest` \((\d+)개', 'ETL 테스트 수'),
+                          'backend': one(r'mvnw test` \((\d+)개', '백엔드 테스트 수'),
+                          'frontend': one(r'npm test` \((\d+)개', '프론트 테스트 수')},
+            'README.md': {k: re.search(pat, self.README).group(1) for k, pat in (
+                ('etl', r'python -m pytest\s+# (\d+)개'),
+                ('backend', r'mvnw test\s+# (\d+)개'),
+                ('frontend', r'npm test\s+# (\d+)개'))},
+        }
+        for doc, got in docs.items():
+            assert {k: int(v) for k, v in got.items()} == real, f'{doc} 의 테스트 수가 실제와 다르다'

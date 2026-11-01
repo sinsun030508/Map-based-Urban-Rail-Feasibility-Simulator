@@ -16,7 +16,7 @@
 이 파일은 **규칙과 값만** 짧게 유지한다. 근거와 함정은 옮겼다 — `docs/engineering-notes.md`
 (왜 그 값인가 / 무엇에 데였는가) · `docs/research-log.md` (막힌 길, **다시 찾기 전에 볼 것**)
 · `frontend/CLAUDE.md` (화면 규칙) · `docs/erd.md` (실제 스키마, `erd.png` 과 다르다).
-**숫자를 고치면 노트도 같이 고친다** — 테스트는 이 파일만 감시한다.
+**숫자를 고치면 노트도 같이 고친다** — 테스트는 이 파일(과 README 의 테스트 수)만 감시한다.
 
 ## 실행
 
@@ -99,7 +99,7 @@ cd frontend && npm run dev                       # 5173
 
 ## 테스트
 
-`cd etl && python -m pytest` (259개 — 파서·측정 규칙·문서 일치·비밀값) /
+`cd etl && python -m pytest` (260개 — 파서·측정 규칙·문서 일치·비밀값) /
 `cd backend && ./mvnw test` (116개 — 계산 로직과 판정 규칙) /
 `cd frontend && npm test` (6개 — 뜻이 갈리는 화면 표기·훅 순서, `node --test` 라 의존성 없음).
 `test_docs_match_code.py` 는 **이 파일의 숫자가 코드·자료와 맞는지** 본다. 깨지면 둘 중

@@ -74,8 +74,17 @@ docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨
 ## 테스트 
 
 ```bash
-cd backend && ./mvnw test       # 계산 로직 14건 (실행 중인 백엔드는 끄고 돌릴 것)
+cd etl && python -m pytest      # 260개 — 원자료 파서·측정 규칙·문서 일치·비밀값
+cd backend && ./mvnw test       # 116개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
+cd frontend && npm test         # 6개 — 뜻이 갈리는 화면 표기·훅 순서 (node --test, 의존성 없음)
 ```
+
+- **통과만 하는 테스트는 못이 아니다** — 규칙을 일부러 지워 보고 그 테스트만 깨지는지 확인한다
+- `etl/test_docs_match_code.py` 는 문서의 숫자가 코드·자료와 맞는지 본다 — **위의 테스트 수도**
+  (이 절이 「14건」 으로 한참 낡아 있었다)
+- `etl/test_no_secrets.py` 는 비밀값이 저장소에 올라가지 않았는지 본다 — 이 PC 의 `.env` 값까지
+- `./mvnw` 는 백엔드를 켜 둔 채거나 maven 내려받기가 끊기면 **조용히 아무것도 안 하고** 예전 보고서를
+  남긴다. 받아 둔 maven 은 `~/.m2/wrapper/dists/*/*/bin/mvn -o`
 
 ## 한계 (보고서에 명시)
 
