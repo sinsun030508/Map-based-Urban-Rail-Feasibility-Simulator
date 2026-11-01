@@ -82,6 +82,32 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  /**
+   * 점이나 구조가 바뀌면 0.6초 뒤 호수·저수지를 지나는지 묻는다(`/api/route/detour`).
+   * **지하는 서버가 우회를 제안하지 않는다** — 물 밑으로 지나면 된다. 그래서 구조를 바꾸면
+   * 다시 묻는다(지하 → 고가로 바꾸는 순간 제안이 떠야 한다).
+   * **보조 기능이라 실패해도 그리기를 막지 않는다** — 안내만 사라진다.
+   * 답이 오는 사이 점·구조가 또 바뀌었으면 그 답은 쓰지 않는다(`key` 로 맞춰 본다).
+   *
+   * **아래의 이른 `return`(로그인·관리자·시나리오 비교)보다 위에 있어야 한다.** 훅은 렌더마다
+   * 같은 개수로 불려야 하는데, 처음엔 아래에 두어 시나리오 비교·관리자·로그아웃을 누르면
+   * "Rendered fewer hooks" 로 화면이 통째로 깨졌다(`App.hooks.test.js` 가 막는다)
+   */
+  const waterKey = JSON.stringify([points, structure]);
+  useEffect(() => {
+    if (points.length < 2) {
+      setWater(null);
+      return undefined;
+    }
+    const key = waterKey;
+    const t = setTimeout(() => {
+      api.detour(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), structure)
+        .then((r) => setWater({ key, ...r }))
+        .catch(() => setWater(null));
+    }, 600);
+    return () => clearTimeout(t);
+  }, [points, structure]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!user) return <LoginPage onLogin={setUser} />;
   if (admin) {
     // 관리자가 기준값을 고쳤을 수 있다. 다시 받지 않으면 낡은 결과를 알릴 수 없다
@@ -112,27 +138,6 @@ export default function App() {
     reset();
   }
 
-  /**
-   * 점이나 구조가 바뀌면 0.6초 뒤 호수·저수지를 지나는지 묻는다(`/api/route/detour`).
-   * **지하는 서버가 우회를 제안하지 않는다** — 물 밑으로 지나면 된다. 그래서 구조를 바꾸면
-   * 다시 묻는다(지하 → 고가로 바꾸는 순간 제안이 떠야 한다).
-   * **보조 기능이라 실패해도 그리기를 막지 않는다** — 안내만 사라진다.
-   * 답이 오는 사이 점·구조가 또 바뀌었으면 그 답은 쓰지 않는다(`key` 로 맞춰 본다).
-   */
-  const waterKey = JSON.stringify([points, structure]);
-  useEffect(() => {
-    if (points.length < 2) {
-      setWater(null);
-      return undefined;
-    }
-    const key = waterKey;
-    const t = setTimeout(() => {
-      api.detour(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), structure)
-        .then((r) => setWater({ key, ...r }))
-        .catch(() => setWater(null));
-    }, 600);
-    return () => clearTimeout(t);
-  }, [points, structure]); // eslint-disable-line react-hooks/exhaustive-deps
   const waterNow = water && water.key === waterKey ? water : null;
   // 지도에 덧그릴 물 위 토막 — 패널과 같은 기준(50m 이상)으로 거른다
   const waterPieces = (waterNow?.waterKm || [])
