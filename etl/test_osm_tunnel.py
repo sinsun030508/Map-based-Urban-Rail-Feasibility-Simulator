@@ -161,3 +161,63 @@ class Test추정치_바꾸기:
                                       'underground_ratio': 0.0}])
         with pytest.raises(ValueError, match='매칭 실패'):
             etl.apply_measured_underground(self.frame(), p)
+
+
+def built(i, km0, km1, tunnel=False, building=True):
+    """`out tags geom` 모양의 선로 하나 — 공사 중이면 railway=construction"""
+    pts, tags, _ = way(i, km0, km1, tunnel=tunnel)
+    tags = dict(tags, railway='construction' if building else 'subway')
+    return {'type': 'way', 'id': i, 'tags': tags,
+            'geometry': [{'lat': a, 'lon': b} for a, b in pts]}
+
+
+class Test공사_선형:
+    """공사 중 선형은 참고값이다 — 역으로 자르지 않고 이름·상자로 모은 선로의 비율만 본다."""
+
+    def test_터널_비율과_공사_중_몫(self):
+        # 0~6km 공사 중(4km 터널), 6~10km 이미 운행
+        es = [built(1, 0, 2), built(2, 2, 6, tunnel=True), built(3, 6, 10, building=False)]
+        km, tun, share = t.measure_ways(es, 10.0)
+        assert km == pytest.approx(10.0, abs=0.02)
+        assert tun / km == pytest.approx(0.4, abs=0.005)
+        assert share == pytest.approx(0.6, abs=0.005)
+
+    def test_복선이_두_줄이어도_비율은_같다(self):
+        one = [built(1, 0, 3), built(2, 3, 7, tunnel=True)]
+        two = one + [built(3, 0, 3), built(4, 3, 7, tunnel=True)]
+        km1, tun1, _ = t.measure_ways(one, 7.0)
+        km2, tun2, _ = t.measure_ways(two, 7.0)
+        assert km2 == pytest.approx(2 * km1)
+        assert tun2 / km2 == pytest.approx(tun1 / km1)
+
+    def test_공사_선로만_세면_운행_구간을_뺀다(self):
+        # 같은 이름의 운행 선로(지상)가 상자에 걸렸다 — 신분당선·경강선이 그렇다
+        es = [built(1, 0, 4, tunnel=True), built(2, 4, 10, building=False)]
+        km, tun, share = t.measure_ways(es, 4.0, only_construction=True)
+        assert km == pytest.approx(4.0, abs=0.02)
+        assert tun / km == pytest.approx(1.0)
+        assert share == pytest.approx(1.0)
+
+    @pytest.mark.parametrize('seed_km', [30.0, 2.0])
+    def test_길이가_사업_연장과_너무_다르면_거부한다(self, seed_km):
+        # 선로 10km — 사업 30km 면 0.33배(일부만 그려졌다), 2km 면 5배(엉뚱한 선로를 집었다)
+        with pytest.raises(ValueError, match='배'):
+            t.measure_ways([built(1, 0, 10)], seed_km)
+
+    def test_맞는_선로가_없으면_거부한다(self):
+        with pytest.raises(ValueError, match='없습니다'):
+            t.measure_ways([built(1, 0, 10, building=False)], 10.0, only_construction=True)
+
+    def test_비고에만_붙고_값은_그대로다(self, tmp_path):
+        import etl
+        import pandas as pd
+        df = Test추정치_바꾸기.frame()
+        df.loc[0, 'note'] = etl.MEASURED_NOTE          # 가선은 이미 실측했다
+        p = tmp_path / 'underground_construction.csv'
+        pd.DataFrame([{'line_name': '가선', 'section_name': '가~나', 'underground_ratio': 1.0},
+                      {'line_name': '다선', 'section_name': '다~라', 'underground_ratio': 1.0}]).to_csv(p, index=False)
+        out = etl.apply_construction_reference(df, p)
+        assert list(out.underground_ratio) == [0.20, 0.70]      # 값은 그대로
+        assert out.loc[0, 'note'] == etl.MEASURED_NOTE          # 실측한 행엔 안 붙인다
+        assert '공사 선형 기준 지하 1.00 (참고' in out.loc[1, 'note']
+        assert etl.ESTIMATE_NOTE in out.loc[1, 'note']          # 추정치라는 말은 남긴다

@@ -21,9 +21,20 @@
   ③ 공사 중·계획 노선은 OSM 에 운행 노선이 없다 — 표에 넣지 않고 추정치로 남긴다
      (「못 잰다」 이지 「지상이다」 가 아니다)
 
+공사 중 선형은 **참고로만** 잰다 (2026-10-29)
+  공사 중·계획 노선 가운데 OSM 에 `railway=construction` 선로가 이름과 함께 그려진 것이 있다.
+  계획도를 보고 그렸을 수 있고 「전부 터널」 로 한꺼번에 표시했을 수도 있어 **운행 선로 실측과
+  같은 등급이 아니다** — 추정치를 바꾸지 않고(회귀에 안 씀) 비고에 참고값으로만 붙인다.
+  노선 관계가 없으니 **선로 이름 + 범위 상자**로 모으고 역으로 자르지 않는다. 복선이 두 줄로
+  그려지면 길이가 두 배가 되지만 **비율은 그대로**라 비율만 쓴다. 엉뚱한 선로를 집지 않았는지는
+  선로 길이 합이 사업 연장의 0.5~2.5배 안인지로만 본다. 어느 구간을 어느 이름·상자로 잴지는
+  `data/seed/tunnel_construction.csv` 에 사람이 적는다
+
 출력
-  data/build/underground_measured.csv   line_name, section_name, relation_id, osm_km,
-                                        seed_km, tunnel_km, underground_ratio
+  data/build/underground_measured.csv      line_name, section_name, relation_id, osm_km,
+                                           seed_km, tunnel_km, underground_ratio
+  data/build/underground_construction.csv  line_name, section_name, way_km, seed_km,
+                                           tunnel_km, underground_ratio, construction_share
 
     python etl/osm_tunnel.py
 """
@@ -34,19 +45,23 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+import zlib
 from pathlib import Path
 
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 SEED = ROOT / 'data' / 'seed' / 'tunnel_sections.csv'
+SEED_CONSTRUCTION = ROOT / 'data' / 'seed' / 'tunnel_construction.csv'
 CACHE = ROOT / 'data' / 'cache' / 'osm' / 'tunnel'
 OUT = ROOT / 'data' / 'build' / 'underground_measured.csv'
+OUT_CONSTRUCTION = ROOT / 'data' / 'build' / 'underground_construction.csv'
 
 URL = 'https://overpass-api.de/api/interpreter'
 UA = {'User-Agent': 'railfeas-student-project'}
 
 LENGTH_TOL = 0.15       # 잰 길이와 사업 연장이 이보다 더 다르면 구간을 잘못 짚은 것이다
+WAY_SPAN = (0.5, 2.5)   # 공사 선로 길이 합 ÷ 사업 연장 — 복선이 두 줄이면 2배까지 나온다
 MAX_GAP_KM = 0.5        # 관계의 조각이 이보다 많이 끊겨 있으면 재지 않는다
 JOIN_KM = 0.05          # 조각 끝이 이만큼 안이면 이어진 것으로 본다
 
@@ -169,6 +184,58 @@ def measure_section(d, from_stop, to_stop, seed_km):
     return km, tun
 
 
+def measure_ways(elements, seed_km, only_construction=False):
+    """이름·상자로 모은 선로들(`out tags geom`) → (선로 길이 합, 터널 길이, 공사 중 몫).
+
+    역으로 자르지 않는다 — 공사 선로에는 노선 관계가 없다. 길이 합이 사업 연장의
+    `WAY_SPAN` 밖이면 엉뚱한 선로를 집은 것이라 ValueError.
+    """
+    km = tun = con = 0.0
+    for e in elements:
+        if e.get('type') != 'way':
+            continue
+        tags = e.get('tags', {})
+        building = tags.get('railway') == 'construction'
+        if only_construction and not building:
+            continue
+        g = [(p['lat'], p['lon']) for p in e.get('geometry', [])]
+        L = sum(hav(g[i - 1], g[i]) for i in range(1, len(g)))
+        km += L
+        tun += L if is_tunnel(tags) else 0.0
+        con += L if building else 0.0
+    if km == 0:
+        raise ValueError('이름이 맞는 선로가 없습니다')
+    lo, hi = WAY_SPAN
+    if seed_km and not lo <= km / seed_km <= hi:
+        raise ValueError('선로 길이 합 %.1fkm 가 사업 연장 %.1fkm 의 %.1f배 — %.1f~%.1f배 밖'
+                         % (km, seed_km, km / seed_km, lo, hi))
+    return km, tun, con / km
+
+
+def ways_by_name(name, box):
+    """이름(정규식)이 맞는 선로 — 상자는 (남, 서, 북, 동). 질의마다 캐시한다."""
+    key = '%s_%s' % (name, '_'.join('%g' % v for v in box))
+    path = CACHE / ('ways_%08x.json' % (hash_text(key)))
+    if not path.exists():
+        CACHE.mkdir(parents=True, exist_ok=True)
+        d = ask('[out:json][timeout:120];way["railway"]["name"~"^(%s)$"](%g,%g,%g,%g);out tags geom;'
+                % ((name,) + tuple(box)))
+        path.write_text(json.dumps(d, ensure_ascii=False), encoding='utf-8')
+    return json.loads(path.read_text(encoding='utf-8'))['elements']
+
+
+def hash_text(s):
+    """캐시 파일 이름 — 파이썬 `hash()` 는 실행마다 바뀌어 캐시가 안 맞는다"""
+    return zlib.crc32(s.encode('utf-8'))
+
+
+def reference_lengths():
+    """사업 연장 — `reference_line.csv`(지난 ETL 결과). GTX 처럼 metro_seed 밖 행도 있다."""
+    path = ROOT / 'data' / 'build' / 'reference_line.csv'
+    m = pd.read_csv(path)
+    return {(r.line_name, r.section_name): r.length_km for r in m.itertuples()}
+
+
 def seed_lengths():
     """사업 연장 — metro_seed 는 직접, rail_station_seed 는 연장이 없어 None(길이 검사 생략)."""
     m = pd.read_csv(ROOT / 'data' / 'seed' / 'metro_seed.csv')
@@ -199,6 +266,36 @@ def main():
     print('-> %s  %d건' % (OUT, len(out)))
     if rejected:
         print('**거부 %d건 — 추정치로 남는다**' % len(rejected))
+        for line in rejected:
+            print('  ' + line)
+    construction()
+
+
+def construction():
+    """공사 중 선형 — 참고값. 추정치를 바꾸지 않는다(etl.py 가 비고에만 붙인다)."""
+    plan = pd.read_csv(SEED_CONSTRUCTION)
+    lengths = reference_lengths()
+    rows, rejected = [], []
+    print('')
+    for r in plan.itertuples():
+        seed_km = lengths.get((r.line_name, r.section_name))
+        box = (r.south, r.west, r.north, r.east)
+        try:
+            km, tun, share = measure_ways(ways_by_name(r.way_name, box), seed_km,
+                                          only_construction=bool(r.only_construction))
+        except ValueError as ex:
+            rejected.append('%s %s — %s' % (r.line_name, r.section_name, ex))
+            continue
+        rows.append({'line_name': r.line_name, 'section_name': r.section_name,
+                     'way_km': round(km, 2), 'seed_km': seed_km, 'tunnel_km': round(tun, 2),
+                     'underground_ratio': round(tun / km, 2),
+                     'construction_share': round(share, 2)})
+        print('%-28s %-20s 선로 %6.1fkm  지하 %.2f  (공사 중 %.0f%%)'
+              % (r.line_name, r.section_name, km, tun / km, share * 100))
+    pd.DataFrame(rows).to_csv(OUT_CONSTRUCTION, index=False, encoding='utf-8')
+    print('-> %s  %d건 (참고 — 회귀에 안 씀)' % (OUT_CONSTRUCTION, len(rows)))
+    if rejected:
+        print('**공사 선형 거부 %d건**' % len(rejected))
         for line in rejected:
             print('  ' + line)
 

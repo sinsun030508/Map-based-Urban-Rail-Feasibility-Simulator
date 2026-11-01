@@ -636,6 +636,28 @@ def apply_measured_underground(df, path):
     return df
 
 
+def apply_construction_reference(df, path):
+    """OSM 공사 중 선형의 지하비율 — **참고값**이라 값을 바꾸지 않고 비고에만 붙인다.
+
+    공사 선로는 계획도를 보고 그렸을 수 있고 「전부 터널」 로 한꺼번에 표시했을 수도 있어
+    운행 선로 실측과 같은 등급이 아니다(회귀에 쓰지 않는다). 이미 실측한 행에는 붙이지 않는다.
+    """
+    if not path.exists():
+        return df
+    for _, r in pd.read_csv(path).iterrows():
+        mask = ((df['line_name'] == clean_text(r['line_name']))
+                & (df['section_name'] == clean_text(r['section_name'])))
+        if mask.sum() != 1:
+            raise ValueError(f"공사 선형 매칭 실패: {r['line_name']} {r['section_name']}")
+        old = df.loc[mask, 'note'].iloc[0]
+        old = old if isinstance(old, str) else ''
+        if MEASURED_NOTE in old:
+            continue
+        ref = f"OSM 공사 선형 기준 지하 {float(r['underground_ratio']):.2f} (참고 — 회귀에 안 씀)"
+        df.loc[mask, 'note'] = f'{old} / {ref}' if old else ref
+    return df
+
+
 def flag_known_outliers(df):
     for (name, section), reason in KNOWN_OUTLIERS.items():
         mask = (df['line_name'] == name) & (df['section_name'] == section)
@@ -728,6 +750,7 @@ def build():
     df = drop_same_projects(df)
     df = fill_station_counts(df, SEED / 'rail_station_seed.csv')
     df = apply_measured_underground(df, BUILD / 'underground_measured.csv')
+    df = apply_construction_reference(df, BUILD / 'underground_construction.csv')
     # 역수가 채워졌으니 역수에 딸린 파생값을 다시 계산한다
     df['avg_spacing_km'] = (df['length_km'] / df['station_count']).round(3)
     df['data_grade'] = df.apply(grade, axis=1)
