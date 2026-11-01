@@ -71,7 +71,7 @@ python etl/seoul_congestion.py  # 단면 환산계수
 docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨을 비워야 다시 적재된다
 ```
 
-## 테스트
+## 테스트 
 
 ```bash
 cd backend && ./mvnw test       # 계산 로직 14건 (실행 중인 백엔드는 끄고 돌릴 것)
