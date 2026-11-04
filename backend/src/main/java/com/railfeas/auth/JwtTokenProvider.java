@@ -9,7 +9,6 @@ import javax.crypto.SecretKey;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
-import com.railfeas.user.Role;
 import com.railfeas.user.User;
 
 @Component
@@ -49,12 +48,15 @@ public class JwtTokenProvider {
         return bytes;
     }
 
+    /**
+     * 권한(`role`)은 싣지 않는다 — 필터가 매 요청 DB 에서 읽는다. 실어 두면 그 값을 믿는 코드가
+     * 다시 생기고, 강등·삭제가 토큰 만료까지 늦게 먹는다 (`JwtAuthenticationFilter`)
+     */
     public String createToken(User user) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(String.valueOf(user.getId()))
                 .claim("email", user.getEmail())
-                .claim("role", user.getRole().name())
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + expiryMillis))
                 .signWith(key)
@@ -69,10 +71,6 @@ public class JwtTokenProvider {
         } catch (JwtException | IllegalArgumentException e) {
             return null;
         }
-    }
-
-    public Role role(Claims claims) {
-        return Role.valueOf(claims.get("role", String.class));
     }
 
     public Long userId(Claims claims) {

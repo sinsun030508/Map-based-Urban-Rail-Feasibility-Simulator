@@ -85,6 +85,12 @@
 **스키마는 JPA가 만들지 않는다.** `ddl-auto=validate` 고정, `db/schema/*.sql`이 만든다.
 인증은 JWT (`@AuthenticationPrincipal Long userId`). 소셜은 `/oauth2/authorization/{google|kakao}`
 → 성공 시 `OAUTH2_REDIRECT_URI`에 `?token=` 붙여 리다이렉트.
+- **토큰은 「누구인지」 만 싣는다 — 권한은 매 요청 DB 에서 읽는다**(`JwtAuthenticationFilter`).
+  전에는 토큰의 `role` 을 믿어, 관리자를 일반 사용자로 내려도 옛 토큰으로 **720분 동안 관리자 API 가
+  열려 있었고**(점검에서 200), 지운 계정의 토큰도 로그인된 것으로 통했다. 지금은 403 · 401 이다
+  (2026-11-04 서버 권한 점검 — 남의 시나리오 조회·수정·계산·삭제는 전부터 404, 일반 사용자의
+  관리자 API 는 403 이었다). 화면의 「기준값 관리」 버튼은 로그인 응답의 role 을 따르므로 강등된
+  사람에게는 다시 로그인할 때까지 보이지만, 눌러도 서버가 403 으로 막는다
 
 ---
 
