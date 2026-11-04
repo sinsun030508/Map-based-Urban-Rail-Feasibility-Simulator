@@ -103,6 +103,13 @@ public class AdminController {
         return ParameterResponse.of(parameter);
     }
 
+    /**
+     * 역간격의 하한(km). **판단값이다** — 10량 전동차 한 편성이 약 200m 라 그보다 가까운 역은 있을
+     * 수 없다. 0·음수면 역 수가 조용히 「종점 2개」 로 바뀌고, 0.0001 처럼 아주 작으면 10km 에 역이
+     * 10만 개 생겨 계산 한 번이 몇 분이다(11-04 — 그때까지 수단 기준값에는 검사가 없었다)
+     */
+    static final BigDecimal MIN_SPACING_KM = new BigDecimal("0.2");
+
     @GetMapping("/modes")
     public List<ModeResponse> modes() {
         return modes.findAll().stream().map(ModeResponse::of).toList();
@@ -115,6 +122,23 @@ public class AdminController {
         ModeCapacity mode = modes.findById(modeType)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                         modeType + " 수단이 없습니다"));
+        // 비우는 것(NULL)은 된다 — 근거가 없으면 비워 두는 것이 정상이다(S1 주석)
+        if (request.spacingKm() != null && request.spacingKm().compareTo(MIN_SPACING_KM) < 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "역간격은 " + MIN_SPACING_KM + "km 이상이어야 합니다 — 열차 한 편성(약 200m)보다 가까운 역은 없습니다");
+        }
+        if (request.speedKmh() != null && request.speedKmh().signum() <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "표정속도는 0 보다 커야 합니다");
+        }
+        if (request.maxLengthKm() != null && request.maxLengthKm().signum() <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "권장 연장은 0 보다 커야 합니다 — 상한이 없으면 비워 두세요");
+        }
+        if (request.pphpdMin() != null && request.pphpdMin() < 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "수요 하한은 음수일 수 없습니다");
+        }
+        if (request.pphpdMax() != null && request.pphpdMax() < 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "수송능력 상한은 음수일 수 없습니다");
+        }
         if (request.pphpdMin() != null && request.pphpdMax() != null
                 && request.pphpdMin() > request.pphpdMax()) {
             throw new ApiException(HttpStatus.BAD_REQUEST,

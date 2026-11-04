@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.railfeas.common.ApiException;
+import com.railfeas.common.ModeType;
+import com.railfeas.reference.ModeCapacity;
+import com.railfeas.reference.ModeCapacityRepository;
 import com.railfeas.reference.BenefitParameter;
 import com.railfeas.reference.BenefitParameterRepository;
 import java.lang.reflect.Constructor;
@@ -76,5 +79,68 @@ class AdminControllerTest {
     void 양수는_된다() {
         var saved = controller("avg_trip_km", 13.6).updateParameter("avg_trip_km", request(12.0));
         assertThat(saved.value()).isEqualByComparingTo("12");
+    }
+
+    // ── 수단 기준값 ─────────────────────────────────────────────────────────────
+    // 역간격이 0·음수면 역 수가 조용히 「종점 2개」 로 바뀌고, 0.0001 처럼 아주 작으면 10km 에 역이
+    // 10만 개 생겨 계산 한 번이 몇 분이다(11-04 관리자 검증 점검 — 그때까지 아무 검사도 없었다)
+
+    private static AdminController modeController() {
+        ModeCapacityRepository repo = Mockito.mock(ModeCapacityRepository.class);
+        try {
+            Constructor<ModeCapacity> c = ModeCapacity.class.getDeclaredConstructor();
+            c.setAccessible(true);
+            ModeCapacity m = c.newInstance();
+            Field f = ModeCapacity.class.getDeclaredField("modeType");
+            f.setAccessible(true);
+            f.set(m, ModeType.HEAVY_METRO);
+            Mockito.when(repo.findById(ModeType.HEAVY_METRO)).thenReturn(Optional.of(m));
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+        return new AdminController(null, repo);
+    }
+
+    private static AdminController.ModeRequest mode(Integer min, Integer max, Double spacing,
+                                                    Double speed, Double maxLength) {
+        return new AdminController.ModeRequest(min, max,
+                spacing == null ? null : BigDecimal.valueOf(spacing),
+                speed == null ? null : BigDecimal.valueOf(speed),
+                maxLength == null ? null : BigDecimal.valueOf(maxLength), "테스트");
+    }
+
+    @Test
+    @DisplayName("역간격은 열차 한 편성 길이(0.2km)보다 짧을 수 없다")
+    void 역간격_하한() {
+        for (double bad : new double[]{0, -1, 0.1, 0.0001}) {
+            assertThatThrownBy(() -> modeController().updateMode(ModeType.HEAVY_METRO,
+                    mode(20000, 80000, bad, 32.4, 60.2)))
+                    .as("역간격 %s", bad)
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining("역간격");
+        }
+        var saved = modeController().updateMode(ModeType.HEAVY_METRO, mode(20000, 80000, 0.2, 32.4, 60.2));
+        assertThat(saved.spacingKm()).isEqualByComparingTo("0.2");
+    }
+
+    @Test
+    @DisplayName("표정속도·권장 연장은 0 보다 크고, 수송능력은 음수일 수 없다")
+    void 수단_값의_범위() {
+        assertThatThrownBy(() -> modeController().updateMode(ModeType.HEAVY_METRO,
+                mode(20000, 80000, 1.06, 0.0, 60.2))).hasMessageContaining("표정속도");
+        assertThatThrownBy(() -> modeController().updateMode(ModeType.HEAVY_METRO,
+                mode(20000, 80000, 1.06, 32.4, -5.0))).hasMessageContaining("권장 연장");
+        assertThatThrownBy(() -> modeController().updateMode(ModeType.HEAVY_METRO,
+                mode(-1, 80000, 1.06, 32.4, 60.2))).hasMessageContaining("수요 하한");
+        assertThatThrownBy(() -> modeController().updateMode(ModeType.HEAVY_METRO,
+                mode(null, -1, 1.06, 32.4, 60.2))).hasMessageContaining("수송능력");
+    }
+
+    @Test
+    @DisplayName("비우는 것(NULL)은 그대로 된다 — 근거가 없으면 비워 두는 것이 정상이다")
+    void 비우기는_된다() {
+        var saved = modeController().updateMode(ModeType.HEAVY_METRO, mode(null, null, null, null, null));
+        assertThat(saved.spacingKm()).isNull();
+        assertThat(saved.maxLengthKm()).isNull();
     }
 }
