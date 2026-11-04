@@ -27,6 +27,21 @@ def test_노선별_범위(ratios):
     assert round(max(lines.values()), 4) == 0.1089      # 과천선
 
 
+def test_2025_판은_열두_달이_시트마다_있다():
+    months = K.network_by_month_2025()
+    assert list(months) == list(range(1, 13))
+    clean = [months[m] for m in K.NO_HOLIDAY_2025]
+    assert round(sum(clean) / len(clean), 4) == 0.0952
+
+
+def test_평일_공휴일이_낀_달은_첨두가_낮다():
+    # 9월 판(추석)의 0.0912 를 처음엔 그대로 서울과 견줬다 — 공휴일 없는 달끼리 견줘야 한다
+    months = K.network_by_month_2025()
+    clean = [months[m] for m in K.NO_HOLIDAY_2025]
+    holiday = [r for m, r in months.items() if m not in K.NO_HOLIDAY_2025]
+    assert min(clean) > sum(holiday) / len(holiday)
+
+
 def test_묶음칸은_첨두가_될_수_없다():
     # 「06시 이전」 이 몇 시간 치를 담아도 1시간 첨두로 뽑히면 안 된다
     hours = ['06시 이전', '07시', '24시 이후']

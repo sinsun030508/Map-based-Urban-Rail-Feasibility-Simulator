@@ -403,7 +403,7 @@ n=1~2 는 말할 것도 없다. `python cost_model.py --candidates` 가 후보 �
 | 계수 | 값 | 근거 |
 |---|---|---|
 | `weekday_factor` | 1.1041 | 평일 일수요 ÷ 전체 평균 (주말이 평일의 68.6%) |
-| `peak_hour_ratio` | 0.1159 | 평일 첨두 1시간 비중 (주말은 0.0834). 광역철도는 월 기준 서울의 0.92배 — 안 바꿨다(research-log) |
+| `peak_hour_ratio` | 0.1159 | 평일 첨두 1시간 비중 (주말은 0.0834). 광역철도는 공휴일 없는 달 월 기준 서울의 0.96배 — 안 바꿨다(research-log) |
 | `peak_direction_coef` | 10.06 | K = 이 값 ÷ 연장km (아래) |
 | `peak_direction_max` | 0.395 | K 의 상한 = 0.5 × 0.79(방향 쏠림 실측) |
 
