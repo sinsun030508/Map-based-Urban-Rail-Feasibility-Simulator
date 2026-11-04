@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, getUser, clearSession, SESSION_EXPIRED, SESSION_EXPIRED_MESSAGE } from './api/client';
 import AdminPage from './admin/AdminPage';
 import LoginPage from './auth/LoginPage';
@@ -14,6 +14,8 @@ export default function App() {
   const [user, setUser] = useState(getUser);
   // 세션이 끊겨 로그인 화면으로 내려왔는가 — 아래 SESSION_EXPIRED 참고
   const [expired, setExpired] = useState(false);
+  // 마지막으로 로그인해 있던 사람 — 다시 로그인한 사람이 다르면 앞 사람의 작업을 비운다(onLogin)
+  const lastUserId = useRef(user?.userId ?? null);
   const [points, setPoints] = useState([]);
   const [title, setTitle] = useState('');
   const [structure, setStructure] = useState('UNDERGROUND');
@@ -117,11 +119,25 @@ export default function App() {
     return (
       <LoginPage
         notice={expired ? SESSION_EXPIRED_MESSAGE : null}
-        onLogin={(session) => { setExpired(false); setUser(session); }}
+        onLogin={(session) => {
+          // **같은 사람이면 하던 작업을 그대로 둔다** — 만료로 튕긴 뒤 다시 들어오면 그리던 노선이
+          // 남아 있어야 한다. **다른 사람이면 비운다** — 앞 사람이 고치던 시나리오 번호가 남아
+          // 「수정 저장」 이 남의 시나리오로 가고, 그리던 노선·비교 화면도 남의 것이다
+          if (session.userId !== lastUserId.current) {
+            clearAll();
+            setCompare(false);
+            setAdmin(false);
+          }
+          lastUserId.current = session.userId;
+          setExpired(false);
+          setUser(session);
+        }}
       />
     );
   }
-  if (admin) {
+  // **권한을 본다.** 관리자 화면에서 세션이 끊기면 `admin` 이 켜진 채 남아, 그 자리에서 일반
+  // 사용자가 로그인하면 관리자 화면이 그려졌다(서버가 요청은 막지만 화면이 보였다)
+  if (admin && user.role === 'ADMIN') {
     // 관리자가 기준값을 고쳤을 수 있다. 다시 받지 않으면 낡은 결과를 알릴 수 없다
     return <AdminPage onClose={() => { setAdmin(false); refreshReference(); }} />;
   }
