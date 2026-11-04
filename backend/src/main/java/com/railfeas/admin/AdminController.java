@@ -12,7 +12,7 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -83,11 +83,59 @@ public class AdminController {
     }
 
     /**
-     * 0 이하가 되면 계산이 **조용히** 망가지는 값. 평균 통행거리가 0 이면 모든 편익이 0 이고,
-     * 기준 속도가 0 이면 0 으로 나눈다 — 화면에는 오류 없이 B/C 0.00 만 줄지어 찍힌다.
-     * 운영비 비율처럼 0 이 정상인 값도 있어 모든 원단위에 걸지 않는다.
+     * 원단위의 허용 범위. 범위를 넘으면 계산이 **조용히 망가지거나 끝나지 않는다.**
+     *
+     * - 0 이하가 되면 망가지는 값 — 평균 통행거리가 0 이면 모든 편익이 0 이고, 기준 속도가 0 이면
+     *   0 으로 나눈다. 화면에는 오류 없이 B/C 0.00 만 줄지어 찍힌다
+     * - **기간은 반복 횟수다** — 편익을 해마다 할인해 더하므로 10억 년이면 계산이 끝나지 않는다.
+     *   상한(분석 100년·공사 20년)은 판단값이다(지침은 철도 40년·공사 5년 원칙)
+     * - 할인율이 음수거나 100% 이상이면 할인이 뜻을 잃는다. 비율은 1 을 넘을 수 없다
+     * - **수요 회귀 계수(`demand_*`)는 범위를 두지 않는다** — 절편·기울기는 음수가 정상이다.
+     *   운영비 비율처럼 0 이 정상인 값도 있어 일괄 양수를 강요하지 않는다
      */
-    static final Set<String> POSITIVE = Set.of("avg_trip_km", "baseline_speed_kmh");
+    record Range(BigDecimal min, boolean minOpen, BigDecimal max, boolean maxOpen) {
+
+        static Range positive() {
+            return new Range(BigDecimal.ZERO, true, null, false);
+        }
+
+        static Range of(String min, boolean minOpen, String max, boolean maxOpen) {
+            return new Range(new BigDecimal(min), minOpen, new BigDecimal(max), maxOpen);
+        }
+
+        boolean contains(BigDecimal v) {
+            int lo = v.compareTo(min);
+            if (lo < 0 || (minOpen && lo == 0)) {
+                return false;
+            }
+            if (max == null) {
+                return true;
+            }
+            int hi = v.compareTo(max);
+            return hi < 0 || (!maxOpen && hi == 0);
+        }
+
+        @Override
+        public String toString() {
+            return (minOpen ? min + " 초과" : min + " 이상")
+                    + (max == null ? "" : (maxOpen ? " " + max + " 미만" : " " + max + " 이하"));
+        }
+    }
+
+    static final Map<String, Range> RANGES = Map.ofEntries(
+            Map.entry("avg_trip_km", Range.positive()),
+            Map.entry("baseline_speed_kmh", Range.positive()),
+            Map.entry("time_value_won_per_hour", Range.positive()),
+            Map.entry("weekday_factor", Range.positive()),
+            Map.entry("peak_direction_coef", Range.positive()),
+            Map.entry("analysis_years", Range.of("1", false, "100", false)),
+            Map.entry("construction_years", Range.of("1", false, "20", false)),
+            Map.entry("discount_switch_year", Range.of("0", false, "100", false)),
+            Map.entry("discount_rate", Range.of("0", false, "1", true)),
+            Map.entry("discount_rate_late", Range.of("0", false, "1", true)),
+            Map.entry("operating_cost_ratio", Range.of("0", false, "1", true)),
+            Map.entry("peak_hour_ratio", Range.of("0", true, "1", false)),
+            Map.entry("peak_direction_max", Range.of("0", true, "1", false)));
 
     @PutMapping("/parameters/{name}")
     @Transactional
@@ -96,8 +144,9 @@ public class AdminController {
         BenefitParameter parameter = parameters.findByParamName(name)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                         name + " 기준값이 없습니다"));
-        if (POSITIVE.contains(name) && request.value().signum() <= 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, name + " 은 0 보다 커야 합니다");
+        Range range = RANGES.get(name);
+        if (range != null && !range.contains(request.value())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, name + " 은 " + range + " 이어야 합니다");
         }
         parameter.changeValue(request.value(), request.source());
         return ParameterResponse.of(parameter);

@@ -81,6 +81,57 @@ class AdminControllerTest {
         assertThat(saved.value()).isEqualByComparingTo("12");
     }
 
+    /**
+     * 반복문이 분석·공사 기간만큼 돈다 — 10억 년을 넣으면 계산이 끝나지 않는다. 할인율이 음수거나
+     * 100% 이상이면 할인이 뜻을 잃고, 비율이 1 을 넘을 수는 없다(11-04 — 둘만 막고 있었다)
+     */
+    @Test
+    @DisplayName("원단위마다 허용 범위가 있다 — 기간·할인율·비율")
+    void 원단위_범위() {
+        String[][] bad = {
+                {"analysis_years", "1000000000"}, {"analysis_years", "0"}, {"analysis_years", "101"},
+                {"construction_years", "0"}, {"construction_years", "21"},
+                {"discount_rate", "-0.01"}, {"discount_rate", "1"}, {"discount_rate_late", "1.5"},
+                {"peak_hour_ratio", "0"}, {"peak_hour_ratio", "1.2"},
+                {"operating_cost_ratio", "1"}, {"time_value_won_per_hour", "0"},
+        };
+        for (String[] c : bad) {
+            assertThatThrownBy(() -> controller(c[0], 1).updateParameter(c[0], request(Double.parseDouble(c[1]))))
+                    .as("%s = %s", c[0], c[1])
+                    .isInstanceOf(ApiException.class)
+                    .hasMessageContaining(c[0]);
+        }
+        assertThat(controller("analysis_years", 40).updateParameter("analysis_years", request(100)).value())
+                .isEqualByComparingTo("100");
+        assertThat(controller("discount_rate", 0.045).updateParameter("discount_rate", request(0)).value())
+                .isEqualByComparingTo("0");
+    }
+
+    /** 범위 표의 이름이 틀리면 그 범위는 **조용히** 안 걸린다 — 시드와 맞춰 본다 */
+    @Test
+    @DisplayName("범위 표의 이름은 모두 시드에 있고, 시드 값은 모두 범위 안이다")
+    void 범위표와_시드() throws Exception {
+        var seed = new java.util.HashMap<String, BigDecimal>();
+        var row = java.util.regex.Pattern.compile("\\('([a-z_]+)',\\s*(-?[0-9.]+)\\s*,");
+        var m = row.matcher(java.nio.file.Files.readString(
+                java.nio.file.Path.of("../db/seed/S7__benefit_parameter.sql")));
+        while (m.find()) {
+            seed.put(m.group(1), new BigDecimal(m.group(2)));
+        }
+        // 정규식이 행을 놓치면 아래가 빈 채로 통과한다. S7 은 13행이다(수요 계수 6개는 S6 에서 온다)
+        assertThat(seed).hasSizeGreaterThanOrEqualTo(AdminController.RANGES.size());
+        assertThat(seed.keySet()).containsAll(AdminController.RANGES.keySet());
+        AdminController.RANGES.forEach((name, range) ->
+                assertThat(range.contains(seed.get(name))).as("%s = %s", name, seed.get(name)).isTrue());
+    }
+
+    @Test
+    @DisplayName("수요 회귀 계수는 음수도 된다 — 범위를 두지 않는다")
+    void 회귀_계수는_자유() {
+        assertThat(controller("demand_intercept", 2.79).updateParameter("demand_intercept", request(-5)).value())
+                .isEqualByComparingTo("-5");
+    }
+
     // ── 수단 기준값 ─────────────────────────────────────────────────────────────
     // 역간격이 0·음수면 역 수가 조용히 「종점 2개」 로 바뀌고, 0.0001 처럼 아주 작으면 10km 에 역이
     // 10만 개 생겨 계산 한 번이 몇 분이다(11-04 관리자 검증 점검 — 그때까지 아무 검사도 없었다)
