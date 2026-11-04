@@ -1,6 +1,8 @@
 package com.railfeas.common;
 
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -35,9 +37,24 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> handle(MethodArgumentNotValidException e) {
         String message = e.getBindingResult().getFieldErrors().stream()
                 .findFirst()
-                .map(f -> FIELD_NAMES.getOrDefault(f.getField(), f.getField())
-                        + " — " + f.getDefaultMessage())
+                .map(f -> message(f.getField(), f.getDefaultMessage()))
                 .orElse("잘못된 요청입니다");
         return ResponseEntity.badRequest().body(Map.of("message", message));
+    }
+
+    /** 지점 목록 안의 좌표 — `points[1].latitude` */
+    private static final Pattern POINT_COORD = Pattern.compile("points\\[(\\d+)]\\.(latitude|longitude)");
+
+    /**
+     * 화면에 띄울 한 줄. **목록 안의 좌표는 몇 번째 지점인지로 말한다** — 필드 이름 표는 `points` 만
+     * 알아서, 바다를 잘못 누르면 「points[1].latitude — 다음 값 이상이어야 합니다 33.0」 이 떴다.
+     * 범위는 `ScenarioDto.PointRequest` 의 검증과 같다
+     */
+    static String message(String field, String defaultMessage) {
+        Matcher m = POINT_COORD.matcher(field);
+        if (m.matches()) {
+            return (Integer.parseInt(m.group(1)) + 1) + "번째 지점이 한반도 밖입니다 (위도 33~39°, 경도 124~132°)";
+        }
+        return FIELD_NAMES.getOrDefault(field, field) + " — " + defaultMessage;
     }
 }

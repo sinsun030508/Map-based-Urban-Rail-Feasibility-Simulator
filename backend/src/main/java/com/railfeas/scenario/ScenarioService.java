@@ -51,10 +51,22 @@ public class ScenarioService {
         this.entityManager = entityManager;
     }
 
+    /**
+     * 그린 노선 전체 길이의 상한. **판단값이다** — 국내 최장 철도인 경부선(441.7km)을 경유점으로
+     * 꺾어 그려도 그 두 배를 넘기 어렵고, 지금 가장 긴 시나리오는 서울~부산 349.6km 다.
+     *
+     * **왜 두나.** 점 개수(50)와 좌표 범위는 막혀 있었지만 길이는 아니었다. 점 50개로 전국을
+     * 지그재그로 그리니 18,528km 가 저장됐고, 계산 한 번에 137.8초 · 응답 14MB · 정차역 11만
+     * 7천 개가 DB 에 들어갔다(11-04 부하 점검). 계산 시간은 길이에 거의 비례해 1,000km 면 7초 안팎이다
+     */
+    static final double MAX_ROUTE_KM = 1_000;
+
     /** 수단×구조별 건설비를 계산해 저장한다. 수요·B/C 는 SGIS 연동 후에 채운다. */
     @Transactional
     public ScenarioDto.DetailResponse calculate(Long userId, Long scenarioId) {
         Scenario scenario = loadOwned(userId, scenarioId);
+        // 저장할 때도 막지만, 상한을 두기 전에 저장된 노선이 계산으로 들어오는 것까지 막는다
+        requireDrawable(scenario.getTotalLengthKm().doubleValue());
         List<CostStandard> active = standards.findByActiveTrue();
         if (active.isEmpty()) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
@@ -76,13 +88,14 @@ public class ScenarioService {
     public ScenarioDto.DetailResponse create(Long userId, ScenarioDto.SaveRequest request) {
         User user = users.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "사용자를 찾을 수 없습니다"));
+        BigDecimal length = lengthOf(request.points());
         Scenario scenario = Scenario.builder()
                 .user(user)
                 .title(request.title())
-                .totalLengthKm(lengthOf(request.points()))
+                .totalLengthKm(length)
                 .preferredStructure(request.preferredStructure())
                 .build();
-        scenario.replacePoints(toPoints(request.points()), lengthOf(request.points()));
+        scenario.replacePoints(toPoints(request.points()), length);
         Scenario saved = scenarios.save(scenario);
         // created_at/updated_at 은 DB DEFAULT 로 채워져 insert 직후 엔티티엔 반영되지 않는다 — refresh 로 읽어온다
         entityManager.refresh(saved);
@@ -106,12 +119,13 @@ public class ScenarioService {
     public ScenarioDto.DetailResponse update(Long userId, Long scenarioId,
                                              ScenarioDto.SaveRequest request) {
         Scenario scenario = loadOwned(userId, scenarioId);
+        BigDecimal length = lengthOf(request.points());     // 지우기 전에 잰다 — 넘으면 아무것도 안 바뀐다
         scenario.rename(request.title());
         scenario.changeStructure(request.preferredStructure());
         // 옛 점 DELETE 를 새 점 INSERT 보다 먼저 내보낸다 — calculate 와 같은 이유
         scenario.clearPoints();
         entityManager.flush();
-        scenario.replacePoints(toPoints(request.points()), lengthOf(request.points()));
+        scenario.replacePoints(toPoints(request.points()), length);
         return ScenarioDto.DetailResponse.of(scenario, existingOption(scenario));
     }
 
@@ -169,10 +183,21 @@ public class ScenarioService {
         return points;
     }
 
-    private BigDecimal lengthOf(List<ScenarioDto.PointRequest> requests) {
+    /** 그린 길이(km). {@link #MAX_ROUTE_KM} 를 넘으면 400 이다 */
+    static BigDecimal lengthOf(List<ScenarioDto.PointRequest> requests) {
         List<double[]> coords = requests.stream()
                 .map(p -> new double[]{p.latitude().doubleValue(), p.longitude().doubleValue()})
                 .toList();
-        return BigDecimal.valueOf(Haversine.totalLengthKm(coords)).setScale(3, RoundingMode.HALF_UP);
+        double km = Haversine.totalLengthKm(coords);
+        requireDrawable(km);
+        return BigDecimal.valueOf(km).setScale(3, RoundingMode.HALF_UP);
+    }
+
+    private static void requireDrawable(double km) {
+        if (km > MAX_ROUTE_KM) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, String.format(
+                    "노선이 %,.0fkm 로 너무 깁니다 — %,.0fkm 까지 계산합니다(국내 최장 철도 경부선 441.7km)",
+                    km, MAX_ROUTE_KM));
+        }
     }
 }
