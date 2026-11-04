@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
  * 잇는 KTX 가 이미 있다는 말을 못 했다.
  *
  * 판정은 셋을 모두 만족해야 한다
- *   ① 노선이 도시철도 수단의 권장 연장(`max_length_km` 최댓값)보다 길다
+ *   ① 노선이 {@value #MIN_ROUTE_KM}km 보다 길다
  *   ② 같은 KTX 노선의 역 a 가 출발에서, b 가 도착에서 {@value #ACCESS_KM}km 안이다
  *   ③ a~b 거리가 출발~도착 직선거리의 {@value #MIN_SPAN_RATIO} 배 이상이다
  * ③이 없으면 양 끝이 같은 역 근처이거나 KTX 가 엉뚱한 방향으로 가도 걸린다.
@@ -42,6 +42,18 @@ public class IntercityRailFinder {
     private static final Logger log = LoggerFactory.getLogger(IntercityRailFinder.class);
 
     static final double ACCESS_KM = 20.0;
+    /**
+     * 이보다 짧은 노선은 KTX 를 찾지 않는다 — 시내 노선이면 반경 {@value #ACCESS_KM}km 안에
+     * KTX 역이 걸리기 쉬워 "서울역~광명역 KTX 를 타라" 같은 안내가 나온다.
+     *
+     * **판단값이다.** 전에는 도시철도 권장 연장의 최댓값(`max_length_km`, 그때 지하철 35km)을
+     * 그대로 썼는데, 권장 연장을 운영 노선 최장 연장(지하철 60.2km)으로 바꾸면서 떼어 냈다.
+     * 묶어 두면 KTX 판정이 60km 부터 시작해, 같은 KTX 노선의 두 역이 35~60km 떨어진
+     * 79쌍(동대구~경주 46.9km, 부산~울산(통도사) 49.2km 등)에서 "이미 KTX 가 있다" 는
+     * 안내가 사라진다. 그래서 값은 전과 같이 두고 집만 옮겼다 — 동작은 바뀌지 않았다.
+     * 「권장 연장」 은 수단의 경고선이고 이것은 KTX 를 찾을 문턱이라, 뜻이 다른 두 값이다
+     */
+    public static final double MIN_ROUTE_KM = 35.0;
     static final double MIN_SPAN_RATIO = 0.5;
     /**
      * 고속선 역을 고르는 여유. 가장 가까운 역보다 이만큼 더 멀어도 고속선 역을 고른다.
@@ -128,10 +140,10 @@ public class IntercityRailFinder {
     /**
      * @param route        그린 노선의 꼭짓점
      * @param lengthKm     그린 길이
-     * @param urbanMaxKm   도시철도 수단의 권장 연장 최댓값. 이보다 짧으면 판정하지 않는다
+     * @param minRouteKm   이보다 짧으면 판정하지 않는다. 서비스는 {@link #MIN_ROUTE_KM} 을 쓴다
      */
-    public Match find(List<double[]> route, double lengthKm, double urbanMaxKm) {
-        if (byLine.isEmpty() || route.size() < 2 || lengthKm <= urbanMaxKm) {
+    public Match find(List<double[]> route, double lengthKm, double minRouteKm) {
+        if (byLine.isEmpty() || route.size() < 2 || lengthKm <= minRouteKm) {
             return null;
         }
         double[] start = route.get(0);

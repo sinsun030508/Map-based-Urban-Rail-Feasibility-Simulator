@@ -98,8 +98,7 @@ public class CostCalculator {
         // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 비교표에 함께 낸다.
         // **편익보다 먼저 찾는다.** 기존 KTX 가 있으면 전환 전 시간이 시내버스가 아니라
         // KTX 다 — 나중에 찾으면 표에는 KTX 가 있는데 편익은 KTX 가 없는 세상에서 센다
-        ExistingOptions.Option existing = existingOptions.find(points, lengthKm,
-                ExistingOptions.urbanMaxKm(capacities));
+        ExistingOptions.Option existing = existingOptions.find(points, lengthKm);
         Double existingHours = existing == null ? null
                 : existing.doorToDoorHours(params.get("baseline_speed_kmh"));
         boolean servesShortTrips = existing == null || existing.servesShortTrips();

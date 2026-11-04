@@ -1,9 +1,6 @@
 package com.railfeas.calc;
 
-import com.railfeas.common.ModeType;
-import com.railfeas.reference.ModeCapacity;
 import java.util.List;
-import java.util.Map;
 import org.springframework.stereotype.Component;
 
 /**
@@ -138,26 +135,24 @@ public class ExistingOptions {
     }
 
     /**
-     * 도시철도 수단 권장 연장의 최댓값(지금 지하철 35km). KTX 판정의 기준 길이다 —
-     * 새 상수를 두지 않고 **관리자가 고치는 값**을 따른다.
+     * 서비스가 쓰는 판정. KTX 는 {@link IntercityRailFinder#MIN_ROUTE_KM} 보다 긴 노선에서만 찾는다.
      *
-     * 계산 경로({@link CostCalculator})와 조회 경로(`ScenarioService`)가 모두 이 값을
-     * 쓰므로 집을 여기 하나만 둔다. 두 곳에서 따로 구하면 저장할 때와 다시 볼 때
-     * 판정이 달라질 수 있다.
+     * 계산 경로({@link CostCalculator})와 조회 경로(`ScenarioService`)가 모두 이것을 부르므로
+     * 문턱은 여기 하나만 둔다. 두 곳에서 따로 정하면 저장할 때와 다시 볼 때 판정이 달라진다.
+     *
+     * **수단의 권장 연장(`max_length_km`)을 쓰지 않는다.** 전에는 그 최댓값을 썼는데 권장
+     * 연장을 실측으로 바꾸자 KTX 판정이 따라 움직였다 — 이유는 `MIN_ROUTE_KM` 주석
      */
-    public static double urbanMaxKm(Map<ModeType, ModeCapacity> capacities) {
-        return capacities.values().stream()
-                .filter(c -> c.getMaxLengthKm() != null)
-                .mapToDouble(c -> c.getMaxLengthKm().doubleValue())
-                .max().orElse(Double.MAX_VALUE);
+    public Option find(List<double[]> route, double lengthKm) {
+        return find(route, lengthKm, IntercityRailFinder.MIN_ROUTE_KM);
     }
 
     /**
      * @param route      그린 노선의 꼭짓점
      * @param lengthKm   그린 길이
-     * @param urbanMaxKm 도시철도 수단 권장 연장의 최댓값. KTX 판정은 이보다 길 때만 한다
+     * @param minRouteKm KTX 판정은 이보다 길 때만 한다 (테스트가 문턱을 바꿔 보려고 받는다)
      */
-    public Option find(List<double[]> route, double lengthKm, double urbanMaxKm) {
+    public Option find(List<double[]> route, double lengthKm, double minRouteKm) {
         ExistingLineFinder.Match line = urban.find(route);
         if (line != null) {
             // 도시철도는 시각표를 받지 않았다. 공표 표정속도로 그린 길이를 환산한다 —
@@ -175,7 +170,7 @@ public class ExistingOptions {
                                     trim(speed)),
                     line.accessKm(), rideHours);
         }
-        IntercityRailFinder.Match ktx = intercity.find(route, lengthKm, urbanMaxKm);
+        IntercityRailFinder.Match ktx = intercity.find(route, lengthKm, minRouteKm);
         if (ktx != null) {
             List<KtxTravelTime.Leg> legs = times.legs(ktx.fromStation(), ktx.toStation());
             // 중앙값은 받은 시각표의 분 단위 값이라 그대로가 정확한 값이다

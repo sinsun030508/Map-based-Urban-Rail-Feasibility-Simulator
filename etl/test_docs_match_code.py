@@ -75,6 +75,26 @@ class Test수단기준값:
             assert m, f'요약 줄에 {label} 이 없다: {txt!r}'
             assert float(m.group(1)) == pytest.approx(s1[code]), f'{label} 속도가 어긋난다'
 
+    def test_CLAUDE_md_가_적은_권장_연장이_S1_과_맞는다(self):
+        import test_mode_capacity as MC
+        txt = one(r'(?s)\*\*권장 연장\(`max_length_km`\)\*\*(.{0,80})', '권장 연장 요약 줄')
+        s1 = MC.s1_max_length()
+        for label, codes in (('중전철', ['HEAVY_METRO']), ('경전철', ['LIGHT_RAIL']),
+                             ('트램', ['TRAM']), ('BRT', ['BRT_HIGH', 'BRT_LOW'])):
+            m = re.search(label + r'\s*(\d+(?:\.\d+)?)', txt)
+            assert m, f'요약 줄에 {label} 이 없다: {txt!r}'
+            for code in codes:
+                assert float(m.group(1)) == pytest.approx(s1[code]), f'{label} 권장 연장이 어긋난다'
+
+    def test_KTX_문턱이_코드와_맞는다(self):
+        # 권장 연장과 다른 값이라 따로 본다 — 둘이 한 값이던 때가 있었다
+        java = (Path(__file__).resolve().parent.parent / 'backend/src/main/java/com/railfeas/calc'
+                / 'IntercityRailFinder.java').read_text(encoding='utf-8')
+        code = re.search(r'MIN_ROUTE_KM = (\d+(?:\.\d+)?);', java)
+        assert code, 'IntercityRailFinder 에서 MIN_ROUTE_KM 을 못 찾았다'
+        doc = one(r'KTX 를 찾는 문턱 (\d+(?:\.\d+)?)km', 'KTX 문턱')
+        assert float(doc) == pytest.approx(float(code.group(1)))
+
 
 class Test회귀식:
     def test_식과_R2_가_지금_자와_같다(self):

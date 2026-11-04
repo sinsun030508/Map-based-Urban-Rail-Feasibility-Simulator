@@ -140,8 +140,7 @@ public class ScenarioService {
                 .map(p -> new double[]{p.getLatitude().doubleValue(),
                         p.getLongitude().doubleValue()})
                 .toList();
-        return existingOptions.find(points, scenario.getTotalLengthKm().doubleValue(),
-                ExistingOptions.urbanMaxKm(byMode()));
+        return existingOptions.find(points, scenario.getTotalLengthKm().doubleValue());
     }
 
     private Scenario loadOwned(Long userId, Long scenarioId) {

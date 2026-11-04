@@ -169,12 +169,19 @@ class ExistingOptionsTest {
         assertThat(options.find(List.of(onLadder(0), onLadder(20)), 4.4, URBAN_MAX_KM)).isNull();
     }
 
+    /**
+     * 서비스가 부르는 판정(인자 둘)은 {@link IntercityRailFinder#MIN_ROUTE_KM} 에서 열린다.
+     * 경계 양쪽을 본다 — 한쪽만 보면 문턱이 어디로 움직여도 통과한다.
+     */
     @Test
-    @DisplayName("기준 길이는 관리자가 고치는 max_length_km 를 따른다")
-    void 기준_길이() {
-        // max_length_km 가 없는 수단(복선전철·급행)은 세지 않는다 — 그러면 모든 노선이
-        // '권장 연장 안' 이 되어 KTX 안내가 영구히 꺼진다
-        assertThat(ExistingOptions.urbanMaxKm(java.util.Map.of())).isEqualTo(Double.MAX_VALUE);
+    @DisplayName("서비스의 KTX 판정은 35km 를 넘어야 열린다")
+    void 판정_문턱() {
+        ExistingOptions options = options(urban(null), ktx(), empty());
+
+        assertThat(options.find(List.of(INCHEON, SEJONG), 35.0)).isNull();
+        assertThat(options.find(List.of(INCHEON, SEJONG), 35.1))
+                .extracting(ExistingOptions.Option::kind)
+                .isEqualTo(ExistingOptions.INTERCITY_RAIL);
     }
 
     @Test

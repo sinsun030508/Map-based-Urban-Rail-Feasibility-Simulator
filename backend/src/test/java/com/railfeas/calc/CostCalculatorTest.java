@@ -50,6 +50,13 @@ class CostCalculatorTest {
             Map.entry("avg_trip_km", 13.6));
 
     private CostCalculator calculator() {
+        // 역 좌표 파일을 주지 않으면 기존 노선 안내는 비활성 — 계산기만 떼어 본다
+        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
+        intercity.load();
+        return calculator(intercity);
+    }
+
+    private CostCalculator calculator(IntercityRailFinder intercity) {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
         index.load();
 
@@ -60,11 +67,8 @@ class CostCalculatorTest {
                         "value", BigDecimal.valueOf(e.getValue())))
                 .toList());
 
-        // 역 좌표 파일을 주지 않으면 기존 노선 안내는 비활성 — 계산기만 떼어 본다
         ExistingLineFinder existingLines = new ExistingLineFinder("없는파일.csv", "없는지방파일.csv");
         existingLines.load();
-        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
-        intercity.load();
 
         return new CostCalculator(index, new BenefitCalculator(parameters),
                 new StationPlanner(index), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"),
@@ -161,6 +165,28 @@ class CostCalculatorTest {
         ScenarioResult r = outcome.results().get(0);
         assertThat(r.getWarning()).contains("권장 연장 초과");
         assertThat(r.getFeasible()).isTrue();     // 경고는 계산을 막지 않는다
+    }
+
+    /**
+     * **KTX 를 찾는 문턱은 권장 연장과 따로다.** 전에는 권장 연장의 최댓값을 문턱으로 써서,
+     * 지하철 권장 연장을 실측(60.2km)으로 올리면 40km 노선에서 KTX 안내가 사라졌다 —
+     * 같은 KTX 노선의 역이 35~60km 떨어진 구간이 79쌍이다(동대구~경주 등).
+     */
+    @Test
+    @DisplayName("지하철 권장 연장을 60.2km 로 올려도 40km 노선에 기존 KTX 가 붙는다")
+    void ktxThresholdIsNotTheLengthCap() {
+        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
+        intercity.add("KTX 가상선", "북쪽", ROUTE_POINTS.get(0)[0], ROUTE_POINTS.get(0)[1], false);
+        intercity.add("KTX 가상선", "남쪽", ROUTE_POINTS.get(1)[0], ROUTE_POINTS.get(1)[1], false);
+        var heavy = capacity(ModeType.HEAVY_METRO, null, 80_000, 1.06, 32.4, 60.2);
+
+        var outcome = calculator(intercity).calculate(scenario(40.0),
+                List.of(standard(ModeType.HEAVY_METRO, StructureType.ELEVATED)),
+                Map.of(ModeType.HEAVY_METRO, heavy), List.of());
+
+        assertThat(outcome.existingOption())
+                .extracting(ExistingOptions.Option::kind)
+                .isEqualTo(ExistingOptions.INTERCITY_RAIL);
     }
 
     @Test
