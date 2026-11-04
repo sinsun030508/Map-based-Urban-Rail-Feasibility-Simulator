@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { api, saveSession } from '../api/client';
 
-export default function LoginPage({ onLogin }) {
+/** `notice` — 세션이 끊겨 내려왔을 때 왜 내려왔는지(App 이 준다). 처음 그릴 때만 보인다 */
+export default function LoginPage({ onLogin, notice = null }) {
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ email: '', password: '', nickname: '' });
-  const [error, setError] = useState(null);
+  const [error, setError] = useState(notice);
   const [busy, setBusy] = useState(false);
 
   const change = (key) => (e) => setForm({ ...form, [key]: e.target.value });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, getUser, clearSession, SESSION_EXPIRED } from './api/client';
+import { api, getUser, clearSession, SESSION_EXPIRED, SESSION_EXPIRED_MESSAGE } from './api/client';
 import AdminPage from './admin/AdminPage';
 import LoginPage from './auth/LoginPage';
 import MapView from './map/MapView';
@@ -12,6 +12,8 @@ import { resultKey } from './scenario/resultKey';
 
 export default function App() {
   const [user, setUser] = useState(getUser);
+  // 세션이 끊겨 로그인 화면으로 내려왔는가 — 아래 SESSION_EXPIRED 참고
+  const [expired, setExpired] = useState(false);
   const [points, setPoints] = useState([]);
   const [title, setTitle] = useState('');
   const [structure, setStructure] = useState('UNDERGROUND');
@@ -59,9 +61,12 @@ export default function App() {
    *
    * 만료는 아무 호출에서나 터지므로(저장·계산·삭제·관리자) 호출마다 검사하지 않고
    * 여기 한 곳에서 듣는다.
+   *
+   * **왜 내려왔는지 로그인 화면에 적는다**(`expired`). 전에는 작업하다 말고 아무 말 없는
+   * 로그인 화면이 떠서, 저장이 됐는지 왜 튕겼는지 알 수 없었다. 직접 로그아웃하면 적지 않는다
    */
   useEffect(() => {
-    const drop = () => setUser(null);
+    const drop = () => { setUser(null); setExpired(true); };
     window.addEventListener(SESSION_EXPIRED, drop);
     return () => window.removeEventListener(SESSION_EXPIRED, drop);
   }, []);
@@ -108,7 +113,14 @@ export default function App() {
     return () => clearTimeout(t);
   }, [points, structure]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!user) return <LoginPage onLogin={setUser} />;
+  if (!user) {
+    return (
+      <LoginPage
+        notice={expired ? SESSION_EXPIRED_MESSAGE : null}
+        onLogin={(session) => { setExpired(false); setUser(session); }}
+      />
+    );
+  }
   if (admin) {
     // 관리자가 기준값을 고쳤을 수 있다. 다시 받지 않으면 낡은 결과를 알릴 수 없다
     return <AdminPage onClose={() => { setAdmin(false); refreshReference(); }} />;

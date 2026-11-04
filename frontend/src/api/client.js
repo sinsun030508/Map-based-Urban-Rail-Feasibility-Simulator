@@ -3,6 +3,8 @@ const USER_KEY = 'railfeas.user';
 
 /** 세션이 끊겼을 때 App 에게 알리는 창구 — 아래 401 처리 참고 */
 export const SESSION_EXPIRED = 'railfeas:session-expired';
+/** 만료 안내 — 요청이 던지는 오류와 로그인 화면의 안내가 같은 문장이어야 한다 */
+export const SESSION_EXPIRED_MESSAGE = '로그인이 만료되었습니다. 다시 로그인해 주세요';
 
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -40,10 +42,11 @@ async function request(path, { method = 'GET', body } = {}) {
   // 서버가 인증 실패에 401, 권한 부족에 403 을 주도록 맞춰 뒀다
   // (`SecurityConfig` 의 exceptionHandling — 전에는 둘 다 403 이었다)
   //
-  // **토큰을 보냈을 때만** 만료다. 토큰 없이 받은 401 은 로그인 실패다 — 전에는 둘을 가르지
-  // 않아 없는 계정으로 로그인하면 서버의 "이메일 또는 비밀번호가 올바르지 않습니다" 를
-  // 버리고 "로그인이 만료되었습니다" 를 띄웠다 (`client.test.js`)
-  if (res.status === 401 && token) {
+  // **로그인·가입의 401 은 만료가 아니다** — 이메일·비밀번호가 틀린 것이라 서버의 안내를 그대로
+  // 띄운다. 전에는 401 을 모두 만료로 바꿔, 없는 계정으로 로그인하면 "로그인이 만료되었습니다" 가
+  // 떴다. 「토큰을 보냈을 때만 만료」 로 가르면 안 된다 — 다른 탭에서 로그아웃해 토큰만 사라진
+  // 화면은 토큰 없이 401 을 받는데, 그것도 만료다 (`client.test.js`)
+  if (res.status === 401 && !path.startsWith('/auth/')) {
     clearSession();
     // **저장소만 비우면 화면은 그대로 로그인된 척한다.** localStorage 를 지워도
     // React 는 마운트 때 읽은 user 를 들고 있어서, 목록이 "저장된 시나리오가
@@ -52,7 +55,7 @@ async function request(path, { method = 'GET', body } = {}) {
     // 만료는 아무 호출에서나 터지므로(저장·계산·삭제·관리자) 호출마다 검사하지
     // 않고 한 곳에서 알린다. App 이 듣고 로그인 화면으로 내린다.
     window.dispatchEvent(new Event(SESSION_EXPIRED));
-    throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요');
+    throw new Error(SESSION_EXPIRED_MESSAGE);
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

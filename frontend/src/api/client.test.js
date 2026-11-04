@@ -38,6 +38,15 @@ test('토큰 없이 받은 401 은 서버의 안내를 그대로 띄운다 — �
   assert.deepEqual(events, [], '로그인 실패는 세션 만료가 아니다 — 알리면 화면이 로그인 화면으로 다시 내려간다');
 });
 
+test('토큰이 사라진 채 부른 보호 API 의 401 도 세션 만료다', async () => {
+  // 다른 탭에서 로그아웃하면 저장소의 토큰만 지워지고 이 탭은 로그인된 화면 그대로다.
+  // 그때 저장을 누르면 토큰 없이 나가 401 이 온다 — 「토큰을 보냈을 때만 만료」 로 가르면
+  // 로그인 화면으로 안 내려가 **로그인된 척하는 화면**이 남는다(첫 수정이 그랬다)
+  reply(401, { message: '인증이 필요합니다' });
+  await assert.rejects(api.listScenarios(), { message: '로그인이 만료되었습니다. 다시 로그인해 주세요' });
+  assert.deepEqual(events, [SESSION_EXPIRED]);
+});
+
 test('토큰을 보내고 받은 401 은 세션 만료다', async () => {
   saveSession({ accessToken: 'tok', userId: 1, nickname: 'n', role: 'USER' });
   reply(401, { message: '인증이 필요합니다' });
