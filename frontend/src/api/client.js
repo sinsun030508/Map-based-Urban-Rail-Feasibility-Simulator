@@ -39,7 +39,11 @@ async function request(path, { method = 'GET', body } = {}) {
   // "로그인이 필요합니다"로 보여 원인을 못 찾는다.
   // 서버가 인증 실패에 401, 권한 부족에 403 을 주도록 맞춰 뒀다
   // (`SecurityConfig` 의 exceptionHandling — 전에는 둘 다 403 이었다)
-  if (res.status === 401) {
+  //
+  // **토큰을 보냈을 때만** 만료다. 토큰 없이 받은 401 은 로그인 실패다 — 전에는 둘을 가르지
+  // 않아 없는 계정으로 로그인하면 서버의 "이메일 또는 비밀번호가 올바르지 않습니다" 를
+  // 버리고 "로그인이 만료되었습니다" 를 띄웠다 (`client.test.js`)
+  if (res.status === 401 && token) {
     clearSession();
     // **저장소만 비우면 화면은 그대로 로그인된 척한다.** localStorage 를 지워도
     // React 는 마운트 때 읽은 user 를 들고 있어서, 목록이 "저장된 시나리오가
