@@ -62,6 +62,9 @@ cd frontend && npm install && npm run dev      # http://localhost:5173
 `DB_PASSWORD` 는 **직접 정해 `.env` 에만** 넣는다 — compose 와 백엔드가 함께 읽고, 기본값이 없어 비어 있으면 둘 다 멈춘다.
 `JWT_SECRET` 도 같다(`python -c "import secrets; print(secrets.token_hex(32))"`).
 VWorld 키(`frontend/.env`)가 없으면 OpenFreeMap 타일로 자동 대체된다.
+소셜 로그인(Google·카카오)은 **키가 있을 때만** 켜진다 — `.env` 에 `GOOGLE_CLIENT_ID`·`…_SECRET`·`KAKAO_…` 를 넣고
+`SPRING_PROFILES_ACTIVE=social` 로 백엔드를 띄운다. 공급자 콘솔에는 리다이렉트 주소로
+`http://localhost:9090/login/oauth2/code/google`(카카오는 `…/kakao`)을 등록한다. 키가 없으면 버튼이 안 보인다.
 
 ## 데이터 재생성
 
@@ -83,8 +86,8 @@ docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨
 
 ```bash
 cd etl && python -m pytest      # 274개 — 원자료 파서·측정 규칙·문서 일치·비밀값
-cd backend && ./mvnw test       # 130개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
-cd frontend && npm test         # 9개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리 (node --test, 의존성 없음)
+cd backend && ./mvnw test       # 134개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
+cd frontend && npm test         # 12개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백 (node --test, 의존성 없음)
 ```
 
 - **통과만 하는 테스트는 못이 아니다** — 규칙을 일부러 지워 보고 그 테스트만 깨지는지 확인한다

@@ -24,17 +24,20 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtFilter;
     private final OAuth2UserService oAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
     private final JwtAuthenticationEntryPoint entryPoint;
     private final JwtAccessDeniedHandler deniedHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtFilter,
                           OAuth2UserService oAuth2UserService,
                           OAuth2SuccessHandler oAuth2SuccessHandler,
+                          OAuth2FailureHandler oAuth2FailureHandler,
                           JwtAuthenticationEntryPoint entryPoint,
                           JwtAccessDeniedHandler deniedHandler) {
         this.jwtFilter = jwtFilter;
         this.oAuth2UserService = oAuth2UserService;
         this.oAuth2SuccessHandler = oAuth2SuccessHandler;
+        this.oAuth2FailureHandler = oAuth2FailureHandler;
         this.entryPoint = entryPoint;
         this.deniedHandler = deniedHandler;
     }
@@ -51,7 +54,8 @@ public class SecurityConfig {
         if (clients.getIfAvailable() != null) {
             http.oauth2Login(oauth -> oauth
                     .userInfoEndpoint(u -> u.userService(oAuth2UserService))
-                    .successHandler(oAuth2SuccessHandler));
+                    .successHandler(oAuth2SuccessHandler)
+                    .failureHandler(oAuth2FailureHandler));
         }
         http
             .csrf(csrf -> csrf.disable())          // JWT 라 세션 쿠키를 쓰지 않는다

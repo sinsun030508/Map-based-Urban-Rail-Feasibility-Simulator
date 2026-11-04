@@ -84,7 +84,15 @@
 
 **스키마는 JPA가 만들지 않는다.** `ddl-auto=validate` 고정, `db/schema/*.sql`이 만든다.
 인증은 JWT (`@AuthenticationPrincipal Long userId`). 소셜은 `/oauth2/authorization/{google|kakao}`
-→ 성공 시 `OAUTH2_REDIRECT_URI`에 `?token=` 붙여 리다이렉트.
+→ 성공 시 `OAUTH2_REDIRECT_URI`(`/oauth/callback`)에 **`#token=`** 을 붙여 리다이렉트, 실패는 `#error=`.
+- **11-04 까지 소셜 로그인은 백엔드뿐이었다** — 제안서 기능 1 인데 버튼도, 돌아온 토큰을 받는 화면도 없었다.
+  붙인 것: `/api/auth/providers`(켜진 공급자 — 화면이 버튼을 고른다, 키가 없으면 빈 목록) ·
+  `/api/auth/me`(토큰만 들고 돌아온 화면이 닉네임·권한을 받는다) · 화면의 `/oauth/callback` 처리 ·
+  Vite 프록시 `/oauth2`·`/login/oauth2`. **토큰은 `?` 가 아니라 `#` 뒤다** — `?` 면 방문 기록·Referer·
+  서버 로그에 남는다. 화면은 읽자마자 `history.replaceState` 로 지운다
+- 확인한 것 — 키 없으면 버튼 0개, 가짜 키로 `social` 프로파일을 띄우면 버튼 2개와 공급자로의 리다이렉트,
+  유효한 토큰으로 콜백에 들어오면 로그인되고 주소에서 토큰이 사라진다, `#error=`·엉터리 토큰은 안내만 뜬다.
+  **못 한 것 — 실제 Google·카카오 왕복**(키가 없다). `OAuth2UserService` 의 공급자별 속성 해석은 그때 본다
 - **토큰은 「누구인지」 만 싣는다 — 권한은 매 요청 DB 에서 읽는다**(`JwtAuthenticationFilter`).
   전에는 토큰의 `role` 을 믿어, 관리자를 일반 사용자로 내려도 옛 토큰으로 **720분 동안 관리자 API 가
   열려 있었고**(점검에서 200), 지운 계정의 토큰도 로그인된 것으로 통했다. 지금은 403 · 401 이다

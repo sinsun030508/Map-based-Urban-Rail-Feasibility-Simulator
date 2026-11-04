@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, saveSession } from '../api/client';
+
+const SOCIAL_LABEL = { google: 'Google', kakao: '카카오' };
 
 /** `notice` — 세션이 끊겨 내려왔을 때 왜 내려왔는지(App 이 준다). 처음 그릴 때만 보인다 */
 export default function LoginPage({ onLogin, notice = null }) {
@@ -7,6 +9,18 @@ export default function LoginPage({ onLogin, notice = null }) {
   const [form, setForm] = useState({ email: '', password: '', nickname: '' });
   const [error, setError] = useState(notice);
   const [busy, setBusy] = useState(false);
+  // 켜져 있는 소셜 로그인. **키가 없으면 비어 버튼을 그리지 않는다** — 누르면 404 라서다
+  const [providers, setProviders] = useState([]);
+
+  useEffect(() => {
+    api.providers().then(setProviders).catch(() => setProviders([]));
+  }, []);
+
+  // **안내는 나중에 올 수도 있다.** 세션 만료는 이 화면이 그려질 때 이미 정해져 있지만, 소셜 로그인
+  // 실패(`#error=`·`/me` 401)는 이 화면이 뜬 **뒤에** App 이 알게 된다 — 처음 값(useState)만 보면 안 뜬다
+  useEffect(() => {
+    if (notice) setError(notice);
+  }, [notice]);
 
   const change = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
@@ -76,6 +90,19 @@ export default function LoginPage({ onLogin, notice = null }) {
         >
           {mode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있습니다'}
         </button>
+
+        {/* 백엔드의 OAuth 시작 주소로 그냥 이동한다(Vite 가 /oauth2 를 백엔드로 넘긴다). 돌아올 때는
+            `/oauth/callback#token=…` 이고 App 이 받는다(`oauthCallback.js`) */}
+        {providers.length > 0 && (
+          <div className="social">
+            <p className="muted small">또는</p>
+            {providers.map((id) => (
+              <a key={id} className={`social-button ${id}`} href={`/oauth2/authorization/${id}`}>
+                {SOCIAL_LABEL[id] || id}로 계속하기
+              </a>
+            ))}
+          </div>
+        )}
       </form>
     </div>
   );

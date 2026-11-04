@@ -26,8 +26,9 @@ export function clearSession() {
 }
 
 /** 서버가 {message} 로 주는 오류를 그대로 띄우기 위해 얇게 감싼다. */
-async function request(path, { method = 'GET', body } = {}) {
-  const token = getToken();
+async function request(path, { method = 'GET', body, token: given } = {}) {
+  // `token` — 저장소가 아니라 이 토큰으로 부른다. 소셜 로그인에서 막 받은 토큰으로 `/me` 를 물을 때다
+  const token = given ?? getToken();
   const res = await fetch(`/api${path}`, {
     method,
     headers: {
@@ -67,6 +68,10 @@ async function request(path, { method = 'GET', body } = {}) {
 export const api = {
   signup: (body) => request('/auth/signup', { method: 'POST', body }),
   login: (body) => request('/auth/login', { method: 'POST', body }),
+  // 켜져 있는 소셜 로그인(`google`·`kakao`). 키가 없으면 빈 목록이라 버튼을 숨긴다
+  providers: () => request('/auth/providers'),
+  // 토큰의 사람 — 소셜 로그인은 토큰만 들고 돌아오므로 닉네임·권한을 여기서 받는다
+  me: (token) => request('/auth/me', { token }),
   modes: () => request('/reference/modes'),
   zones: () => request('/reference/zones'),
   // 기준값이 마지막으로 바뀐 시각 — 저장된 결과가 낡았는지 판단한다

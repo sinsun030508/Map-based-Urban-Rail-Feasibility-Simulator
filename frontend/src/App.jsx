@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, getUser, clearSession, SESSION_EXPIRED, SESSION_EXPIRED_MESSAGE } from './api/client';
+import { api, getUser, clearSession, saveSession, SESSION_EXPIRED, SESSION_EXPIRED_MESSAGE } from './api/client';
+import { readCallback } from './auth/oauthCallback';
 import AdminPage from './admin/AdminPage';
 import LoginPage from './auth/LoginPage';
 import MapView from './map/MapView';
@@ -14,6 +15,8 @@ export default function App() {
   const [user, setUser] = useState(getUser);
   // 세션이 끊겨 로그인 화면으로 내려왔는가 — 아래 SESSION_EXPIRED 참고
   const [expired, setExpired] = useState(false);
+  // 소셜 로그인이 실패해 돌아왔을 때의 안내(`#error=`) — 로그인 화면에 띄운다
+  const [socialError, setSocialError] = useState(null);
   // 마지막으로 로그인해 있던 사람 — 다시 로그인한 사람이 다르면 앞 사람의 작업을 비운다(onLogin)
   const lastUserId = useRef(user?.userId ?? null);
   const [points, setPoints] = useState([]);
@@ -73,6 +76,31 @@ export default function App() {
     return () => window.removeEventListener(SESSION_EXPIRED, drop);
   }, []);
 
+  /**
+   * 소셜 로그인에서 돌아왔다 — `/oauth/callback#token=…`(`auth/oauthCallback.js`).
+   *
+   * **토큰을 주소에서 먼저 지운다** — `#` 뒤라 서버로는 안 가지만 주소창·방문 기록에는 남는다.
+   * 그다음 그 토큰으로 `/me` 를 물어 닉네임·권한을 받고, 일반 로그인과 **같은 처리**(`signedIn`)를 탄다.
+   * 개발 모드(StrictMode)는 이 효과를 두 번 부르는데, 두 번째는 주소가 이미 `/` 라 아무것도 안 한다
+   */
+  useEffect(() => {
+    const back = readCallback(window.location);
+    if (!back) return;
+    window.history.replaceState(null, '', '/');
+    if (back.error) {
+      setSocialError(back.error);
+      return;
+    }
+    api.me(back.token)
+      .then((me) => {
+        const session = { accessToken: back.token, ...me };
+        saveSession(session);
+        signedIn(session);
+      })
+      // 토큰이 틀렸거나 그 사이 계정이 지워졌다. 「로그인이 필요합니다」 는 막 로그인한 사람에게 어색하다
+      .catch(() => setSocialError('소셜 로그인 확인에 실패했습니다 — 다시 시도해 주세요'));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!user) return;
     // 로그인한 사람이 바뀌면 앞 사람의 오류는 치운다. 낡은 토큰으로 403 을 받고 다시
@@ -118,20 +146,8 @@ export default function App() {
   if (!user) {
     return (
       <LoginPage
-        notice={expired ? SESSION_EXPIRED_MESSAGE : null}
-        onLogin={(session) => {
-          // **같은 사람이면 하던 작업을 그대로 둔다** — 만료로 튕긴 뒤 다시 들어오면 그리던 노선이
-          // 남아 있어야 한다. **다른 사람이면 비운다** — 앞 사람이 고치던 시나리오 번호가 남아
-          // 「수정 저장」 이 남의 시나리오로 가고, 그리던 노선·비교 화면도 남의 것이다
-          if (session.userId !== lastUserId.current) {
-            clearAll();
-            setCompare(false);
-            setAdmin(false);
-          }
-          lastUserId.current = session.userId;
-          setExpired(false);
-          setUser(session);
-        }}
+        notice={expired ? SESSION_EXPIRED_MESSAGE : socialError}
+        onLogin={signedIn}
       />
     );
   }
@@ -159,6 +175,25 @@ export default function App() {
   }
 
   /** 새 노선을 그리기 시작한다 — 고치던 시나리오와의 연결도 끊는다 */
+  /**
+   * 로그인했다 — 이메일 로그인(`LoginPage`)과 소셜 로그인 콜백이 함께 쓴다.
+   *
+   * **같은 사람이면 하던 작업을 그대로 둔다** — 만료로 튕긴 뒤 다시 들어오면 그리던 노선이
+   * 남아 있어야 한다. **다른 사람이면 비운다** — 앞 사람이 고치던 시나리오 번호가 남아
+   * 「수정 저장」 이 남의 시나리오로 가고, 그리던 노선·비교 화면도 남의 것이다
+   */
+  function signedIn(session) {
+    if (session.userId !== lastUserId.current) {
+      clearAll();
+      setCompare(false);
+      setAdmin(false);
+    }
+    lastUserId.current = session.userId;
+    setExpired(false);
+    setSocialError(null);
+    setUser(session);
+  }
+
   function clearAll() {
     setPoints([]);
     setTitle('');

@@ -19,6 +19,11 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // 백엔드. 같은 출처로 보이게 해서 CORS 설정을 피한다
         '/api': { target: apiTarget, changeOrigin: true },
+        // 소셜 로그인 시작(`/oauth2/authorization/{google|kakao}`)과 공급자가 돌려보내는 주소
+        // (`/login/oauth2/code/…`). changeOrigin 이라 백엔드는 자기 주소로 redirect-uri 를 만든다 —
+        // 공급자 콘솔에는 백엔드 주소(`http://localhost:9090/login/oauth2/code/google`)를 등록한다
+        '/oauth2': { target: apiTarget, changeOrigin: true },
+        '/login/oauth2': { target: apiTarget, changeOrigin: true },
 
         // VWorld 타일. 브라우저가 직접 부르면 인증키에 등록한 도메인과 맞지 않아 403 이 난다.
         // Vite 가 대신 받아오면서 Referer 를 등록 도메인으로 맞춘다.
