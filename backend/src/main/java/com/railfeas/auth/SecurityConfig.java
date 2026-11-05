@@ -45,7 +45,7 @@ public class SecurityConfig {
     /**
      * 소셜 로그인은 클라이언트 키가 있을 때만 켠다.
      * 키 없이 oauth2Login 을 걸면 ClientRegistrationRepository 가 없어 기동이 막힌다.
-     * 키를 채운 뒤 SPRING_PROFILES_ACTIVE=social 로 실행하면 활성화된다.
+     * `.env` 에 공급자 키를 넣으면 그 공급자만 켜진다(`OAuth2ClientConfig`) — 프로파일은 없다.
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
