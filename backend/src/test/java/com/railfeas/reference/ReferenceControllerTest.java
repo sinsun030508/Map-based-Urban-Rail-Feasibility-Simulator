@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.railfeas.calc.CalculationRules;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -42,11 +43,14 @@ class ReferenceControllerTest {
     /**
      * 규칙 시각을 **미래로** 적으면 그 시각까지 새로 계산한 결과에도 "다시 계산" 알림이 뜬다.
      * 시각을 올릴 때 "배포할 즈음" 을 어림해 두 번이나 미래로 적었다 — 고친 시각(지금)을 적는다.
+     *
+     * **KST 시계와 견준다.** 규칙 시각은 KST 로 적는데(서버 시각) 그냥 `now()` 는 테스트를 돌리는
+     * 기계의 시간대다. CI(UTC)에서는 방금 적은 KST 시각이 9시간 뒤의 미래라 올릴 때마다 깨졌다(11-05)
      */
     @Test
     @DisplayName("계산 규칙 시각은 미래가 아니다")
     void 규칙_시각은_미래가_아니다() {
-        assertThat(CalculationRules.CHANGED_AT).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(CalculationRules.CHANGED_AT).isBeforeOrEqualTo(LocalDateTime.now(ZoneId.of("Asia/Seoul")));
     }
 
     @Test

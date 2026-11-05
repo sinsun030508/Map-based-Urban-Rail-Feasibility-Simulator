@@ -5,7 +5,6 @@ import com.railfeas.geo.Haversine;
 import com.railfeas.reference.CostStandard;
 import com.railfeas.reference.ModeCapacity;
 import com.railfeas.reference.RestrictedZone;
-import com.railfeas.scenario.RoutePoint;
 import com.railfeas.scenario.Scenario;
 import com.railfeas.scenario.ScenarioResult;
 import com.railfeas.scenario.Station;
@@ -84,7 +83,7 @@ public class CostCalculator {
                         p.getLongitude().doubleValue()})
                 .toList();
 
-        String zoneWarning = zoneWarning(scenario.getPoints(), zones);
+        String zoneWarning = zoneWarning(points, zones);
         BenefitCalculator.Params params = benefits.load();
 
         long people = population.populationNear(points, BUFFER_KM);
@@ -288,15 +287,19 @@ public class CostCalculator {
     /**
      * 규제 구역 근처를 지나는지 본다.
      * 구역 좌표·반경이 근사치라 "통과"가 아니라 "확인 필요"로만 안내한다.
+     *
+     * **찍은 점이 아니라 점을 이은 선분으로 잰다.** 전에는 출발·경유·도착 점만 구역 중심과
+     * 견줘서, 경복궁 일대(반경 1km)를 남북으로 꿰뚫는 5km 직선이 양 끝이 2.3·2.7km 라
+     * 아무 말 없이 지나갔다(11-05). 점 두 개로 긋는 노선일수록 놓친다.
      */
-    private String zoneWarning(List<RoutePoint> points, List<RestrictedZone> zones) {
+    private String zoneWarning(List<double[]> points, List<RestrictedZone> zones) {
         for (RestrictedZone zone : zones) {
             double radius = zone.getRadiusKm().doubleValue();
-            for (RoutePoint p : points) {
-                double d = Haversine.distanceKm(
-                        p.getLatitude().doubleValue(), p.getLongitude().doubleValue(),
-                        zone.getCenterLat().doubleValue(), zone.getCenterLng().doubleValue());
-                if (d <= radius) {
+            double lat = zone.getCenterLat().doubleValue();
+            double lng = zone.getCenterLng().doubleValue();
+            for (int i = 1; i < points.size(); i++) {
+                if (Haversine.distanceToSegmentKm(lat, lng, points.get(i - 1), points.get(i))
+                        <= radius) {
                     return zone.getName() + " 인근 — 확인 필요";
                 }
             }

@@ -219,6 +219,40 @@ class CostCalculatorTest {
         assertThat(r.getFeasible()).isTrue();     // BLOCKED 라도 계산은 막지 않는다
     }
 
+    /**
+     * 시험 노선(서울시청에서 정남쪽 10km 직선)에 구역 하나만 두고, 경고에 그 구역이 들어가는가.
+     * 경고 전체를 비교하지 않는다 — 인구 자료 없음 같은 다른 경고가 함께 붙는다
+     */
+    private boolean zoneWarned(double lat, double lng, double radiusKm) {
+        var zone = newInstance(com.railfeas.reference.RestrictedZone.class,
+                "name", "테스트 보호구역",
+                "centerLat", BigDecimal.valueOf(lat),
+                "centerLng", BigDecimal.valueOf(lng),
+                "radiusKm", BigDecimal.valueOf(radiusKm));
+        var capacity = capacity(ModeType.LIGHT_RAIL, null, 60_000, 2.0, 30.0, null);
+        String warning = calculator().calculate(scenario(10.0),
+                        List.of(standard(ModeType.LIGHT_RAIL, StructureType.ELEVATED)),
+                        Map.of(ModeType.LIGHT_RAIL, capacity), List.of(zone))
+                .results().get(0).getWarning();
+        return warning != null && warning.contains("테스트 보호구역");
+    }
+
+    @Test
+    @DisplayName("양 끝이 구역 밖이어도 선이 구역을 꿰뚫으면 안내한다")
+    void zoneCrossedBetweenPointsIsWarned() {
+        // 노선 한가운데(양 끝에서 5km)에 반경 1km 구역 — 점만 재면 놓친다
+        assertThat(zoneWarned(37.5215, 126.9780, 1.0)).isTrue();
+    }
+
+    @Test
+    @DisplayName("선이 비껴가거나 연장선 위에만 있으면 안내하지 않는다")
+    void zoneBesideOrBeyondTheLineIsNotWarned() {
+        // 노선 가운데에서 동쪽으로 약 1.8km — 반경 1km 밖
+        assertThat(zoneWarned(37.5215, 126.9980, 1.0)).isFalse();
+        // 같은 경도, 도착점 너머 8.5km — 무한 직선으로 재면 거리 0 이라 잘못 걸린다
+        assertThat(zoneWarned(37.4000, 126.9780, 1.0)).isFalse();
+    }
+
     @Test
     @DisplayName("정차역은 결과마다 붙고 종점 수를 포함한다")
     void stationsAreAttachedToEachResult() {

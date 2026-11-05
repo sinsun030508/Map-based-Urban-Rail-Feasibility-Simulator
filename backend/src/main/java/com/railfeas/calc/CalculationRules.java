@@ -18,15 +18,18 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
-     * 권장 연장(`S1` 의 `max_length_km`)을 운영 노선 최장 연장으로 바꾼 시각 — 지하철 35→60.2,
+     * 규제 구역 안내를 찍은 점이 아니라 선분으로 재기로 한 시각 — 양 끝이 구역 밖이어도 선이
+     * 꿰뚫으면 「확인 필요」 가 붙는다(`CostCalculator.zoneWarning`). B/C 는 그대로지만 저장된
+     * 경고가 달라진다.
+     * 그 전 — 11-04 21:37 권장 연장(`S1` 의 `max_length_km`)을 운영 노선 최장 연장으로 바꿨다 — 지하철 35→60.2,
      * 경전철 30→29.1. 35~60km 노선에서 지하철의 「권장 연장 초과」 경고가 사라지고 추천 후보에
      * 들어온다. KTX 판정 문턱은 35km 그대로다(`IntercityRailFinder.MIN_ROUTE_KM`).
-     * 그 전 — 10-26 18:43 지하비율 17건을 OSM 실측으로 바꿔 건설비 단가표가 바뀌었고(지하/고가
+     * 10-26 18:43 지하비율 17건을 OSM 실측으로 바꿔 건설비 단가표가 바뀌었고(지하/고가
      * 배수 1.78→1.67배, 자료가 바뀌어도 저장된 B/C 가 달라지므로 올렸다), 10-23 00:44 광주 1호선 표정속도를 기존 수단 기준에 더했고, 00:19 역이 드문 KTX 를 짧은 이동의 기준에서 빼기로, 00:10 1인당 절감을
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 4, 21, 37);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 5, 16, 8);
 
     private CalculationRules() {
     }
