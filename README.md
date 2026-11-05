@@ -91,6 +91,8 @@ cd backend && ./mvnw test       # 143개 — 계산 로직과 판정 규칙 (실
 cd frontend && npm test         # 12개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백 (node --test, 의존성 없음)
 ```
 
+- **GitHub Actions**(`.github/workflows/ci.yml`)가 푸시·PR 마다 세 묶음을 깨끗한 환경에서 돌린다 — 저장소에 없는
+  파일(`.env`·캐시)에 기댄 테스트를 잡는다. 백엔드는 `pom.xml` 대로 Java 17 이다
 - **통과만 하는 테스트는 못이 아니다** — 규칙을 일부러 지워 보고 그 테스트만 깨지는지 확인한다
 - `etl/test_docs_match_code.py` 는 문서의 숫자가 코드·자료와 맞는지 본다 — **위의 테스트 수도**
   (이 절이 「14건」 으로 한참 낡아 있었다)

@@ -1,3 +1,7 @@
 pandas>=2.0
 openpyxl>=3.1
 pyproj>=3.6
+# osm_water.py(호수·강 수면 영역) — 빠져 있어 깨끗한 환경에서 test_osm_water 가 못 돌았다(11-05 CI)
+shapely>=2.0
+# 테스트 (cd etl && python -m pytest)
+pytest>=8
