@@ -170,4 +170,29 @@ class SocialLoginTest {
         assertThat(java.net.URLDecoder.decode(other.getRedirectedUrl(), java.nio.charset.StandardCharsets.UTF_8))
                 .contains("소셜 로그인에 실패했습니다").doesNotContain("내부 사정");
     }
+
+    // ── 칸 길이 ──────────────────────────────────────────────────────────────────
+    // nickname VARCHAR(50) · email VARCHAR(150). 이메일 가입은 50자 검사를 거치지만 Google 이름은 아니다 —
+    // 넘으면 위와 같은 500 이다(11-05)
+
+    @Test
+    @DisplayName("닉네임은 50자까지 — 이모지를 반으로 자르지 않는다")
+    void nicknameFits() {
+        assertThat(OAuth2UserService.fitNickname("가".repeat(60))).hasSize(50);
+        String emoji = "😀".repeat(60);                           // 한 글자가 char 두 칸이다
+        String fitted = OAuth2UserService.fitNickname(emoji);
+        assertThat(fitted.codePointCount(0, fitted.length())).isEqualTo(50);
+        assertThat(fitted).isEqualTo("😀".repeat(50));
+        assertThat(OAuth2UserService.fitNickname("짧은 이름")).isEqualTo("짧은 이름");
+    }
+
+    @Test
+    @DisplayName("150자를 넘는 이메일은 자르지 않고 공급자 번호로 대신한다")
+    void tooLongEmailFallsBack() {
+        String longEmail = "a".repeat(150) + "@gmail.com";
+        assertThat(OAuth2UserService.fitEmail(longEmail, AuthProvider.GOOGLE, "123"))
+                .isEqualTo("google_123@social.local");
+        assertThat(OAuth2UserService.fitEmail(null, AuthProvider.KAKAO, "9")).isEqualTo("kakao_9@social.local");
+        assertThat(OAuth2UserService.fitEmail("me@gmail.com", AuthProvider.GOOGLE, "1")).isEqualTo("me@gmail.com");
+    }
 }

@@ -25,6 +25,9 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
 
     /** 실패 처리기가 이 코드일 때만 안내를 화면에 그대로 전한다 (`OAuth2FailureHandler`) */
     static final String EMAIL_IN_USE = "email_in_use";
+    /** `db/schema` 의 칸 길이 — 공급자가 주는 값은 이메일 가입의 검증을 거치지 않는다 */
+    private static final int NICKNAME_MAX = 50;
+    private static final int EMAIL_MAX = 150;
 
     private final UserRepository users;
 
@@ -54,13 +57,8 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
             email = (String) attributes.get("email");
             nickname = (String) attributes.get("name");
         }
-        // 카카오는 이메일 제공 동의가 선택이라 비어 올 수 있다
-        if (email == null) {
-            email = provider.name().toLowerCase() + "_" + uid + "@social.local";
-        }
-        if (nickname == null) {
-            nickname = "사용자" + uid;
-        }
+        email = fitEmail(email, provider, uid);
+        nickname = fitNickname(nickname == null ? "사용자" + uid : nickname);
 
         User user = upsert(users, provider, uid, email, nickname);
         return new DefaultOAuth2User(oAuth2User.getAuthorities(),
@@ -93,6 +91,22 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                         .role(Role.USER)
                         .build());
                 });
+    }
+
+    /** `user.nickname` 은 VARCHAR(50) — 글자(code point)로 세어 자른다. char 로 자르면 이모지가 반으로 갈린다 */
+    static String fitNickname(String nickname) {
+        int n = nickname.codePointCount(0, nickname.length());
+        return n <= NICKNAME_MAX ? nickname : nickname.substring(0, nickname.offsetByCodePoints(0, NICKNAME_MAX));
+    }
+
+    /**
+     * 이메일이 없거나(카카오는 동의가 선택이라 비어 온다) `user.email` VARCHAR(150) 보다 길면 공급자 번호로
+     * 대신한다. **이메일은 자르지 않는다** — 자르면 다른 사람의 주소가 될 수 있다
+     */
+    static String fitEmail(String email, AuthProvider provider, String uid) {
+        return email == null || email.length() > EMAIL_MAX
+                ? provider.name().toLowerCase() + "_" + uid + "@social.local"
+                : email;
     }
 
     @SuppressWarnings("unchecked")
