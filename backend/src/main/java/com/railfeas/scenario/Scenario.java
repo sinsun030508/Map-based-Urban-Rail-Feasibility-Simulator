@@ -90,11 +90,7 @@ public class Scenario {
      */
     public void clearPoints() {
         this.points.clear();
-        this.results.clear();
-        this.recommendedMode = null;
-        // 기존 노선 안내도 옛 노선의 판정이다. 남겨 두면 재계산 전까지 바뀐 노선에
-        // 옛 안내("광명역~오송역")가 붙어 보인다
-        this.existingLine = null;
+        forgetCalculation();
     }
 
     public void replacePoints(List<RoutePoint> newPoints, BigDecimal totalLengthKm) {
@@ -104,9 +100,27 @@ public class Scenario {
             this.points.add(p);
         });
         this.totalLengthKm = totalLengthKm;
-        // 좌표가 바뀌면 이전 계산 결과는 더 이상 맞지 않는다
+        forgetCalculation();
+    }
+
+    /**
+     * 좌표가 바뀌면 옛 노선으로 낸 값은 **모두** 맞지 않는다 — 결과만이 아니다.
+     *
+     * 전에는 결과·추천만 지워 반경 1km 인구와 계산 시각이 옛 노선 값으로 남았다. 노선을 고쳐 저장하면
+     * 시나리오 비교의 「주변 인구」 칸에 **옛 노선의 인구**가 새 노선 이름 옆에 찍혔다(11-05).
+     * 0 이 아니라 null 로 돌린다 — 「인구 0」 이 아니라 「아직 모름」 이다. 계산 시각도 비워야
+     * 「다시 계산 필요」 가 옛 계산을 기준으로 판정되지 않는다.
+     *
+     * 지울 칸이 두 메서드에 따로 복사돼 있어 하나에만 더해지곤 했다 — 여기 한 곳에 둔다.
+     */
+    private void forgetCalculation() {
         this.results.clear();
         this.recommendedMode = null;
+        this.population1km = null;
+        this.calculatedAt = null;
+        // 기존 노선 안내도 옛 노선의 판정이다. 남겨 두면 재계산 전까지 바뀐 노선에
+        // 옛 안내("광명역~오송역")가 붙어 보인다
+        this.existingLine = null;
     }
 
     /**
