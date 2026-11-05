@@ -36,3 +36,5 @@ data/cache/*
 !data/cache/brt/
 data/cache/brt/*
 !data/cache/brt/observations*.csv
+# 계획 실행 기록(작업 공간) — 커밋하지 않는다
+.superpowers/
