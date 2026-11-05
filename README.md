@@ -80,7 +80,7 @@ python etl/demand_model.py      # 수요 회귀 → S6
 python etl/seoul_peak.py        # 첨두율
 python etl/seoul_congestion.py  # 단면 환산계수
 python etl/osm_water.py         # 호수·강 수면 영역(OSM)
-python etl/dem_tiles.py         # 지형 타일(AWS Terrain Tiles z11, 약 80MB) — 산 구간 판정, 없으면 기능이 꺼진다
+python etl/dem_tiles.py         # 지형 타일(AWS Terrain Tiles z11, 1,312장 · 약 36MB) — 산 구간 판정, 없으면 기능이 꺼진다
 docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨을 비워야 다시 적재된다
 ```
 
@@ -88,7 +88,7 @@ docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨
 
 ```bash
 cd etl && python -m pytest      # 277개 — 원자료 파서·측정 규칙·문서 일치·비밀값
-cd backend && ./mvnw test       # 155개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
+cd backend && ./mvnw test       # 160개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
 cd frontend && npm test         # 12개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백 (node --test, 의존성 없음)
 ```
 
