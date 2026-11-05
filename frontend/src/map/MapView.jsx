@@ -154,13 +154,18 @@ export default function MapView({
       const el = document.createElement('div');
       const terminal = i === 0 || i === all.length - 1;
       el.className = terminal ? 'station-dot terminal' : 'station-dot';
-      if (!terminal) {
+      // **이름을 모르면 글자를 달지 않는다.** 역 이름은 반경 안 집계구의 행정동인데, 집계구는 기존 역
+      // 주변으로 모은 자료라 서울~부산 중간은 비어 있다. 전에는 순번(5, 6 … 23)을 이름 자리에 찍어
+      // 뜻 없는 숫자가 줄지어 보였다(11-05). 순번과 이유는 마우스를 올리면 보인다
+      if (!terminal && s.name) {
         const label = document.createElement('span');
-        label.textContent = s.name || String(s.sequence);
+        label.textContent = s.name;
         el.appendChild(label);
       }
-      el.title = `${s.name || `정차역 ${s.sequence}`}${
-        s.estimatedDailyUsers != null
+      // 이름이 없다 = 반경 안에 집계구가 없다 = 이용객을 **모른다**. 그때 「예상 0명/일」 이라고 적으면
+      // 「인구 0」 과 「모름」 을 섞는다(CLAUDE.md) — 백엔드는 모를 때도 0 을 싣는다
+      el.title = `${s.name || `정차역 ${s.sequence} — 이 근처는 인구 자료(집계구)가 없어 이름·이용객을 모릅니다`}${
+        s.name && s.estimatedDailyUsers != null
           ? ` · 예상 ${s.estimatedDailyUsers.toLocaleString()}명/일`
           : ''
       }`;

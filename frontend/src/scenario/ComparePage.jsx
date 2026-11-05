@@ -167,12 +167,22 @@ export default function ComparePage({ onClose }) {
                       줄바꿈됐다. 비용표에서 이미 한 번 겪은 함정이다.
                       여기서 볼 것은 **있느냐 없느냐**이고, 어느 역을 쓰는지는 그 노선의
                       비용 비교 화면에 그대로 나온다 */}
+                  {/* **이름만 두면 비교가 안 된다** — 「기존 KTX」 만 보여서 무엇과 무엇을 견주는지 알 수
+                      없었다(11-05). 짧은 두 숫자(소요시간·추가 건설비 0)만 이름 밑에 붙이고, 노선 목록·접근
+                      거리 같은 긴 설명은 그대로 툴팁에 둔다. 소요시간을 모르면 0 이 아니라 그렇다고 적는다 */}
                   {chosen.map((d) => (
                     <td key={d.id} className="existing"
                         title={d.existingOption?.detail || undefined}>
-                      {d.existingOption
-                        ? <strong>{d.existingOption.label}</strong>
-                        : <span className="muted">없음</span>}
+                      {d.existingOption ? (
+                        <>
+                          <strong>{d.existingOption.label}</strong>
+                          <span className="muted small existing-facts">
+                            {d.existingOption.travelMin != null
+                              ? `${d.existingOption.travelMin}분` : '소요시간 자료 없음'}
+                            {' · 추가 건설비 0'}
+                          </span>
+                        </>
+                      ) : <span className="muted">없음</span>}
                     </td>
                   ))}
                 </tr>
@@ -197,6 +207,15 @@ export default function ComparePage({ onClose }) {
                 <tr>
                   <td className="name">추천안 건설비</td>
                   {chosen.map((d) => <td key={d.id}>{money(bestOf(d)?.totalCost)}</td>)}
+                </tr>
+                {/* 「이미 있는 수단」 의 소요시간과 바로 견주라고 둔다 — 새로 지으면 몇 분, 이미 있는 것은 몇 분.
+                    둘 다 역에서 역까지다(비교표 `CostTable` 과 같은 기준) */}
+                <tr>
+                  <td className="name">추천안 소요시간</td>
+                  {chosen.map((d) => {
+                    const t = bestOf(d)?.travelTimeMin;
+                    return <td key={d.id}>{t ? `${Math.round(t)}분` : '—'}</td>;
+                  })}
                 </tr>
               </tbody>
             </table>

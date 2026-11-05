@@ -201,6 +201,8 @@ table.admin-table.compare td.top { background: #f0f6ff; font-weight: 700; }
    열 전체를 부풀린다 — 상세는 title 로 옮겼지만 이름이 길어질 때를 대비해 둔다 */
 table.admin-table.compare td.existing { text-align: left; max-width: 160px; }
 table.admin-table.compare td.existing[title] { cursor: help; }
+/* 이름 밑의 짧은 두 숫자(소요시간·추가 건설비 0) — 줄을 나눠 칸 폭을 늘리지 않는다 */
+table.admin-table.compare td.existing .existing-facts { display: block; white-space: nowrap; }
 
 
 /* 수단별 B/C 막대 — 표 위에 모양만 보여 준다 (숫자는 표가 갖고 있다) */
