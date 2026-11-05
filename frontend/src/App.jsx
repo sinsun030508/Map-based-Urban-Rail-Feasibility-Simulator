@@ -45,6 +45,7 @@ export default function App() {
   const [focus, setFocus] = useState(0);
   // 그린 선이 호수·저수지를 지나는지. 점이 바뀌면 다시 묻고, 묻는 사이 점이 또 바뀌면 버린다
   const [water, setWater] = useState(null);
+  const [mountain, setMountain] = useState(null);
   const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
@@ -150,6 +151,25 @@ export default function App() {
     return () => clearTimeout(t);
   }, [points, structure]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * 산 구간(`/api/route/mountain`) — 호수와 같은 틀이다(0.6초 뒤, `key` 로 낡은 답을 버린다, 실패해도
+   * 그리기를 막지 않는다). 지하는 서버가 안내하지 않는다. 긴 노선은 몇 초 걸린다(서울~부산 3초).
+   * **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
+   */
+  useEffect(() => {
+    if (points.length < 2) {
+      setMountain(null);
+      return undefined;
+    }
+    const key = waterKey;
+    const t = setTimeout(() => {
+      api.mountain(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), structure)
+        .then((r) => setMountain({ key, ...r }))
+        .catch(() => setMountain(null));
+    }, 600);
+    return () => clearTimeout(t);
+  }, [points, structure]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!user) {
     return (
       <LoginPage
@@ -217,6 +237,19 @@ export default function App() {
   /** 제안된 우회 선형으로 바꾼다 — 바꾸는 것은 사용자다(그린 선이 설계 의도) */
   function applyDetour() {
     setPoints(waterNow.points.map((p) => [Number(p.longitude), Number(p.latitude)]));
+    reset();
+  }
+
+  const mountainNow = mountain && mountain.key === waterKey ? mountain : null;
+  // 터널 토막(갈색)과 돌아가는 안의 미리보기(점선) — 돌아갈 수 있는 구간이 있을 때만 미리보기를 그린다
+  const mountainPieces = (mountainNow?.mountains || []).flatMap((m) => m.pieces || []);
+  const mountainPreview = (mountainNow?.mountains || []).some((m) => m.detoured)
+    ? mountainNow.points.map((p) => [Number(p.longitude), Number(p.latitude)])
+    : null;
+
+  /** 산을 돌아가는 선형으로 바꾼다 — 돌 수 있는 구간만 돌고 나머지는 그대로다 */
+  function applyMountainDetour() {
+    setPoints(mountainNow.points.map((p) => [Number(p.longitude), Number(p.latitude)]));
     reset();
   }
 
@@ -353,6 +386,8 @@ export default function App() {
           show3D={show3D}
           focus={focus}
           waterPieces={waterPieces}
+          mountainPieces={mountainPieces}
+          mountainPreview={mountainPreview}
           onPick={(p) => {
             setPoints((prev) => [...prev, p]);
             reset();
@@ -376,6 +411,9 @@ export default function App() {
           overLength={overLength}
           water={waterNow}
           onApplyDetour={applyDetour}
+          mountain={mountainNow}
+          mountainRow={shown}
+          onApplyMountainDetour={applyMountainDetour}
           // 표의 강조는 지도에 실제로 그린 안을 따른다 — 둘이 다른 안을 가리키면 안 된다
           selectedResult={shown ? resultKey(shown) : null}
           onSelectResult={setSelectedResult}

@@ -94,4 +94,11 @@ class MountainProfileTest {
 
         assertThat(sections).hasSize(2);
     }
+
+    @Test
+    @DisplayName("건물 숲처럼 좁게 튄 높이는 산이 아니다 — 지형 자료(SRTM)는 건물 꼭대기까지 잰다")
+    void buildingSpike() {
+        // 역삼역 둘레가 이랬다: 45 → 71 → 80 → 64 → 47m (폭 0.2km)
+        assertThat(MountainProfile.sections(ROUTE, terrain(s -> Math.abs(s - 5) < 0.05 ? 80 : 40))).isEmpty();
+    }
 }

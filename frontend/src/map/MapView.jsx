@@ -8,6 +8,8 @@ import usePopulation3D from './usePopulation3D';
 const ROUTE_SOURCE = 'route';
 const EXISTING_SOURCE = 'existing-route';
 const WATER_SOURCE = 'water-pieces';
+const MOUNTAIN_SOURCE = 'mountain-pieces';
+const MOUNTAIN_PREVIEW_SOURCE = 'mountain-preview';
 
 /**
  * 지도와 노선 표시. 좌표 상태는 App 이 들고 있고 여기서는 그리기만 한다.
@@ -16,9 +18,13 @@ const WATER_SOURCE = 'water-pieces';
  * show3D — 인구밀도 3D 레이어. 켜면 지도가 기울고 집계구 인구가 높이로 선다.
  * focus — 바뀔 때마다 지도를 노선에 맞춘다. 저장된 시나리오를 열 때만 App 이 올린다.
  * waterPieces — 노선 중 물 위 토막들([[위도,경도],[위도,경도]]). 빨간 선 위에 파랗게 덧그린다.
+ * mountainPieces — 35‰ 보다 가팔라 터널이 필요한 토막들(같은 모양). 갈색으로 덧그린다.
+ *   0.1km 토막은 점 하나뿐이라 선이 안 그려진다 — 그런 토막은 갈색 동그라미로 찍는다.
+ * mountainPreview — 산을 돌아가는 안의 선형([경도,위도] 목록). 바꾸기 전 미리보기라 점선이다.
  */
 export default function MapView({
-  points, zones, stations, existingOption, show3D, focus, waterPieces, onPick,
+  points, zones, stations, existingOption, show3D, focus, waterPieces, mountainPieces, mountainPreview,
+  onPick,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -87,6 +93,39 @@ export default function MapView({
         type: 'line',
         source: WATER_SOURCE,
         paint: { 'line-color': '#1d7fc4', 'line-width': 5 },
+      });
+
+      // 돌아가는 안 — 바꾸기 전 미리보기라 그린 노선 **아래** 점선. 실선이면 이미 바뀐 것으로 읽힌다
+      map.addSource(MOUNTAIN_PREVIEW_SOURCE, {
+        type: 'geojson',
+        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } },
+      });
+      map.addLayer({
+        id: 'mountain-preview-line',
+        type: 'line',
+        source: MOUNTAIN_PREVIEW_SOURCE,
+        paint: { 'line-color': '#8b5a2b', 'line-width': 3, 'line-dasharray': [1.5, 1.5] },
+      }, 'route-line');
+
+      // 터널 토막 — 물 위 토막처럼 그린 노선 위에 덧그린다
+      map.addSource(MOUNTAIN_SOURCE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        attribution: '지형 © Mapzen·SRTM (AWS Terrain Tiles)',
+      });
+      map.addLayer({
+        id: 'mountain-piece-line',
+        type: 'line',
+        source: MOUNTAIN_SOURCE,
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: { 'line-color': '#8b5a2b', 'line-width': 5 },
+      });
+      map.addLayer({
+        id: 'mountain-piece-dot',
+        type: 'circle',
+        source: MOUNTAIN_SOURCE,
+        filter: ['==', ['geometry-type'], 'Point'],
+        paint: { 'circle-color': '#8b5a2b', 'circle-radius': 3.5 },
       });
 
       setMapReady(true);
@@ -232,6 +271,24 @@ export default function MapView({
       },
     });
   }, [waterPieces, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    map.getSource(MOUNTAIN_SOURCE).setData({
+      type: 'FeatureCollection',
+      features: (mountainPieces || []).map((piece) => ({
+        type: 'Feature',
+        geometry: piece.length > 1
+          ? { type: 'LineString', coordinates: piece.map(([lat, lng]) => [lng, lat]) }
+          : { type: 'Point', coordinates: [piece[0][1], piece[0][0]] },
+      })),
+    });
+    map.getSource(MOUNTAIN_PREVIEW_SOURCE).setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: mountainPreview || [] },
+    });
+  }, [mountainPieces, mountainPreview, mapReady]);
 
   // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다
   useEffect(() => {

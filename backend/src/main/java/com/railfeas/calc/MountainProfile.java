@@ -27,6 +27,12 @@ public final class MountainProfile {
     public static final double STEP_KM = 0.1;
     /** 이만큼 이하로 떨어진 터널 토막은 한 구간으로 본다(가정값) — 안 합치면 산맥 하나가 0.1km 토막 수십 개로 쪼개진다 */
     public static final double MERGE_GAP_KM = 0.5;
+    /**
+     * 땅높이는 앞뒤 이만큼 표본의 중앙값으로 본다(판단값, 0.5km 창). 지형 자료(SRTM)는 맨땅이 아니라 건물·숲
+     * 꼭대기까지 잰 표면이라, 역삼역 둘레 빌딩 숲(폭 0.2km, 45→80→47m)이 터널로 잡혔다. 폭 250m 보다 좁은 튐은
+     * 지우고 산은 남긴다 — 평균과 달리 튄 값 하나가 둘레를 끌어올리지 않는다
+     */
+    static final int MEDIAN_HALF = 2;
 
     /** 터널이 필요한 한 토막. {@code pieces} 는 지도에 그릴 그 토막의 좌표 */
     public record Section(double startKm, double endKm, double tunnelKm, double maxCoverM,
@@ -54,6 +60,7 @@ public final class MountainProfile {
             known[i] = h.isPresent();
             g[i] = h.isPresent() ? Math.max(0, h.getAsDouble()) : 0;
         }
+        g = median(g, known);
         List<Section> out = new ArrayList<>();
         int i = 0;
         while (i < n) {
@@ -163,6 +170,30 @@ public final class MountainProfile {
             }
             t = e + 1;
         }
+    }
+
+    /** 앞뒤 {@value #MEDIAN_HALF}칸의 중앙값. 모르는 칸 너머는 섞지 않는다 */
+    static double[] median(double[] g, boolean[] known) {
+        int n = g.length;
+        double[] out = g.clone();
+        double[] w = new double[2 * MEDIAN_HALF + 1];
+        for (int i = 0; i < n; i++) {
+            if (!known[i]) {
+                continue;
+            }
+            int lo = i, hi = i;
+            while (lo > 0 && i - lo < MEDIAN_HALF && known[lo - 1]) {
+                lo--;
+            }
+            while (hi < n - 1 && hi - i < MEDIAN_HALF && known[hi + 1]) {
+                hi++;
+            }
+            int m = hi - lo + 1;
+            System.arraycopy(g, lo, w, 0, m);
+            java.util.Arrays.sort(w, 0, m);
+            out[i] = m % 2 == 1 ? w[m / 2] : (w[m / 2 - 1] + w[m / 2]) / 2;
+        }
+        return out;
     }
 
     /** 노선을 {@value #STEP_KM}km 마다 자른 점. 양 끝을 반드시 포함한다 */

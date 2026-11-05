@@ -236,4 +236,7 @@ table.admin-table.compare td.existing .existing-facts { display: block; white-sp
 .water-note { background: #eef6f8; border-left: 3px solid #2b7a8c; padding: 6px 8px; margin: 6px 0; }
 .water-note p { margin: 2px 0; }
 .water-note button { margin: 4px 0; }
+.mountain-note { background: #f6f0e8; border-left: 3px solid #8b5a2b; padding: 6px 8px; margin: 6px 0; }
+.mountain-note p { margin: 2px 0; }
+.mountain-note button { margin: 4px 0; }
 

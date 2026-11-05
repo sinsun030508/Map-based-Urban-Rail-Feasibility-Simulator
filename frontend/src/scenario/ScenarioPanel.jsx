@@ -1,5 +1,9 @@
 import { totalLengthKm } from '../geo/haversine';
 import CostTable from './CostTable';
+import { mountainNote } from './mountainNote';
+import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
+
+const rowLabel = (r) => `${modeLabel(r.modeType)} ${STRUCTURE_LABEL[r.structureType] || ''}`.trim();
 
 const STRUCTURES = [
   ['UNDERGROUND', '지하'],
@@ -10,7 +14,7 @@ const STRUCTURES = [
 export default function ScenarioPanel({
   points, title, structure, scenarios, scenariosLoaded, saving, error, savedLength,
   savedId, results, calculating, population, selectedResult, stale, editingId, existingOption,
-  overLength, water, onApplyDetour,
+  overLength, water, onApplyDetour, mountain, mountainRow, onApplyMountainDetour,
   onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
   onSelectResult,
 }) {
@@ -77,6 +81,32 @@ export default function ScenarioPanel({
                 '지하라 물 밑으로 지나므로 우회를 제안하지 않습니다. '}
               {under ? '하저터널' : '교량'} 할증은 넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다
             </p>
+          );
+        })()}
+        {/* 산 구간 — 호수처럼 **제안만** 한다. 계산 전엔 길이만, 계산 후엔 지도에 그린 안(비교표에서 고른 행)의
+            단가로 두 안을 적는다. 단가는 도심 지하 표본에서 온 외삽이라 그렇게 적는다 */}
+        {(() => {
+          const note = mountainNote(mountain, mountainRow);
+          if (!note) return null;
+          if (!mountain.available) return <p className="mountain-note small muted">{note.lengths}</p>;
+          return (
+            <div className="mountain-note small">
+              <p>{note.lengths}</p>
+              {note.cost && (
+                <p>
+                  <b>{rowLabel(mountainRow)}</b> {note.cost}
+                </p>
+              )}
+              {note.canApply && (
+                <button onClick={onApplyMountainDetour}>돌아가는 선형으로 바꾸기</button>
+              )}
+              <p className="muted">
+                지도의 갈색 토막이 터널, 갈색 점선이 돌아가는 안입니다. 법정 최대 기울기 35‰(도시철도건설규칙
+                제15조)로 보고, 지면이 선로보다 20m 넘게 높으면 터널로 셉니다(가정값). 터널비는 지하 km단가로 매긴
+                외삽입니다 — 단가 표본에 산악 터널 노선이 없습니다.
+                {!note.cost && ' 계산하면 수단별 건설비·소요시간 차이가 나옵니다.'}
+              </p>
+            </div>
           );
         })()}
         {mismatch && (

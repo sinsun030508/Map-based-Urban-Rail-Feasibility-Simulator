@@ -90,6 +90,8 @@ export const api = {
   // 지하는 서버가 우회를 제안하지 않는다(물 밑으로 지난다) — 구조를 함께 보낸다
   detour: (points, structure) =>
     request('/route/detour', { method: 'POST', body: { points, structure } }),
+  mountain: (points, structure) =>
+    request('/route/mountain', { method: 'POST', body: { points, structure } }),
   // 관리자 기준값 — 서버가 ROLE_ADMIN 을 요구한다
   adminParameters: () => request('/admin/parameters'),
   updateParameter: (name, body) =>
