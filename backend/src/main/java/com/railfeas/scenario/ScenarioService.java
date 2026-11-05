@@ -184,7 +184,7 @@ public class ScenarioService {
     }
 
     /** 그린 길이(km). {@link #MAX_ROUTE_KM} 를 넘으면 400 이다 */
-    static BigDecimal lengthOf(List<ScenarioDto.PointRequest> requests) {
+    public static BigDecimal lengthOf(List<ScenarioDto.PointRequest> requests) {
         List<double[]> coords = requests.stream()
                 .map(p -> new double[]{p.latitude().doubleValue(), p.longitude().doubleValue()})
                 .toList();

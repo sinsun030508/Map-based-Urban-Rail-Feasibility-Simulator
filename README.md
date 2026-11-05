@@ -88,7 +88,7 @@ docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨
 
 ```bash
 cd etl && python -m pytest      # 277개 — 원자료 파서·측정 규칙·문서 일치·비밀값
-cd backend && ./mvnw test       # 160개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
+cd backend && ./mvnw test       # 168개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
 cd frontend && npm test         # 12개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백 (node --test, 의존성 없음)
 ```
 
