@@ -87,8 +87,11 @@ export default function App() {
     const back = readCallback(window.location);
     if (!back) return;
     window.history.replaceState(null, '', '/');
+    // 실패는 로그인 화면(socialError)과 **지도 패널(error) 둘 다**에 둔다 — 이미 다른 계정으로 로그인해 있으면
+    // 로그인 화면이 안 뜨므로, 패널에 안 두면 실패가 아무 말 없이 사라져 「로그인됐다」 로 보였다(11-05 카카오)
     if (back.error) {
       setSocialError(back.error);
+      setError(back.error);
       return;
     }
     api.me(back.token)
@@ -98,7 +101,11 @@ export default function App() {
         signedIn(session);
       })
       // 토큰이 틀렸거나 그 사이 계정이 지워졌다. 「로그인이 필요합니다」 는 막 로그인한 사람에게 어색하다
-      .catch(() => setSocialError('소셜 로그인 확인에 실패했습니다 — 다시 시도해 주세요'));
+      .catch(() => {
+        const message = '소셜 로그인 확인에 실패했습니다 — 다시 시도해 주세요';
+        setSocialError(message);
+        setError(message);
+      });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
