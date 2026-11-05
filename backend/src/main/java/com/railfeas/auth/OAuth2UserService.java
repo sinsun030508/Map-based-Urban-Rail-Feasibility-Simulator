@@ -4,6 +4,7 @@ import java.util.Map;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,9 @@ import com.railfeas.user.UserRepository;
  */
 @Service
 public class OAuth2UserService extends DefaultOAuth2UserService {
+
+    /** 실패 처리기가 이 코드일 때만 안내를 화면에 그대로 전한다 (`OAuth2FailureHandler`) */
+    static final String EMAIL_IN_USE = "email_in_use";
 
     private final UserRepository users;
 
@@ -58,7 +62,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
             nickname = "사용자" + uid;
         }
 
-        User user = upsert(provider, uid, email, nickname);
+        User user = upsert(users, provider, uid, email, nickname);
         return new DefaultOAuth2User(oAuth2User.getAuthorities(),
                 Map.of("userId", user.getId(),
                         "email", user.getEmail(),
@@ -66,15 +70,29 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                 "userId");
     }
 
-    private User upsert(AuthProvider provider, String uid, String email, String nickname) {
+    /**
+     * 이미 이은 소셜 계정이면 그대로, 아니면 새로 만든다.
+     *
+     * **같은 이메일로 가입한 계정이 있으면 만들지 않는다.** 이메일로 가입한 사람이 같은 Gmail 로 Google
+     * 로그인을 누르면 저장이 email UNIQUE 에 걸려 500 이었다 — 그 예외는 인증 실패가 아니라서 실패
+     * 처리기를 안 타고 백엔드 오류 화면이 떴다. 인증 실패로 바꿔 화면에 이유를 보낸다.
+     * **이메일로 자동 병합은 하지 않는다** — 공급자가 확인하지 않은 이메일이면 남의 계정에 들어가는 길이다
+     */
+    static User upsert(UserRepository users, AuthProvider provider, String uid, String email, String nickname) {
         return users.findByProviderAndProviderUid(provider, uid)
-                .orElseGet(() -> users.save(User.builder()
+                .orElseGet(() -> {
+                    if (users.existsByEmail(email)) {
+                        throw new OAuth2AuthenticationException(new OAuth2Error(EMAIL_IN_USE,
+                                "이미 이 이메일로 가입한 계정이 있습니다 — 이메일과 비밀번호로 로그인해 주세요", null));
+                    }
+                    return users.save(User.builder()
                         .email(email)
                         .nickname(nickname)
                         .provider(provider)
                         .providerUid(uid)
                         .role(Role.USER)
-                        .build()));
+                        .build());
+                });
     }
 
     @SuppressWarnings("unchecked")

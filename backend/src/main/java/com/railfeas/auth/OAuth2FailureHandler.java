@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
 
@@ -24,7 +25,12 @@ public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
+        // 우리가 낸 이유(이메일 겹침)만 그대로 전한다 — 공급자·라이브러리의 내부 문구는 사용자에게 뜻이 없다
+        String message = exception instanceof OAuth2AuthenticationException e
+                && OAuth2UserService.EMAIL_IN_USE.equals(e.getError().getErrorCode())
+                ? e.getError().getDescription()
+                : "소셜 로그인에 실패했습니다 — 다시 시도해 주세요";
         getRedirectStrategy().sendRedirect(request, response,
-                redirectUri + "#error=" + OAuth2SuccessHandler.encode("소셜 로그인에 실패했습니다 — 다시 시도해 주세요"));
+                redirectUri + "#error=" + OAuth2SuccessHandler.encode(message));
     }
 }

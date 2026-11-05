@@ -25,6 +25,8 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 
 /**
@@ -120,5 +122,52 @@ class SocialLoginTest {
         assertThat(me.userId()).isEqualTo(3L);
         assertThat(me.nickname()).isEqualTo("소셜");
         assertThat(me.role()).isEqualTo("USER");
+    }
+
+    // ── 이메일 겹침 ─────────────────────────────────────────────────────────────
+    // 이메일로 가입한 사람이 같은 Gmail 로 Google 로그인을 누르면 새 계정 저장이 email UNIQUE 에 걸려
+    // **500** 이었다 — 그 예외는 인증 실패가 아니라 실패 처리기를 안 타고 백엔드 오류 화면이 떴다(11-05).
+    // 이메일로 자동 병합은 하지 않는다 — 공급자가 확인하지 않은 이메일이면 남의 계정에 들어가는 길이다
+
+    @Test
+    @DisplayName("이미 이은 소셜 계정은 그대로 쓴다 — 새로 저장하지 않는다")
+    void existingSocialAccount() {
+        UserRepository users = Mockito.mock(UserRepository.class);
+        Mockito.when(users.findByProviderAndProviderUid(AuthProvider.GOOGLE, "g-1")).thenReturn(Optional.of(user(3)));
+
+        assertThat(OAuth2UserService.upsert(users, AuthProvider.GOOGLE, "g-1", "s@example.test", "소셜").getId())
+                .isEqualTo(3L);
+        Mockito.verify(users, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
+    @DisplayName("같은 이메일로 가입한 계정이 있으면 저장하지 않고 email_in_use 로 실패한다")
+    void emailAlreadyUsed() {
+        UserRepository users = Mockito.mock(UserRepository.class);
+        Mockito.when(users.findByProviderAndProviderUid(AuthProvider.GOOGLE, "g-1")).thenReturn(Optional.empty());
+        Mockito.when(users.existsByEmail("s@example.test")).thenReturn(true);
+
+        assertThatThrownBy(() -> OAuth2UserService.upsert(users, AuthProvider.GOOGLE, "g-1", "s@example.test", "소셜"))
+                .isInstanceOf(OAuth2AuthenticationException.class)
+                .satisfies(e -> assertThat(((OAuth2AuthenticationException) e).getError().getErrorCode())
+                        .isEqualTo(OAuth2UserService.EMAIL_IN_USE));
+        Mockito.verify(users, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
+    @DisplayName("실패 처리기는 이메일 겹침의 안내만 그대로 전하고, 나머지는 일반 문구다")
+    void failureMessage() throws Exception {
+        var handler = new OAuth2FailureHandler(FRONT);
+        var inUse = new MockHttpServletResponse();
+        handler.onAuthenticationFailure(new MockHttpServletRequest(), inUse, new OAuth2AuthenticationException(
+                new OAuth2Error(OAuth2UserService.EMAIL_IN_USE, "이미 이 이메일로 가입한 계정이 있습니다", null)));
+        assertThat(java.net.URLDecoder.decode(inUse.getRedirectedUrl(), java.nio.charset.StandardCharsets.UTF_8))
+                .isEqualTo(FRONT + "#error=이미 이 이메일로 가입한 계정이 있습니다");
+
+        var other = new MockHttpServletResponse();
+        handler.onAuthenticationFailure(new MockHttpServletRequest(), other,
+                new OAuth2AuthenticationException(new OAuth2Error("access_denied", "내부 사정", null)));
+        assertThat(java.net.URLDecoder.decode(other.getRedirectedUrl(), java.nio.charset.StandardCharsets.UTF_8))
+                .contains("소셜 로그인에 실패했습니다").doesNotContain("내부 사정");
     }
 }
