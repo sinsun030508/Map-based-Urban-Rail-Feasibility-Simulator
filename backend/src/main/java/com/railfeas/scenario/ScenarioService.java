@@ -121,12 +121,48 @@ public class ScenarioService {
         Scenario scenario = loadOwned(userId, scenarioId);
         BigDecimal length = lengthOf(request.points());     // 지우기 전에 잰다 — 넘으면 아무것도 안 바뀐다
         scenario.rename(request.title());
+        // 구조는 계산에 쓰이지 않는다 — 계산은 모든 수단×구조를 낸다. 바꿔도 결과는 그대로 맞다
         scenario.changeStructure(request.preferredStructure());
-        // 옛 점 DELETE 를 새 점 INSERT 보다 먼저 내보낸다 — calculate 와 같은 이유
-        scenario.clearPoints();
-        entityManager.flush();
-        scenario.replacePoints(toPoints(request.points()), length);
+        // **점이 그대로면 결과를 지우지 않는다.** 화면은 제목만 고쳐도 점을 함께 보내는데, 전에는
+        // 늘 지워서 이름 하나 바꾸면 계산이 통째로 사라졌다(11-05)
+        if (!sameRoute(scenario.getPoints(), request.points())) {
+            // 옛 점 DELETE 를 새 점 INSERT 보다 먼저 내보낸다 — calculate 와 같은 이유
+            scenario.clearPoints();
+            entityManager.flush();
+            scenario.replacePoints(toPoints(request.points()), length);
+        }
         return ScenarioDto.DetailResponse.of(scenario, existingOption(scenario));
+    }
+
+    /** `route_point.latitude/longitude` 의 소수 자리 — DECIMAL(10,7) */
+    private static final int COORD_SCALE = 7;
+
+    /**
+     * 저장된 점과 보낸 점이 같은 노선인가 — 개수·순서·좌표가 모두 같아야 한다.
+     *
+     * **DB 가 저장하는 자리까지만 견준다.** 화면은 클릭한 좌표를 소수 십여 자리로 보내고 DB 는
+     * 7자리로 반올림해 둔다. 저장 직후 제목만 고치면 화면은 아직 긴 좌표를 들고 있어, 그대로 견주면
+     * 같은 점이 다르게 나온다. **`equals` 가 아니라 `compareTo`** 다 — 화면은 끝의 0 을 떼고 보내서
+     * `126.978` 과 `126.9780000` 을 `equals` 는 다르다고 본다. 어긋나면 「다르다」 로 떨어져 결과를
+     * 지운다 — 틀려도 낡은 결과가 남지 않는 쪽이다.
+     */
+    static boolean sameRoute(List<RoutePoint> saved, List<ScenarioDto.PointRequest> requested) {
+        if (saved.size() != requested.size()) {
+            return false;
+        }
+        for (int i = 0; i < saved.size(); i++) {
+            RoutePoint s = saved.get(i);
+            ScenarioDto.PointRequest r = requested.get(i);
+            if (!sameCoord(s.getLatitude(), r.latitude()) || !sameCoord(s.getLongitude(), r.longitude())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean sameCoord(BigDecimal saved, BigDecimal requested) {
+        return saved.setScale(COORD_SCALE, RoundingMode.HALF_UP)
+                .compareTo(requested.setScale(COORD_SCALE, RoundingMode.HALF_UP)) == 0;
     }
 
     @Transactional
