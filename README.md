@@ -1,5 +1,7 @@
 # RailFeas — 노선 타당성 분석 시뮬레이터 
 
+[![CI](https://github.com/sinsun030508/Map-based-Urban-Rail-Feasibility-Simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/sinsun030508/Map-based-Urban-Rail-Feasibility-Simulator/actions/workflows/ci.yml)
+
 지도에 노선을 그리면 **건설비 · 예상 이용객 · B/C**를 산출하고, 그 수요에 맞는 교통수단과
 정차역을 추천하는 웹 서비스. 예비타당성조사(KDI PIMAC) 방법론을 축소·근사한
 개인 프로젝트(8주, 단독 / 학번 202245079 신선호).
