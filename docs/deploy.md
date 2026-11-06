@@ -70,6 +70,8 @@ docker exec -it railfeas-db sh -c 'mysql -uroot -p railfeas -e "UPDATE \`user\` 
 - **진짜 VWorld 키는 이미지에 안 들어간다** — 빌드에는 `on` 표시만 넘기고 키는 nginx 환경변수로 들어간다. Vite 는 `VITE_` 값을 코드에 치환하므로
   진짜 키를 빌드에 넘기면 공개되는 JS 에 박힌다
 - **`docker compose down -v` 를 쓰지 않는다** — 볼륨이 지워지면 가입 계정과 시나리오가 사라진다
+- **로그인은 (이메일, 접속 주소)마다 15분에 10번까지다** — 앞단에 프록시·로드밸런서를 하나 더 두면 접속 주소가 그 장비로 보이니
+  `nginx.conf.template` 의 `X-Forwarded-For` 를 함께 고친다
 - **HTTPS 는 아직 없다** — 80 만 연다. 로그인 토큰이 평문으로 오가므로 공개 운영 전에 도메인과 인증서(예: certbot)를 붙여야 한다.
   그때 `PUBLIC_URL` 과 소셜 콘솔의 주소도 `https` 로 바꾼다
 

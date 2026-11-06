@@ -2,6 +2,7 @@ package com.railfeas.auth;
 
 import com.railfeas.common.ApiException;
 import com.railfeas.user.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,13 +24,15 @@ public class AuthController {
 
     private final AuthService authService;
     private final UserRepository users;
+    private final LoginThrottle throttle;
     private final ObjectProvider<ClientRegistrationRepository> clients;
 
     public AuthController(AuthService authService, UserRepository users,
-                          ObjectProvider<ClientRegistrationRepository> clients) {
+                          ObjectProvider<ClientRegistrationRepository> clients, LoginThrottle throttle) {
         this.authService = authService;
         this.users = users;
         this.clients = clients;
+        this.throttle = throttle;
     }
 
     @PostMapping("/signup")
@@ -38,8 +41,19 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public AuthDto.TokenResponse login(@Valid @RequestBody AuthDto.LoginRequest request) {
-        return authService.login(request);
+    public AuthDto.TokenResponse login(@Valid @RequestBody AuthDto.LoginRequest request, HttpServletRequest http) {
+        String address = http.getRemoteAddr();
+        throttle.check(request.email(), address);
+        try {
+            AuthDto.TokenResponse token = authService.login(request);
+            throttle.succeeded(request.email(), address);
+            return token;
+        } catch (ApiException e) {
+            if (e.getStatus() == HttpStatus.UNAUTHORIZED) {
+                throttle.failed(request.email(), address);
+            }
+            throw e;
+        }
     }
 
     /**

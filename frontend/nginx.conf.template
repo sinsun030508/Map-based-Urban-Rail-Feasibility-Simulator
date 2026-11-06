@@ -16,7 +16,8 @@ server {
         proxy_set_header Host $http_host;
         proxy_set_header X-Forwarded-Host $http_host;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # 덮어쓴다 — 덧붙이면 손님이 보낸 값이 맨 앞에 남아 로그인 횟수 제한을 주소를 바꿔 비켜 간다
+        proxy_set_header X-Forwarded-For $remote_addr;
         # 1,000km 노선 계산이 7초 안팎이고 산 구간은 몇 초 더 걸린다
         proxy_read_timeout 120s;
     }
