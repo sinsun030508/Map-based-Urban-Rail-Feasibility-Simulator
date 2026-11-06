@@ -34,6 +34,9 @@ export default function MapView({
   // **지도가 준비됐는지를 상태로 둔다.** 'load' 이벤트에 직접 매달면
   // StrictMode 가 지도를 두 번 만드는 개발 환경에서 순서가 어긋나,
   // 지도가 뜨기 전에 시나리오를 연 경우 점이 영영 안 그려졌다.
+  // **준비의 기준은 `load` 가 아니라 `style.load` 다.** `load`·`isStyleLoaded()` 는 타일까지 다 받았다는
+  // 뜻이라, 타일 하나가 안 끝나면 노선이 통째로 멈추고(11-06), `load` 는 한 번뿐이라 그 뒤 타일을 받는
+  // 사이에 미룬 그리기는 영영 안 돈다. 소스·레이어는 스타일만 있으면 만들 수 있다
   const [mapReady, setMapReady] = useState(false);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
@@ -52,7 +55,7 @@ export default function MapView({
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }));
 
-    map.on('load', () => {
+    map.on('style.load', () => {
       map.addSource(ROUTE_SOURCE, {
         type: 'geojson',
         data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } },
@@ -148,24 +151,23 @@ export default function MapView({
 
   usePopulation3D(mapRef, show3D);
 
-  // 좌표가 바뀌면 선과 마커를 다시 그린다
+  // 좌표가 바뀌면 선을 다시 그린다
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    // 그린 점만 잇지 않는다 — 역이 선 옆으로 비켜 서 있으면 선도 그리로 돈다.
+    // 비용·편익은 이미 돌아간 길이로 계산하므로(CostCalculator 의 detourKm),
+    // 지도만 직선이면 화면과 숫자가 서로 다른 노선을 말하게 된다
+    map.getSource(ROUTE_SOURCE).setData({
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: routeThroughStations(points, stations) },
+    });
+  }, [points, stations, mapReady]);
+
+  // 마커는 DOM 이라 스타일을 기다릴 것 없다
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-
-    const draw = () => {
-      const source = map.getSource(ROUTE_SOURCE);
-      if (!source) return;
-      // 그린 점만 잇지 않는다 — 역이 선 옆으로 비켜 서 있으면 선도 그리로 돈다.
-      // 비용·편익은 이미 돌아간 길이로 계산하므로(CostCalculator 의 detourKm),
-      // 지도만 직선이면 화면과 숫자가 서로 다른 노선을 말하게 된다
-      source.setData({
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: routeThroughStations(points, stations) },
-      });
-    };
-    if (map.isStyleLoaded()) draw();
-    else map.once('load', draw);
 
     markersRef.current.forEach((m) => m.remove());
     // 가운데 점은 선이 꺾이는 경유점일 뿐 정차역이 아니다. 번호를 달면 역처럼 읽혀
@@ -293,52 +295,48 @@ export default function MapView({
   // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !zones?.length) return;
+    if (!map || !mapReady || !zones?.length) return;
+    if (map.getLayer('zone-circle')) return;
 
-    const add = () => {
-      if (map.getLayer('zone-circle')) return;
-      map.addSource('zones', {
-        type: 'geojson',
-        data: {
-          type: 'FeatureCollection',
-          features: zones.map((z) => ({
-            type: 'Feature',
-            properties: { name: z.name, severity: z.severity, radiusKm: z.radiusKm },
-            geometry: { type: 'Point', coordinates: [Number(z.centerLng), Number(z.centerLat)] },
-          })),
-        },
-      });
-      map.addLayer({
-        id: 'zone-circle',
-        type: 'circle',
-        source: 'zones',
-        paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 26],
-          'circle-color': [
-            'match', ['get', 'severity'],
-            'BLOCKED', '#b3261e',
-            '#c88a00',
-          ],
-          'circle-opacity': 0.25,
-          'circle-stroke-width': 1,
-          'circle-stroke-color': '#7a5c00',
-        },
-      });
-      map.on('click', 'zone-circle', (e) => {
-        const p = e.features[0].properties;
-        new maplibregl.Popup()
-          .setLngLat(e.lngLat)
-          .setHTML(
-            `<strong>${p.name}</strong><br/>${
-              p.severity === 'BLOCKED' ? '사실상 불가' : '심의·협의 필요'
-            } · 반경 약 ${p.radiusKm}km<br/><small>좌표는 근사치입니다</small>`
-          )
-          .addTo(map);
-      });
-    };
-    if (map.isStyleLoaded()) add();
-    else map.once('load', add);
-  }, [zones]);
+    map.addSource('zones', {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: zones.map((z) => ({
+          type: 'Feature',
+          properties: { name: z.name, severity: z.severity, radiusKm: z.radiusKm },
+          geometry: { type: 'Point', coordinates: [Number(z.centerLng), Number(z.centerLat)] },
+        })),
+      },
+    });
+    map.addLayer({
+      id: 'zone-circle',
+      type: 'circle',
+      source: 'zones',
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 26],
+        'circle-color': [
+          'match', ['get', 'severity'],
+          'BLOCKED', '#b3261e',
+          '#c88a00',
+        ],
+        'circle-opacity': 0.25,
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#7a5c00',
+      },
+    });
+    map.on('click', 'zone-circle', (e) => {
+      const p = e.features[0].properties;
+      new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<strong>${p.name}</strong><br/>${
+            p.severity === 'BLOCKED' ? '사실상 불가' : '심의·협의 필요'
+          } · 반경 약 ${p.radiusKm}km<br/><small>좌표는 근사치입니다</small>`
+        )
+        .addTo(map);
+    });
+  }, [zones, mapReady]);
 
   return <div className="map" ref={containerRef} />;
 }
