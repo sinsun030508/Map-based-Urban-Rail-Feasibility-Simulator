@@ -69,6 +69,7 @@ cd frontend && npm install && npm run dev      # http://localhost:5173
 `DB_PASSWORD` 는 **직접 정해 `.env` 에만** 넣는다 — compose 와 백엔드가 함께 읽고, 기본값이 없어 비어 있으면 둘 다 멈춘다.
 `JWT_SECRET` 도 같다(`python -c "import secrets; print(secrets.token_hex(32))"`).
 VWorld 키(`frontend/.env`)가 없으면 OpenFreeMap 타일로 자동 대체된다.
+API 문서는 `.env` 에 `SWAGGER_ENABLED=true` 를 넣고 백엔드를 켜면 `http://localhost:9090/swagger-ui.html` 에서 본다(기본은 닫혀 있다).
 소셜 로그인(Google·카카오)은 **키가 있는 공급자만** 켜진다 — `.env` 에 `KAKAO_CLIENT_ID`(앱의 REST API 키,
 시크릿을 켰으면 `KAKAO_CLIENT_SECRET` 도)나 `GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET` 을 넣고 백엔드를 다시 띄운다.
 공급자 콘솔에는 리다이렉트 주소로 `http://localhost:9090/login/oauth2/code/kakao`(Google 은 `…/google`)를 등록한다.
@@ -94,9 +95,9 @@ docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨
 ## 테스트 
 
 ```bash
-cd etl && python -m pytest      # 288개 — 원자료 파서·측정 규칙·문서 일치·비밀값
+cd etl && python -m pytest      # 290개 — 원자료 파서·측정 규칙·문서 일치·비밀값
 cd backend && ./mvnw test       # 219개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
-cd frontend && npm test         # 41개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백·산 구간 문구·회원 관리 규칙·지도 준비 기준·비용 구성·역별 이용객 (node --test, 의존성 없음)
+cd frontend && npm test         # 42개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백·산 구간 문구·회원 관리 규칙·지도 준비 기준·비용 구성·역별 이용객 (node --test, 의존성 없음)
 ```
 
 - **GitHub Actions**(`.github/workflows/ci.yml`)가 푸시·PR 마다 세 묶음을 깨끗한 환경에서 돌린다 — 저장소에 없는

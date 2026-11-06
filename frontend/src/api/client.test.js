@@ -38,6 +38,15 @@ test('토큰 없이 받은 401 은 서버의 안내를 그대로 띄운다 — �
   assert.deepEqual(events, [], '로그인 실패는 세션 만료가 아니다 — 알리면 화면이 로그인 화면으로 다시 내려간다');
 });
 
+test('로그인 횟수 제한(429)은 세션 만료가 아니다 — 언제 다시 하면 되는지 서버 문구를 그대로 띄운다', async () => {
+  saveSession({ accessToken: 't', userId: 1, nickname: 'n', role: 'USER' });
+  reply(429, { message: '비밀번호를 여러 번 틀렸습니다 — 15분 뒤에 다시 시도해 주세요' });
+  await assert.rejects(api.login({ email: 'a@example.test', password: 'x' }),
+    { message: '비밀번호를 여러 번 틀렸습니다 — 15분 뒤에 다시 시도해 주세요' });
+  assert.deepEqual(events, []);
+  assert.equal(store.size > 0, true, '세션을 지우면 안 된다');
+});
+
 test('토큰이 사라진 채 부른 보호 API 의 401 도 세션 만료다', async () => {
   // 다른 탭에서 로그아웃하면 저장소의 토큰만 지워지고 이 탭은 로그인된 화면 그대로다.
   // 그때 저장을 누르면 토큰 없이 나가 401 이 온다 — 「토큰을 보냈을 때만 만료」 로 가르면

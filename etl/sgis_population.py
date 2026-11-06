@@ -146,6 +146,21 @@ def sgg_of(token, lng, lat):
     return r['sido_cd'] + r['sgg_cd']
 
 
+def stage_of(token, cd):
+    """행정구역 목록 — cd 가 없으면 시도, 있으면 그 시도의 시군구."""
+    params = {'cd': cd} if cd else {}
+    return call(token, 'addr/stage.json', params, f'stage_{cd or "all"}').get('result') or []
+
+
+def all_sgg(stage):
+    """전국 시군구 코드. 하위가 없는 시도(세종)는 시도 코드를 그대로 쓴다."""
+    out = set()
+    for sido in stage(None):
+        rows = stage(sido['cd'])
+        out |= {r['cd'] for r in rows} if rows else {sido['cd']}
+    return out
+
+
 def dong_list(token, sgg_cd):
     """시군구 → 행정동 코드 목록 (경계 API 가 동 코드만 받는다)."""
     body = call(token, 'stats/searchpopulation.json',
@@ -250,6 +265,9 @@ def main():
         if sgg:
             sggs.add(sgg)
             dong_by_station[(st.line_name, st.station_name)] = dong
+    # **역이 있는 시군구만 받으면 그 사이 구간의 인구가 빈다** — 수요가 선 전체를 세므로 빈 구간이 곧 과소 추정이고,
+    # 서울~부산의 역 206개가 이름 없이 남았다. 역에 없는 시군구까지 전국을 받는다
+    sggs |= all_sgg(lambda cd: stage_of(token, cd))
     print(f'시군구 {len(sggs)}개', flush=True)
 
     # 2~3) 시군구별 인구 + 동별 경계 중심점
