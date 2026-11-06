@@ -3,6 +3,8 @@ package com.railfeas.route;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.railfeas.calc.MountainCost;
+import com.railfeas.calc.MountainPlans;
+import com.railfeas.calc.PlanStore;
 import com.railfeas.calc.Terrain;
 import com.railfeas.calc.WaterBodies;
 import com.railfeas.calc.WaterDetour;
@@ -48,7 +50,19 @@ class RouteControllerTest {
                 standard(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24)));
         ModeCapacityRepository capacities = Mockito.mock(ModeCapacityRepository.class);
         Mockito.when(capacities.findAll()).thenReturn(List.of());
-        return new RouteController(new WaterDetour(water), water, new Terrain(dem), standards, capacities);
+        // 캐시는 비어 있는 것으로 — 이 테스트는 판정을 본다
+        PlanStore empty = new PlanStore() {
+            @Override
+            public java.util.Optional<String> get(String key) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public void put(String key, String value, java.time.Duration ttl) {
+            }
+        };
+        return new RouteController(new WaterDetour(water), water, new Terrain(dem), standards, capacities,
+                new MountainPlans(empty, new com.fasterxml.jackson.databind.ObjectMapper()));
     }
 
     private static CostStandard standard(ModeType mode, StructureType structure, long perKm) {

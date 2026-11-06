@@ -25,6 +25,8 @@ import java.util.PriorityQueue;
  */
 public final class MountainDetour {
 
+    /** 판정·탐색 코드를 고치면 올린다 — Redis 에 담긴 옛 답이 7일 동안 나오지 않게 ({@link MountainPlans}) */
+    public static final int PLAN_VERSION = 1;
     /** 우회가 원래 구간보다 이만큼 넘게 길면 뚫는 편이 낫다고 본다 — 가정값(호수와 같다) */
     public static final double MAX_RATIO = WaterDetour.MAX_RATIO;
     /** 산 구간 앞뒤로 붙이는 여유 — 산기슭에서 벗어나 돌기 시작할 자리 */

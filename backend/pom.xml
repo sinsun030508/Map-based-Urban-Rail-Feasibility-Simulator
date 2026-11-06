@@ -74,6 +74,11 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- 산 구간 계산 캐시 (MountainPlans) — Redis 가 없어도 계산은 된다 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
         <!-- API 문서 — SWAGGER_ENABLED=true 일 때만 열린다 -->
         <dependency>
             <groupId>org.springdoc</groupId>

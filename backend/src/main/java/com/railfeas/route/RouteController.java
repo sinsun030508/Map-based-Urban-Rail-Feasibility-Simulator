@@ -2,6 +2,7 @@ package com.railfeas.route;
 
 import com.railfeas.calc.MountainCost;
 import com.railfeas.calc.MountainDetour;
+import com.railfeas.calc.MountainPlans;
 import com.railfeas.calc.Terrain;
 import com.railfeas.calc.WaterBodies;
 import com.railfeas.calc.WaterDetour;
@@ -70,14 +71,17 @@ public class RouteController {
     private final Terrain terrain;
     private final CostStandardRepository standards;
     private final ModeCapacityRepository capacities;
+    private final MountainPlans plans;
 
     public RouteController(WaterDetour detour, WaterBodies water, Terrain terrain,
-                           CostStandardRepository standards, ModeCapacityRepository capacities) {
+                           CostStandardRepository standards, ModeCapacityRepository capacities,
+                           MountainPlans plans) {
         this.detour = detour;
         this.water = water;
         this.terrain = terrain;
         this.standards = standards;
         this.capacities = capacities;
+        this.plans = plans;
     }
 
     @PostMapping("/detour")
@@ -104,7 +108,7 @@ public class RouteController {
             return new MountainResponse(true, points(route), List.of(), List.of());
         }
         List<CostStandard> active = standards.findByActiveTrue();
-        MountainDetour.Plan plan = MountainDetour.plan(route, terrain, MountainCost.breakEven(active));
+        MountainDetour.Plan plan = plans.plan(route, terrain, MountainCost.breakEven(active));
         Map<ModeType, ModeCapacity> byMode = capacities.findAll().stream()
                 .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
         return new MountainResponse(true, points(plan.points()), plan.mountains(),
