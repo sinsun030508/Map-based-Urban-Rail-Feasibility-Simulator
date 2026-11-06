@@ -86,15 +86,12 @@ public class RouteController {
 
     @PostMapping("/detour")
     public DetourResponse detour(@Valid @RequestBody DetourRequest request) {
-        List<double[]> route = request.points().stream()
-                .map(p -> new double[]{p.latitude().doubleValue(), p.longitude().doubleValue()})
-                .toList();
+        ScenarioService.lengthOf(request.points());
+        List<double[]> route = coords(request);
         WaterDetour.Plan plan = request.structure() == StructureType.UNDERGROUND
                 ? new WaterDetour.Plan(route, List.of())
                 : detour.plan(route);
-        return new DetourResponse(plan.points().stream()
-                .map(p -> new Point(scale(p[0]), scale(p[1])))
-                .toList(), plan.crossings(), water.onWater(route));
+        return new DetourResponse(points(plan.points()), plan.crossings(), water.onWater(route));
     }
 
     @PostMapping("/mountain")

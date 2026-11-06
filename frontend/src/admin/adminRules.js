@@ -30,6 +30,8 @@ export function calculatedLine({ calculated, noRecommendation }) {
 export const peakOf = (rows) => rows.reduce((m, r) => Math.max(m, r.count), 0);
 
 const isInt = (v) => v !== '' && v != null && Number.isInteger(Number(v));
+/** 서버 `AdminCostController.MAX_COST` 와 같아야 한다 */
+const MAX_COST = 1000000;
 
 /**
  * 단가 입력 검사 — 서버(`AdminCostController`)가 막는 것과 같다. 지하·고가 대소는 다른 행을 봐야 해 서버가 본다.
@@ -37,6 +39,9 @@ const isInt = (v) => v !== '' && v != null && Number.isInteger(Number(v));
  */
 export function costDraftError(row, draft) {
   const d = { ...row, ...draft };
+  if (['fixedCost', 'costPerKm', 'costPerStation'].some((k) => Number(d[k]) > MAX_COST)) {
+    return `단가는 ${MAX_COST.toLocaleString()}억원을 넘을 수 없습니다`;
+  }
   if (!isInt(d.fixedCost) || Number(d.fixedCost) < 0) return '고정비는 0 이상의 정수여야 합니다';
   if (!isInt(d.costPerKm) || Number(d.costPerKm) < 1) return 'km단가는 1 이상의 정수여야 합니다';
   if (!isInt(d.costPerStation) || Number(d.costPerStation) < 0) return '역 단가는 0 이상의 정수여야 합니다';

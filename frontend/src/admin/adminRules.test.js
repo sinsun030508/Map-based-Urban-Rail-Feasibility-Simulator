@@ -57,3 +57,9 @@ test('값도 근거도 그대로면 저장할 것이 없다 — 안내 없이 �
   assert.equal(costDraftError(cost, { ...cost }), '');
   assert.equal(costDraftError(cost, { costPerKm: '550' }), '');
 });
+
+test('단가 위쪽 한계 — 서버와 같다', () => {
+  assert.equal(costDraftError(cost, { ...cost, costPerKm: '1000000' }), null);
+  assert.match(costDraftError(cost, { ...cost, costPerKm: '1000001' }), /넘을 수 없습니다/);
+  assert.match(costDraftError(cost, { ...cost, fixedCost: '1000001' }), /넘을 수 없습니다/);
+});

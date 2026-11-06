@@ -36,6 +36,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/admin/costs")
 public class AdminCostController {
 
+    /** 억원. 판단값 — 지금 최댓값이 km당 875억이다. 넘치면 합이 long 을 넘어 건설비가 음수로 뒤집힌다 */
+    static final long MAX_COST = 1_000_000;
+
     private final CostStandardRepository standards;
 
     public AdminCostController(CostStandardRepository standards) {
@@ -92,6 +95,9 @@ public class AdminCostController {
         }
         if (r.fixedCost() < 0 || r.costPerStation() < 0) {
             throw bad("고정비와 역 단가는 음수일 수 없습니다");
+        }
+        if (r.fixedCost() > MAX_COST || r.costPerKm() > MAX_COST || r.costPerStation() > MAX_COST) {
+            throw bad("단가는 " + MAX_COST + "억원을 넘을 수 없습니다");
         }
         if (r.fixedCost().equals(current.getFixedCost()) && r.costPerKm().equals(current.getCostPerKm())
                 && r.costPerStation().equals(current.getCostPerStation()) && r.source().equals(current.getSource())) {

@@ -198,4 +198,12 @@ class RouteControllerTest {
         assertThat(worth.mountains().get(0).detoured()).isTrue();
         assertThat(worth.points().size()).isGreaterThan(2);
     }
+
+    @Test
+    @DisplayName("호수 우회도 같은 상한이다 — 한쪽에만 걸면 긴 선이 그쪽으로 들어온다")
+    void 호수_우회도_너무_긴_선은_400() {
+        var far = List.of(p(37.5, 127.0), p(33.0, 140.0));   // 약 1,250km
+        Assertions.assertThatThrownBy(() -> controller().detour(new RouteController.DetourRequest(far, StructureType.ELEVATED)))
+                .isInstanceOf(ApiException.class);
+    }
 }

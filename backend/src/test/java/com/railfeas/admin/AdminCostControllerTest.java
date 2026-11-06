@@ -190,4 +190,16 @@ class AdminCostControllerTest {
 
         assertThat(controller.costs()).extracting(AdminCostController.CostRow::id).containsExactly(7L, 3L, 1L);
     }
+
+    @Test
+    @DisplayName("단가에는 위쪽 한계가 있다 — 넘치면 건설비 합이 음수로 뒤집힌다")
+    void 상한() {
+        stored();
+        long over = AdminCostController.MAX_COST + 1;
+
+        assertThat(statusOf(() -> controller.update(1L, request(1_000, over, 200)))).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(statusOf(() -> controller.update(2L, request(over, 550, 200)))).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(statusOf(() -> controller.update(2L, request(1_000, 550, over)))).isEqualTo(HttpStatus.BAD_REQUEST);
+        nothingWritten();
+    }
 }
