@@ -1,0 +1,31 @@
+# 개발 때 Vite 프록시가 하던 일을 배포에서 맡는다(vite.config.js 와 같은 경로).
+# ${VWORLD_KEY}·${VWORLD_REFERER} 는 켜질 때 환경변수로 채워진다 — 키가 브라우저에 안 보인다.
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+    client_max_body_size 1m;
+
+    # 화면 주소(/oauth/callback 등)는 index.html 이 받는다
+    location / {
+        try_files $uri /index.html;
+    }
+
+    # 소셜 로그인이 공개 주소로 redirect-uri 를 만들도록 원래 주소를 넘긴다(백엔드 forward-headers)
+    location ~ ^/(api|oauth2|login/oauth2)/ {
+        proxy_pass http://backend:9090;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # 1,000km 노선 계산이 7초 안팎이고 산 구간은 몇 초 더 걸린다
+        proxy_read_timeout 120s;
+    }
+
+    location /vworld/ {
+        rewrite ^/vworld/(.*)$ /req/wmts/1.0.0/${VWORLD_KEY}/Base/$1 break;
+        proxy_pass https://api.vworld.kr;
+        proxy_ssl_server_name on;
+        proxy_set_header Host api.vworld.kr;
+        proxy_set_header Referer ${VWORLD_REFERER};
+    }
+}

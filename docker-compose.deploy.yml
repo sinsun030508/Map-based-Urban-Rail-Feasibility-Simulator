@@ -1,0 +1,63 @@
+# 배포 — 기본 compose 위에 얹어 쓴다. 절차는 docs/deploy.md
+#   docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build
+# 바깥에 여는 것은 web 하나다. 백엔드·DB·Redis 는 compose 내부망으로만 만난다.
+services:
+  db:
+    restart: unless-stopped
+    # 백엔드가 DB 를 못 찾고 죽지 않게 준비될 때까지 기다린다
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping -h 127.0.0.1 -uroot --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: railfeas-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 를 .env 에 넣으세요}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET 를 .env 에 넣으세요 - 32바이트 이상}
+      REDIS_HOST: redis
+      # 관리자 경로까지 드러나므로 배포에서는 닫는다
+      SWAGGER_ENABLED: "false"
+      OAUTH2_REDIRECT_URI: ${PUBLIC_URL:?PUBLIC_URL 을 .env 에 넣으세요 - 예 https://example.com}/oauth/callback
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+      KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      # nginx 뒤에서도 소셜 로그인 redirect-uri 를 공개 주소로 만든다
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      LOGGING_LEVEL_COM_RAILFEAS: INFO
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xmx384m}
+    volumes:
+      # CSV·지형 타일. 지형이 없으면 산 판정만 꺼진다
+      - ./data:/app/data:ro
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # 키가 있는지만 넘긴다 — 진짜 키는 아래 environment 로만 들어간다
+        USE_VWORLD: ${VWORLD_KEY:+on}
+    container_name: railfeas-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VWORLD_KEY: ${VWORLD_KEY:-}
+      # VWorld 인증키에 등록한 도메인
+      VWORLD_REFERER: ${VWORLD_REFERER:-}
+    ports:
+      - "${WEB_PORT:-80}:80"

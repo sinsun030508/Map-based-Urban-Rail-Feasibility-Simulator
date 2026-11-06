@@ -30,6 +30,8 @@ cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
 cd frontend && npm run dev                       # 5173
 ```
 
+배포는 `docs/deploy.md` — `docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build`.
+
 **밟으면 한참 헤매는 것들** (자세한 것은 노트의 「실행」)
 
 - **DB 는 호스트 3307**이다. `DB_PORT` 가 없으면 `Access denied` 가 나는데 **비밀번호가 아니라 다른 DB 에 붙은 것**이다. 키 이름부터 견줄 것 —
@@ -118,7 +120,7 @@ cd frontend && npm run dev                       # 5173
 
 ## 테스트
 
-`cd etl && python -m pytest` (278개 — 파서·측정 규칙·문서 일치·비밀값) /
+`cd etl && python -m pytest` (283개 — 파서·측정 규칙·문서 일치·비밀값) /
 `cd backend && ./mvnw test` (206개 — 계산 로직과 판정 규칙) /
 `cd frontend && npm test` (40개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백·산 구간 문구·회원 관리 규칙·지도 준비 기준·비용 구성·역별 이용객, `node --test` 라 의존성 없음).
 `test_docs_match_code.py` 는 **이 파일의 숫자가 코드·자료와 맞는지** 본다. 깨지면 둘 중
@@ -129,7 +131,8 @@ cd frontend && npm run dev                       # 5173
 
 제안서 기능 7개와 기능 8(시나리오 비교·관리자 CRUD)의 **핵심은 구현했고 전 구간 실행 검증을
 마쳤다.** **단 제안서와 대조하면(11-05) 빠진 것이 있다**(회원 관리·시나리오 생성 통계·단가 관리·대시보드의 비용 구성·역별
-이용객 차트는 11-06 에 붙였다) — EC2 배포(GitHub Actions 는 11-05, Swagger 는 11-06 에 붙였다 — `SWAGGER_ENABLED=true` 일 때만 `/swagger-ui.html` 이 열린다). Recharts 대신 SVG 는 의도다. **단 소셜 로그인(기능 1)은 11-04 까지 화면이 없었다**(백엔드만) — 버튼·`/oauth/callback`·`/api/auth/me` 를
+이용객 차트는 11-06 에 붙였다) — EC2 에 실제로 올리는 일(AWS 계정 필요 — 이미지·`docker-compose.deploy.yml`·`docs/deploy.md` 는
+11-06 에 만들어 이 PC 에서 전체 기동까지 시험했다. GitHub Actions 는 11-05, Swagger 는 11-06 에 붙였다 — `SWAGGER_ENABLED=true` 일 때만 `/swagger-ui.html` 이 열린다). Recharts 대신 SVG 는 의도다. **단 소셜 로그인(기능 1)은 11-04 까지 화면이 없었다**(백엔드만) — 버튼·`/oauth/callback`·`/api/auth/me` 를
 붙였다. **Google·카카오 둘 다 실제 왕복까지 확인했다**(11-05 — 계정 생성·USER·비밀번호 없음, 주소에 토큰 안 남음,
 새로고침 유지, 관리자 API 403). 카카오는 콘솔 설정 넷이 필요했다 — 로그인 켜기(KOE004)·닉네임 동의(KOE205)·
 Redirect URI(KOE006)·**Client Secret**(켜져 있으면 `KAKAO_CLIENT_SECRET` 이 있어야 한다, 없으면 토큰 교환이 401·KOE010). 기존 수단(도시철도·KTX)이 비교표의 참조 행으로 들어가고, 장거리 노선은 고속선

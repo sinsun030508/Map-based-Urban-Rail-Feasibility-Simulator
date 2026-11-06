@@ -84,3 +84,28 @@ def test_compose_의_포트는_이_PC_에만_연다():
     assert ports, 'compose 에서 포트를 못 찾았다 — 정규식을 고칠 것'
     open_ports = [p for p in ports if not p.startswith('127.0.0.1:')]
     assert not open_ports, f'127.0.0.1 로 묶이지 않은 포트: {open_ports}'
+
+
+DEPLOY = ROOT / 'docker-compose.deploy.yml'
+
+
+def test_배포는_web_만_바깥에_연다():
+    text = DEPLOY.read_text(encoding='utf-8')
+    ports = re.findall(r'^\s*-\s*"([^"]*:\d+)"\s*$', text, re.M)
+    assert ports == ['${WEB_PORT:-80}:80'], f'공개 포트가 web 하나가 아니다: {ports}'
+
+
+def test_배포는_API_문서를_닫는다():
+    assert re.search(r'SWAGGER_ENABLED:\s*"false"', DEPLOY.read_text(encoding='utf-8'))
+
+
+def test_배포의_비밀값은_기본값이_없다():
+    text = DEPLOY.read_text(encoding='utf-8')
+    for name in ('DB_PASSWORD', 'JWT_SECRET'):
+        assert re.search(r'\$\{' + name + r':\?', text), f'{name} 이 없으면 멈춰야 한다'
+
+
+@pytest.mark.parametrize('folder', ['backend', 'frontend'])
+def test_이미지에_env_가_들어가지_않는다(folder):
+    ignore = (ROOT / folder / '.dockerignore').read_text(encoding='utf-8').split()
+    assert '.env' in ignore
