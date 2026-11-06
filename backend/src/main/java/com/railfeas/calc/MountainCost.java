@@ -16,7 +16,7 @@ import java.util.Set;
  * <ul>
  *   <li><b>뚫는 안</b> = 터널 T km × (그 수단의 지하 km단가 − 이 행의 km단가). 지하 단가가 없는 수단(트램)은
  *       <b>모른다</b>(null) — 추정하지 않는다</li>
- *   <li><b>돌아가는 안</b> = 늘어난 연장 × 이 행의 km단가 + <b>못 돌아간 구간의 터널</b>값. 늘어난 시간 =
+ *   <li><b>돌아가는 안</b> = 늘어난 연장 × 이 행의 km단가 + <b>못 돌아갔거나 돌면 손해라 뚫는 구간의 터널</b>값. 늘어난 시간 =
  *       늘어난 연장 ÷ 표정속도. 돌아갈 수 있는 구간이 하나도 없으면 null(안이 없다 — 0원이 아니다)</li>
  * </ul>
  * 터널 단가는 외삽이다 — 지하 단가를 만든 표본은 도심 지하철·대심도 광역철도이고 산악 터널 노선이 없다.
@@ -33,6 +33,30 @@ public final class MountainCost {
     }
 
     private MountainCost() {
+    }
+
+    /**
+     * 돌아가는 편이 터널보다 싼 경계 — 늘어난 km × 단가 = 터널 km × (지하 단가 − 단가) 에서
+     * 늘어난 km ÷ 터널 km = (지하 − 구조) ÷ 구조. 철도 수단은 약 0.59 로 거의 같아(같은 지하 계수에서 나왔다)
+     * 수단을 고르기 전에도 선형을 하나로 정할 수 있다 — 중앙값을 쓴다. 견줄 단가가 없으면 null
+     */
+    public static Double breakEven(List<CostStandard> standards) {
+        List<Double> ratios = new ArrayList<>();
+        for (CostStandard s : standards) {
+            if (ROAD.contains(s.getModeType()) || s.getStructureType() == StructureType.UNDERGROUND) {
+                continue;
+            }
+            standards.stream()
+                    .filter(u -> u.getModeType() == s.getModeType() && u.getStructureType() == StructureType.UNDERGROUND)
+                    .findFirst()
+                    .ifPresent(u -> ratios.add((double) (u.getCostPerKm() - s.getCostPerKm()) / s.getCostPerKm()));
+        }
+        if (ratios.isEmpty()) {
+            return null;
+        }
+        ratios.sort(null);
+        int n = ratios.size();
+        return n % 2 == 1 ? ratios.get(n / 2) : (ratios.get(n / 2 - 1) + ratios.get(n / 2)) / 2;
     }
 
     public static List<Delta> deltas(MountainDetour.Plan plan, List<CostStandard> standards,

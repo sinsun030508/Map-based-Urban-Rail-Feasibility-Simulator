@@ -163,4 +163,25 @@ class RouteControllerTest {
         Assertions.assertThatThrownBy(() -> controller().mountain(new RouteController.DetourRequest(far, StructureType.ELEVATED)))
                 .isInstanceOf(ApiException.class);
     }
+
+    @Test
+    @DisplayName("단가로 손익을 따진다 — 손해인 곳은 뚫고 이득인 곳은 돈다(손익분기 약 0.59)")
+    void 손해인_우회는_빠진다() {
+        RouteController c = controller();
+
+        // 터널 0.3km 를 피하려 1.06km 를 돈다(비율 3.5) — 뚫는다. 점은 그대로다
+        var lossy = c.mountain(new RouteController.DetourRequest(
+                List.of(p(36.14, 128.04), p(36.14, 128.09)), StructureType.ELEVATED));
+        assertThat(lossy.mountains()).hasSize(1);
+        assertThat(lossy.mountains().get(0).costlier()).isTrue();
+        assertThat(lossy.mountains().get(0).detoured()).isFalse();
+        assertThat(lossy.points()).hasSize(2);
+
+        // 터널 0.6km 를 0.15km 만 돌면 된다(비율 0.26) — 돈다
+        var worth = c.mountain(new RouteController.DetourRequest(
+                List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED));
+        assertThat(worth.mountains()).hasSize(1);
+        assertThat(worth.mountains().get(0).detoured()).isTrue();
+        assertThat(worth.points().size()).isGreaterThan(2);
+    }
 }

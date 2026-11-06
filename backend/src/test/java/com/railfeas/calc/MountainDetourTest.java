@@ -104,4 +104,48 @@ class MountainDetourTest {
             assertThat((p[1] - LNG0) * KM_LNG).isLessThan(0.3);
         }
     }
+
+    @Test
+    @DisplayName("돌아가는 편이 손해면 뚫는다 — 점은 그대로, 이유를 적는다")
+    void costlierDetourTunnels() {
+        Elevation e = terrain((s, x) -> cone(s, x, 0));
+        var plan = MountainDetour.plan(ROUTE, e, 0.01);
+
+        var m = plan.mountains().get(0);
+        assertThat(m.detoured()).isFalse();
+        assertThat(m.costlier()).isTrue();
+        assertThat(m.addedKm()).isZero();
+        assertThat(m.reason()).contains("뚫");
+        assertThat(plan.points()).containsExactlyElementsOf(ROUTE);
+    }
+
+    @Test
+    @DisplayName("돌아가는 편이 이득이면 돈다")
+    void cheaperDetourStays() {
+        var m = MountainDetour.plan(ROUTE, terrain((s, x) -> cone(s, x, 0)), 100.0).mountains().get(0);
+
+        assertThat(m.detoured()).isTrue();
+        assertThat(m.costlier()).isFalse();
+    }
+
+    @Test
+    @DisplayName("구간마다 따로 견준다 — 한 노선에서 한 곳은 돌고 한 곳은 뚫는다")
+    void decidesPerSection() {
+        // 20km 노선. 앞 산은 노선 한가운데, 뒤 산은 옆으로 비껴 조금만 돌면 된다
+        List<double[]> route = List.of(new double[]{LAT0, LNG0}, new double[]{LAT0 + 20 / KM_LAT, LNG0});
+        Elevation e = terrain((s, x) -> Math.max(2, Math.max(
+                400 * (1 - Math.hypot(s - 5, x) / 2),
+                400 * (1 - Math.hypot(s - 15, x - 1.5) / 2))));
+
+        var free = MountainDetour.plan(route, e).mountains();
+        assertThat(free).hasSize(2).allMatch(MountainDetour.Mountain::detoured);
+        double r1 = free.get(0).addedKm() / free.get(0).tunnelKm();
+        double r2 = free.get(1).addedKm() / free.get(1).tunnelKm();
+        assertThat(r1).isNotCloseTo(r2, org.assertj.core.data.Percentage.withPercentage(5));
+
+        // 두 비율 사이의 손익분기 — 정확히 한 곳만 돌아야 한다
+        var mixed = MountainDetour.plan(route, e, (r1 + r2) / 2).mountains();
+        assertThat(mixed).filteredOn(MountainDetour.Mountain::detoured).hasSize(1);
+        assertThat(mixed).filteredOn(MountainDetour.Mountain::costlier).hasSize(1);
+    }
 }

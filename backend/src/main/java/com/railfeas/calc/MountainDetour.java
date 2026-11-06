@@ -18,6 +18,10 @@ import java.util.PriorityQueue;
  * <p><b>격자는 1.5배 타원만큼만 본다.</b> 길이가 원래 구간의 {@value #MAX_RATIO}배 이하인 길은 A·B 를 초점으로 하는
  * 타원 안에만 있을 수 있다 — 그 밖은 볼 필요가 없고, 그 안에 길이 없으면 「1.5배 안에 돌아갈 길이 없다」 가
  * 답이다. 바다(높이 0)와 높이를 모르는 칸은 지나지 않는다. 8방향 격자라 지그재그(스위치백)·나선은 만들지 않는다.
+ *
+ * <p><b>돌 수 있어도 손해면 뚫는다.</b> 돌면 시간은 늘 늘어나므로 비용까지 더 들면 돌 이유가 없다. 구간마다
+ * 「늘어난 km ÷ 터널 km」 를 손익분기({@link MountainCost#breakEven})와 견준다 — 그래서 돌아가는 안은 이득인
+ * 곳만 돌고 나머지는 뚫은 혼합안이고, 뚫기만 하는 안보다 비싸지 않다.
  */
 public final class MountainDetour {
 
@@ -28,9 +32,12 @@ public final class MountainDetour {
     private static final double CELL_KM = 0.1;
     private static final int MAX_CELLS = 600;
 
-    /** 산 구간 하나(가까운 구간은 한 창으로 합친다). {@code index} 는 1부터 — 지도 토막·패널 「구간 1」 */
-    public record Mountain(int index, double tunnelKm, boolean detoured, double addedKm, String reason,
-                           List<List<double[]>> pieces) {
+    /**
+     * 산 구간 하나(가까운 구간은 한 창으로 합친다). {@code index} 는 1부터 — 지도 토막·패널 「구간 1」.
+     * {@code costlier} 는 돌 수는 있지만 터널보다 비싸 뚫기로 한 구간이다(돌아갈 길이 없는 것과 다르다)
+     */
+    public record Mountain(int index, double tunnelKm, boolean detoured, boolean costlier, double addedKm,
+                           String reason, List<List<double[]>> pieces) {
     }
 
     /** points — 돌아가는 점이 끼워진 선(제안하지 않은 구간은 그대로), mountains — 산 구간 */
@@ -40,7 +47,13 @@ public final class MountainDetour {
     private MountainDetour() {
     }
 
+    /** 비용을 따지지 않고 돌 수 있는 곳을 모두 돈다 */
     public static Plan plan(List<double[]> route, Elevation e) {
+        return plan(route, e, null);
+    }
+
+    /** @param breakEven 늘어난 km ÷ 터널 km 가 이 값 이상이면 뚫는다. null 이면 견주지 않는다(단가를 모른다) */
+    public static Plan plan(List<double[]> route, Elevation e, Double breakEven) {
         List<MountainProfile.Section> sections = MountainProfile.sections(route, e);
         if (sections.isEmpty()) {
             return new Plan(route, List.of());
@@ -77,6 +90,7 @@ public final class MountainDetour {
             double direct = to - from;
             List<double[]> via = route(a, b, direct, e);
             String reason;
+            boolean costlier = false;
             if (via == null) {
                 reason = String.format("35‰ 를 넘지 않고 %.1f배 안에서 돌아갈 길이 없습니다 — 뚫는 안만 있습니다", MAX_RATIO);
             } else {
@@ -91,6 +105,11 @@ public final class MountainDetour {
                     reason = "돌아갈 길에도 35‰ 보다 가파른 곳이 남습니다 — 뚫는 안만 있습니다";
                 } else if (len > direct * MAX_RATIO) {
                     reason = String.format("돌아가면 %.1f배(%.1fkm 더)라 뚫는 편이 낫습니다", len / direct, len - direct);
+                } else if (breakEven != null && len - direct >= tunnel * breakEven) {
+                    // 경유점 검사보다 먼저 — 손해인 우회가 경유점 자리를 차지하지 않게
+                    costlier = true;
+                    reason = String.format("돌아가면 +%.1fkm 라 터널 %.1fkm 보다 비쌉니다 — 뚫는 편이 낫습니다",
+                            len - direct, tunnel);
                 } else if (after > WaterDetour.MAX_POINTS) {
                     reason = "돌아가면 경유점이 " + WaterDetour.MAX_POINTS + "개를 넘어 저장할 수 없습니다";
                 } else {
@@ -105,11 +124,11 @@ public final class MountainDetour {
                         v++;
                     }
                     count = after;
-                    mountains.add(new Mountain(index, tunnel, true, len - direct, null, pieces));
+                    mountains.add(new Mountain(index, tunnel, true, false, len - direct, null, pieces));
                     continue;
                 }
             }
-            mountains.add(new Mountain(index, tunnel, false, 0, reason, pieces));
+            mountains.add(new Mountain(index, tunnel, false, costlier, 0, reason, pieces));
         }
         if (mountains.stream().noneMatch(Mountain::detoured)) {
             return new Plan(route, mountains);

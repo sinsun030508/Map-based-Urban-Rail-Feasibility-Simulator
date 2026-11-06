@@ -59,3 +59,16 @@ test('돌아갈 구간이 하나도 없으면 「1.5배」 로 못박지 않는�
   assert.doesNotMatch(n.lengths, /1\.5배/);
   assert.equal(n.canApply, false);
 });
+
+test('돌면 손해인 구간은 뚫는다고 적는다 — 「돌아갈 길이 없다」 와 다른 말이다', () => {
+  const costlier = { index: 2, tunnelKm: 0.4, detoured: false, costlier: true, addedKm: 0, reason: '손해', pieces: [] };
+  const some = mountainNote({ available: true, deltas: [], mountains: [RES.mountains[0], costlier] }, null);
+  assert.match(some.lengths, /1곳은 돌아가면 \+5\.1km/);
+  assert.match(some.lengths, /1곳은 돌아가는 편이 비싸 뚫습니다/);
+  assert.equal(some.canApply, true);
+
+  const all = mountainNote({ available: true, deltas: [], mountains: [costlier] }, null);
+  assert.match(all.lengths, /돌아가는 편이 비싸 뚫습니다/);
+  assert.doesNotMatch(all.lengths, /돌아갈 수 있는 구간이 없습니다/);
+  assert.equal(all.canApply, false);
+});

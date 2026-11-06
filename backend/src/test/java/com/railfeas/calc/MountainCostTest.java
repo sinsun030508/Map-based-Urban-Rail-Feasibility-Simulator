@@ -46,7 +46,7 @@ class MountainCostTest {
     }
 
     private static MountainDetour.Mountain mountain(int index, double tunnelKm, boolean detoured, double addedKm) {
-        return new MountainDetour.Mountain(index, tunnelKm, detoured, addedKm, detoured ? null : "이유", List.of());
+        return new MountainDetour.Mountain(index, tunnelKm, detoured, false, addedKm, detoured ? null : "이유", List.of());
     }
 
     @Test
@@ -101,5 +101,26 @@ class MountainCostTest {
         assertThat(MountainCost.deltas(plan, List.of(
                 std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24),
                 std(ModeType.BRT_LOW, StructureType.AT_GRADE, 4)), Map.of())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("손익분기는 (지하−구조 km단가) ÷ 구조 km단가의 중앙값이다 — BRT·지하 단가 없는 수단은 빠진다")
+    void 손익분기() {
+        assertThat(MountainCost.breakEven(List.of(
+                std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 875),
+                std(ModeType.HEAVY_METRO, StructureType.ELEVATED, 550),
+                std(ModeType.LIGHT_RAIL, StructureType.UNDERGROUND, 600),
+                std(ModeType.LIGHT_RAIL, StructureType.ELEVATED, 400),
+                std(ModeType.DOUBLE_ELEC, StructureType.UNDERGROUND, 700),
+                std(ModeType.DOUBLE_ELEC, StructureType.ELEVATED, 400),
+                std(ModeType.TRAM, StructureType.AT_GRADE, 273),
+                std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24))))
+                .isCloseTo(325.0 / 550, org.assertj.core.data.Offset.offset(1e-9));
+    }
+
+    @Test
+    @DisplayName("견줄 지하 단가가 하나도 없으면 손익분기를 모른다")
+    void 손익분기를_모른다() {
+        assertThat(MountainCost.breakEven(List.of(std(ModeType.TRAM, StructureType.AT_GRADE, 273)))).isNull();
     }
 }

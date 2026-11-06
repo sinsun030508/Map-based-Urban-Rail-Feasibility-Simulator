@@ -7,6 +7,7 @@ import com.railfeas.calc.WaterBodies;
 import com.railfeas.calc.WaterDetour;
 import com.railfeas.common.ModeType;
 import com.railfeas.common.StructureType;
+import com.railfeas.reference.CostStandard;
 import com.railfeas.reference.CostStandardRepository;
 import com.railfeas.reference.ModeCapacity;
 import com.railfeas.reference.ModeCapacityRepository;
@@ -101,12 +102,13 @@ public class RouteController {
         if (request.structure() == StructureType.UNDERGROUND) {
             return new MountainResponse(true, points(route), List.of(), List.of());
         }
-        MountainDetour.Plan plan = MountainDetour.plan(route, terrain);
+        List<CostStandard> active = standards.findByActiveTrue();
+        MountainDetour.Plan plan = MountainDetour.plan(route, terrain, MountainCost.breakEven(active));
         Map<ModeType, ModeCapacity> byMode = capacities.findAll().stream()
                 .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
         return new MountainResponse(true, points(plan.points()), plan.mountains(),
                 plan.mountains().isEmpty() ? List.of()
-                        : MountainCost.deltas(plan, standards.findByActiveTrue(), byMode));
+                        : MountainCost.deltas(plan, active, byMode));
     }
 
     private static List<double[]> coords(DetourRequest request) {

@@ -20,10 +20,12 @@ export function mountainNote(res, row) {
   const tunnel = ms.reduce((s, m) => s + m.tunnelKm, 0);
   const detoured = ms.filter((m) => m.detoured);
   const added = detoured.reduce((s, m) => s + m.addedKm, 0);
+  const costlier = ms.filter((m) => m.costlier).length;
+  const some = (n) => (n === ms.length ? '' : `${n}곳은 `);
   const lengths = `산 구간 ${ms.length}곳 — 35‰ 보다 가파릅니다. 뚫으면 터널 ${tunnel.toFixed(1)}km`
-    + (detoured.length
-      ? ` · ${detoured.length === ms.length ? '' : `${detoured.length}곳은 `}돌아가면 +${added.toFixed(1)}km`
-      : ' · 돌아갈 수 있는 구간이 없습니다');
+    + (detoured.length ? ` · ${some(detoured.length)}돌아가면 +${added.toFixed(1)}km` : '')
+    + (costlier ? ` · ${some(costlier)}돌아가는 편이 비싸 뚫습니다` : '')
+    + (detoured.length || costlier ? '' : ' · 돌아갈 수 있는 구간이 없습니다');
 
   return { lengths, cost: row ? costLine(res, row, detoured.length > 0) : null, canApply: detoured.length > 0 };
 }
