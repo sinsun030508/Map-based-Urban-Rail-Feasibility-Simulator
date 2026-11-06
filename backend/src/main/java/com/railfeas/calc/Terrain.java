@@ -26,7 +26,7 @@ public class Terrain implements Elevation {
     public static final int ZOOM = 11;
     private static final int SIZE = 256;
     private static final int CACHE_TILES = 256;
-    /** 받지 못한 타일 — 다시 디스크를 찾지 않도록 캐시에 둔다 */
+    /** 받지 못한 타일. **캐시에 두지 않는다** — 기억하면 서버를 켠 뒤 받은 타일을 재시작 전까지 못 읽는다 */
     private static final float[] MISSING = new float[0];
 
     private final Path dir;
@@ -87,7 +87,14 @@ public class Terrain implements Elevation {
 
     private synchronized float[] tile(long tx, long ty) {
         long key = (tx << 32) | (ty & 0xffffffffL);
-        return cache.computeIfAbsent(key, k -> read(tx, ty));
+        float[] tile = cache.get(key);
+        if (tile == null) {
+            tile = read(tx, ty);
+            if (tile != MISSING) {
+                cache.put(key, tile);
+            }
+        }
+        return tile;
     }
 
     private float[] read(long tx, long ty) {

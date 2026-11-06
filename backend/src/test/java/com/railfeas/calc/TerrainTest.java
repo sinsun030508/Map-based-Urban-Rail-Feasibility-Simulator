@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Path;
 import java.util.OptionalDouble;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -43,5 +44,17 @@ class TerrainTest {
         Terrain t = new Terrain(Path.of("src/test/resources/no-such-dem"));
         assertThat(t.available()).isFalse();
         assertThat(t.at(36.2189, 127.9950)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("켠 뒤에 받은 타일도 읽는다 — 없던 칸을 「없음」 으로 기억하면 재시작 전까지 모른다")
+    void 나중에_받은_타일(@org.junit.jupiter.api.io.TempDir Path dir) throws java.io.IOException {
+        Path col = java.nio.file.Files.createDirectories(dir.resolve("11/1752"));
+        Terrain t = new Terrain(dir);
+        assertThat(t.at(36.2189, 127.9950)).isEmpty();
+
+        java.nio.file.Files.copy(DEM.resolve("11/1752/802.png"), col.resolve("802.png"));
+
+        assertThat(t.at(36.2189, 127.9950)).isPresent();
     }
 }

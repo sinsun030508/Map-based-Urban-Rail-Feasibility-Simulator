@@ -67,7 +67,7 @@ export default function CostTable({
 
       {hasDemand && (
         <div className="metric small">
-          주변 인구 <strong>{people(population)}명</strong> · 예상 이용객{' '}
+          찍은 점 둘레 인구 <strong>{people(population)}명</strong> · 예상 이용객{' '}
           <strong>{people(riders)}명/일</strong> · 첨두 <strong>{people(peak)}명/시</strong>
         </div>
       )}

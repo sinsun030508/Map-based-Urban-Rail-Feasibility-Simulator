@@ -133,7 +133,7 @@ export default function ComparePage({ onClose }) {
                   ))}
                 </tr>
                 <tr>
-                  <td className="name">주변 인구 (반경 1km)</td>
+                  <td className="name">찍은 점 둘레 인구 (반경 1km)</td>
                   {chosen.map((d) => <td key={d.id}>{people(d.population1km)}명</td>)}
                 </tr>
                 <tr>
