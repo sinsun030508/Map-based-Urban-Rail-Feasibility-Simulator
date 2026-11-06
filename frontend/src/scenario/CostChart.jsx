@@ -23,7 +23,7 @@ import { MODE_LABEL_SHORT as MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
 const BAR_H = 14;
 const ROW_H = 22;
 const LABEL_W = 84;
-const VALUE_W = 54;      // `42조 4,451억` 이 들어가는 폭
+const VALUE_W = 66;      // `42조 4,451억` 이 들어가는 폭 — 54 로는 끝 글자가 패널 밖에 걸렸다
 const WIDTH = 300;
 
 /** 데이터 끝만 둥글게 — 0 쪽은 각지게 둔다 (BcChart 와 같다) */

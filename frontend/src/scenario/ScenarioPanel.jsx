@@ -98,7 +98,7 @@ export default function ScenarioPanel({
                 </p>
               )}
               {note.canApply && (
-                <button onClick={onApplyMountainDetour}>돌아가는 선형으로 바꾸기</button>
+                <button onClick={onApplyMountainDetour}>산을 돌아가는 선형으로 바꾸기</button>
               )}
               <p className="muted">
                 지도의 갈색 토막이 터널, 갈색 점선이 돌아가는 안입니다. 법정 최대 기울기 35‰(도시철도건설규칙
