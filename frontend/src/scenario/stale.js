@@ -4,8 +4,11 @@
  * 관리자가 원단위를 고쳐도 이미 계산해 둔 B/C 는 그대로 남는다. 그 값을 아무 말 없이
  * 보여 주면 근거가 바뀐 숫자를 그대로 인용하게 된다 — 이 프로젝트가 가장 피하려는 일이다.
  */
-export function isStale(calculatedAt, referenceUpdatedAt) {
-  if (!calculatedAt || !referenceUpdatedAt) return false;
+export function isStale(calculatedAt, referenceUpdatedAt, standardChanged = false) {
+  if (!calculatedAt) return false;
+  // 단가는 시각 칸이 없어 「쓴 단가가 내려갔나」 로 본다 — 서버의 `standardChanged`
+  if (standardChanged) return true;
+  if (!referenceUpdatedAt) return false;
   return new Date(referenceUpdatedAt) > new Date(calculatedAt);
 }
 

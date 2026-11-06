@@ -118,7 +118,7 @@ export default function ComparePage({ onClose }) {
                   {chosen.map((d) => (
                     <th key={d.id}>
                       {d.title}
-                      {isStale(d.calculatedAt, referenceUpdatedAt) && (
+                      {isStale(d.calculatedAt, referenceUpdatedAt, d.standardChanged) && (
                         <span className="tag" title={STALE_MESSAGE}>다시 계산 필요</span>
                       )}
                     </th>

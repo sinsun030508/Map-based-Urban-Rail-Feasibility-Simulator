@@ -28,3 +28,20 @@ export function calculatedLine({ calculated, noRecommendation }) {
 }
 
 export const peakOf = (rows) => rows.reduce((m, r) => Math.max(m, r.count), 0);
+
+const isInt = (v) => v !== '' && v != null && Number.isInteger(Number(v));
+
+/**
+ * 단가 입력 검사 — 서버(`AdminCostController`)가 막는 것과 같다. 지하·고가 대소는 다른 행을 봐야 해 서버가 본다.
+ * @returns {string|null} 문구(저장 막음) · 빈 문자열(바뀐 것이 없어 잠그기만) · null(저장 가능)
+ */
+export function costDraftError(row, draft) {
+  const d = { ...row, ...draft };
+  if (!isInt(d.fixedCost) || Number(d.fixedCost) < 0) return '고정비는 0 이상의 정수여야 합니다';
+  if (!isInt(d.costPerKm) || Number(d.costPerKm) < 1) return 'km단가는 1 이상의 정수여야 합니다';
+  if (!isInt(d.costPerStation) || Number(d.costPerStation) < 0) return '역 단가는 0 이상의 정수여야 합니다';
+  if (!String(d.source ?? '').trim()) return '근거를 적어 주세요 — 값보다 중요한 것이 출처입니다';
+  const same = ['fixedCost', 'costPerKm', 'costPerStation'].every((k) => Number(d[k]) === Number(row[k]))
+    && d.source === row.source;
+  return same ? '' : null;
+}

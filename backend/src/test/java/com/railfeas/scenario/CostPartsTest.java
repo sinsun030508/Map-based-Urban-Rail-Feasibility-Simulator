@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.railfeas.reference.CostStandard;
 import java.lang.reflect.Constructor;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -49,5 +51,24 @@ class CostPartsTest {
     @DisplayName("단가가 바뀐 옛 결과라 나머지가 음수면 모른다 — 음수 막대를 그리지 않는다")
     void 나머지가_음수면_모른다() {
         assertThat(ScenarioDto.CostParts.of(1_000, 5, standard(1_000, 500, 200))).isNull();
+    }
+
+    @Test
+    @DisplayName("결과가 쓴 단가가 내려갔으면 낡은 결과다 — 단가에는 시각 칸이 없어 시각으로는 못 본다")
+    void 내려간_단가를_쓴_결과() {
+        CostStandard active = standard(1, 1, 1);
+        ReflectionTestUtils.setField(active, "active", true);
+        CostStandard old = standard(1, 1, 1);
+        ReflectionTestUtils.setField(old, "active", false);
+        Map<Long, CostStandard> byId = Map.of(1L, active, 2L, old);
+
+        assertThat(ScenarioDto.standardChanged(List.of(1L), byId)).isFalse();
+        assertThat(ScenarioDto.standardChanged(List.of(1L, 2L), byId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("단가 행을 모르면 낡았다고 단정하지 않는다")
+    void 모르는_단가() {
+        assertThat(ScenarioDto.standardChanged(java.util.Arrays.asList(9L, null), Map.of())).isFalse();
     }
 }

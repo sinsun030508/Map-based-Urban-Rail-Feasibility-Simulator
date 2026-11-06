@@ -41,6 +41,7 @@ export default function App() {
   const [admin, setAdmin] = useState(false);
   const [compare, setCompare] = useState(false);
   const [calculatedAt, setCalculatedAt] = useState(null);
+  const [standardChanged, setStandardChanged] = useState(false);
   // 저장된 시나리오를 열 때마다 1씩 올린다 — 지도가 그 노선으로 옮겨 간다(`MapView` 의 `focus`)
   const [focus, setFocus] = useState(0);
   // 그린 선이 호수·저수지를 지나는지. 점이 바뀌면 다시 묻고, 묻는 사이 점이 또 바뀌면 버린다
@@ -198,6 +199,7 @@ export default function App() {
     setPopulation(null);
     setSelectedResult(null);
     setCalculatedAt(null);
+    setStandardChanged(false);
     setExistingOption(null);
   }
 
@@ -294,6 +296,7 @@ export default function App() {
       setResults(saved.results || []);
       setPopulation(saved.population1km ?? null);
       setCalculatedAt(saved.calculatedAt ?? null);
+      setStandardChanged(Boolean(saved.standardChanged));
       setExistingOption(saved.existingOption ?? null);
       setScenarios(await api.listScenarios());
     } catch (e) {
@@ -316,6 +319,7 @@ export default function App() {
       setResults(s.results || []);
       setPopulation(s.population1km ?? null);
       setCalculatedAt(s.calculatedAt ?? null);
+      setStandardChanged(Boolean(s.standardChanged));
       setExistingOption(s.existingOption ?? null);
       setFocus((f) => f + 1);
     } catch (e) {
@@ -331,6 +335,7 @@ export default function App() {
       setResults(detail.results || []);
       setPopulation(detail.population1km ?? null);
       setCalculatedAt(detail.calculatedAt ?? null);
+      setStandardChanged(Boolean(detail.standardChanged));
       setExistingOption(detail.existingOption ?? null);
     } catch (e) {
       setError(e.message);
@@ -406,7 +411,7 @@ export default function App() {
           results={results}
           calculating={calculating}
           population={population}
-          stale={isStale(calculatedAt, referenceUpdatedAt)}
+          stale={isStale(calculatedAt, referenceUpdatedAt, standardChanged)}
           existingOption={existingOption}
           overLength={overLength}
           water={waterNow}

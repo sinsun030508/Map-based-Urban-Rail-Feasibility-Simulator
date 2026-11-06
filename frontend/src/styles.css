@@ -258,3 +258,5 @@ button.danger { color: var(--accent); }
 .stat-table h3 { font-size: 13px; margin: 0 0 4px; }
 td.stat-bar-cell { width: 100%; }
 .stat-bar { display: block; height: 10px; min-width: 2px; background: #1a56db; border-radius: 0 4px 4px 0; }
+.cost-history { margin-top: 16px; font-size: 13px; }
+.cost-history summary { cursor: pointer; color: var(--muted); margin-bottom: 6px; }

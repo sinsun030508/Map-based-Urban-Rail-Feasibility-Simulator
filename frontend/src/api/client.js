@@ -97,6 +97,8 @@ export const api = {
   updateParameter: (name, body) =>
     request(`/admin/parameters/${encodeURIComponent(name)}`, { method: 'PUT', body }),
   adminModes: () => request('/admin/modes'),
+  adminCosts: () => request('/admin/costs'),
+  updateCost: (id, body) => request(`/admin/costs/${id}`, { method: 'PUT', body }),
   adminUsers: () => request('/admin/users'),
   changeUserRole: (id, role) => request(`/admin/users/${id}/role`, { method: 'PUT', body: { role } }),
   deleteUser: (id) => request(`/admin/users/${id}`, { method: 'DELETE' }),

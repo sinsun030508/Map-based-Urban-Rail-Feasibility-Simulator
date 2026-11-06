@@ -1,11 +1,12 @@
 import { Fragment, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { MODE_LABEL } from '../modeLabels';
+import AdminCosts from './AdminCosts';
 import AdminUsers from './AdminUsers';
 import AdminStats from './AdminStats';
 
 /**
- * 관리자 화면 (제안서 기능 8) — 기준값 · 회원 · 통계 세 탭.
+ * 관리자 화면 (제안서 기능 8) — 기준값 · 단가 · 회원 · 통계 네 탭.
  *
  * 기준값은 값만 고치고 끝내지 않는다 — **근거를 함께 받는다.** 이 프로젝트에서 숫자보다 중요한 것이
  * 출처라서, 근거를 비우면 저장 버튼이 눌리지 않는다.
@@ -116,7 +117,7 @@ export default function AdminPage({ me, onClose }) {
       <header>
         <strong>관리자</strong>
         <nav className="admin-tabs">
-          {[['reference', '기준값'], ['users', '회원'], ['stats', '통계']].map(([id, label]) => (
+          {[['reference', '기준값'], ['costs', '단가'], ['users', '회원'], ['stats', '통계']].map(([id, label]) => (
             <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
           ))}
         </nav>
@@ -129,6 +130,7 @@ export default function AdminPage({ me, onClose }) {
         <button onClick={onClose}>지도로 돌아가기</button>
       </header>
 
+      {tab === 'costs' && <AdminCosts />}
       {tab === 'users' && <AdminUsers me={me} />}
       {tab === 'stats' && <AdminStats />}
       {tab === 'reference' && (

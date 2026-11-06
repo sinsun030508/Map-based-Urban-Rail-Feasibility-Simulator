@@ -40,11 +40,27 @@ public class CostStandard {
     @Column(name = "base_year")
     private Short baseYear;
 
-    @Column(name = "effective_from", nullable = false, insertable = false, updatable = false)
+    /** 시드는 DB 기본값(오늘)으로, 관리자 수정은 {@link #nextVersion} 이 채운다 */
+    @Column(name = "effective_from", nullable = false, updatable = false)
     private LocalDate effectiveFrom;
 
     @Column(name = "is_active", nullable = false)
     private Boolean active;
 
     private String source;
+
+    /** 관리자가 고친 다음 기준. 이 행은 건드리지 않는다 — 저장된 결과가 참조한다 */
+    public CostStandard nextVersion(long fixedCost, long costPerKm, long costPerStation, String source) {
+        CostStandard next = new CostStandard();
+        next.modeType = modeType;
+        next.structureType = structureType;
+        next.fixedCost = fixedCost;
+        next.costPerKm = costPerKm;
+        next.costPerStation = costPerStation;
+        next.baseYear = baseYear;
+        next.effectiveFrom = LocalDate.now();
+        next.active = true;
+        next.source = source;
+        return next;
+    }
 }

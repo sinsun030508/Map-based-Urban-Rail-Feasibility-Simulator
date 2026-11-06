@@ -54,6 +54,15 @@ public class ScenarioDto {
      * 합이 늘 합계이고, 역이 비켜 서 늘어난 연장도 여기 든다. 회귀식의 항이지 공종별 내역이 아니다.
      * 단가 행이 없거나 단가가 바뀐 옛 결과라 나머지가 음수면 null(모른다)
      */
+    /**
+     * 결과가 쓴 단가가 내려갔나 — 내려갔으면 낡은 결과다. 단가에는 시각 칸이 없어 `updated-at` 으로는 못 본다.
+     * 시드를 다시 넣어도 여기 걸린다(11-06 에 결과 165개 중 88개가 내려간 단가를 쓰고 있었다). 행을 모르면 단정하지 않는다
+     */
+    static boolean standardChanged(List<Long> used, Map<Long, CostStandard> standards) {
+        return used.stream().filter(java.util.Objects::nonNull).map(standards::get)
+                .anyMatch(s -> s != null && !Boolean.TRUE.equals(s.getActive()));
+    }
+
     public record CostParts(long fixed, long length, long stations) {
         static CostParts of(long totalCost, int stationCount, CostStandard standard) {
             if (standard == null) {
@@ -105,7 +114,7 @@ public class ScenarioDto {
                                  RegionClass regionClass, Long population1km,
                                  ModeType recommendedMode, StructureType preferredStructure,
                                  ExistingOptions.Option existingOption, LocalDateTime createdAt,
-                                 LocalDateTime calculatedAt,
+                                 LocalDateTime calculatedAt, boolean standardChanged,
                                  List<PointResponse> points, List<ResultResponse> results) {
         static DetailResponse of(Scenario s, ExistingOptions.Option existingOption,
                                  Map<Long, CostStandard> standards) {
@@ -113,6 +122,7 @@ public class ScenarioDto {
                     s.getRegionClass(), s.getPopulation1km(), s.getRecommendedMode(),
                     s.getPreferredStructure(), existingOption, s.getCreatedAt(),
                     s.getCalculatedAt(),
+                    ScenarioDto.standardChanged(s.getResults().stream().map(ScenarioResult::getStandardId).toList(), standards),
                     s.getPoints().stream().map(PointResponse::of).toList(),
                     s.getResults().stream().map(r -> ResultResponse.of(r, standards)).toList());
         }
