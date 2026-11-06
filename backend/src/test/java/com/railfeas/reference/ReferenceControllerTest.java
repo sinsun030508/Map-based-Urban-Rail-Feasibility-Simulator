@@ -46,7 +46,8 @@ class ReferenceControllerTest {
     @Test
     @DisplayName("계산 규칙 시각은 미래가 아니다")
     void 규칙_시각은_미래가_아니다() {
-        assertThat(CalculationRules.CHANGED_AT).isBeforeOrEqualTo(LocalDateTime.now());
+        // CHANGED_AT 은 한국 시각으로 적는다. 서버 기본 시간대로 견주면 UTC 인 CI 에서 9시간 동안 미래가 된다(11-07 실제로 깨졌다)
+        assertThat(CalculationRules.CHANGED_AT).isBeforeOrEqualTo(LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul")));
     }
 
     @Test

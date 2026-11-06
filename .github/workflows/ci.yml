@@ -38,7 +38,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # pom.xml 의 java.version 과 같게 — 로컬은 21 이라 17 에 없는 문법을 쓰면 여기서 걸린다
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
