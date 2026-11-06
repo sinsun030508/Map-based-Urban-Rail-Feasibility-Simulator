@@ -81,7 +81,7 @@ public class ScenarioService {
         scenario.applyResults(outcome.results(), outcome.population1km(),
                 outcome.recommendedMode());
         scenario.noteExistingLine(outcome.existingLine());
-        return ScenarioDto.DetailResponse.of(scenario, outcome.existingOption());
+        return detail(scenario, outcome.existingOption());
     }
 
     @Transactional
@@ -99,7 +99,7 @@ public class ScenarioService {
         Scenario saved = scenarios.save(scenario);
         // created_at/updated_at 은 DB DEFAULT 로 채워져 insert 직후 엔티티엔 반영되지 않는다 — refresh 로 읽어온다
         entityManager.refresh(saved);
-        return ScenarioDto.DetailResponse.of(saved, existingOption(saved));
+        return detail(saved, existingOption(saved));
     }
 
     @Transactional(readOnly = true)
@@ -112,7 +112,7 @@ public class ScenarioService {
     @Transactional(readOnly = true)
     public ScenarioDto.DetailResponse get(Long userId, Long scenarioId) {
         Scenario scenario = loadOwned(userId, scenarioId);
-        return ScenarioDto.DetailResponse.of(scenario, existingOption(scenario));
+        return detail(scenario, existingOption(scenario));
     }
 
     @Transactional
@@ -126,7 +126,7 @@ public class ScenarioService {
         scenario.clearPoints();
         entityManager.flush();
         scenario.replacePoints(toPoints(request.points()), length);
-        return ScenarioDto.DetailResponse.of(scenario, existingOption(scenario));
+        return detail(scenario, existingOption(scenario));
     }
 
     @Transactional
@@ -181,6 +181,13 @@ public class ScenarioService {
                     .build());
         }
         return points;
+    }
+
+    /** 옛 결과는 지금 비활성인 단가를 썼을 수 있어 활성만이 아니라 전부 읽는다(11행) */
+    private ScenarioDto.DetailResponse detail(Scenario scenario, ExistingOptions.Option existing) {
+        Map<Long, CostStandard> byId = standards.findAll().stream()
+                .collect(Collectors.toMap(CostStandard::getId, Function.identity()));
+        return ScenarioDto.DetailResponse.of(scenario, existing, byId);
     }
 
     /** 그린 길이(km). {@link #MAX_ROUTE_KM} 를 넘으면 400 이다 */
