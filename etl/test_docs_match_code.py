@@ -208,10 +208,8 @@ class Test모델식:
     def test_수요_식이_S6_시드와_같다(self):
         seed = (self.ROOT / 'db/seed/S6__demand_model.sql').read_text(encoding='utf-8')
         want = [float(re.search(r"\('demand_%s',\s*(-?[0-9.]+)" % k, seed).group(1))
-                for k in ('intercept', 'pop_elasticity', 'worker_elasticity', 'transfer_elasticity')]
-        want.append(-float(re.search(r"\('demand_cbd_slope',\s*(-?[0-9.]+)", seed).group(1)))
-        pat = (r'log\(일이용객\) = ' + self.NUM + r' \+ ' + self.NUM + r'·log\(인구\) \+ ' + self.NUM
-               + r'·log\(종사자\) \+ ' + self.NUM + r'·log\(환승노선\) − ' + self.NUM + r'·도심거리')
+                for k in ('intercept', 'pop_elasticity', 'worker_elasticity')]
+        pat = r'log\(일이용객\) = ' + self.NUM + r' \+ ' + self.NUM + r'·log\(인구\) \+ ' + self.NUM + r'·log\(종사자\)'
         for name, text in self.DOCS.items():
             m = re.search(pat, text)
             assert m, f'{name} 에서 수요 식을 못 찾았다 — 문장이 바뀌었으면 정규식도 고칠 것'

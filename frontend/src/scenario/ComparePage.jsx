@@ -133,7 +133,7 @@ export default function ComparePage({ onClose }) {
                   ))}
                 </tr>
                 <tr>
-                  <td className="name">찍은 점 둘레 인구 (반경 1km)</td>
+                  <td className="name">노선 둘레 인구 (반경 1km)</td>
                   {chosen.map((d) => <td key={d.id}>{people(d.population1km)}명</td>)}
                 </tr>
                 <tr>
@@ -226,7 +226,7 @@ export default function ComparePage({ onClose }) {
               <h2>수단별 B/C</h2>
               <p className="muted small">
                 같은 수단을 노선끼리 견줍니다. 괄호는 건설비입니다.
-                절대값보다 순위를 보세요 — 수요 모델 오차가 1.75배이고, 운영비를 넣지 않아
+                절대값보다 순위를 보세요 — 수요 모델 오차가 1.44배이고, 운영비를 넣지 않아
                 B/C가 높게 나옵니다(경전철 예타 사례로 약 0.78배).
               </p>
               <table className="admin-table compare">

@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  *
  * 계수 출처
  *   비용  cost_standard (etl/cost_model.py, 교차검증 1.25배)
- *   수요  benefit_parameter demand_* (etl/demand_model.py, 교차검증 1.75배)
+ *   수요  benefit_parameter demand_* (etl/demand_model.py, 노선 단위, 교차검증 1.44배)
  *   편익  benefit_parameter (S7) — 시간가치·할인율은 투자평가지침 제7판,
  *         첨두율·기준속도는 지침에 원단위가 없어 가정값이다
  *
@@ -33,38 +33,11 @@ public class CostCalculator {
 
     private static final int MIN_STATIONS = 2;        // 출발·도착
     private static final double BUFFER_KM = 1.0;      // 인구 집계 반경
-    /**
-     * 도심 접근성 대리변수의 기준점. **그 지역의 도심이어야 한다.**
-     *
-     * 서울시청 하나로 고정했더니 부산 노선이 326km 로 잡혀, 수요 회귀 표본의 범위
-     * (0.1~88.7km)를 3.7배 외삽했다. 도심거리 항만으로 예측이 0.02배로 깎여
-     * B/C 가 0.019 처럼 **숫자는 나오지만 뜻이 없는 값**이 된다.
-     * 부산 사람이 서울로 출근하지 않으니 가장 가까운 광역시 도심까지를 잰다.
-     *
-     * `etl/sgis_population.py` 의 `CBDS` 와 **같은 목록이어야 한다** — 어긋나면
-     * 학습과 예측이 다른 기준을 쓰게 된다.
-     */
-    private static final double[][] CBDS = {
-            {37.5665, 126.9780},   // 서울시청
-            {35.1796, 129.0756},   // 부산시청
-            {35.8714, 128.6014},   // 대구시청
-            {35.1600, 126.8514},   // 광주시청
-            {36.3504, 127.3845},   // 대전시청
-    };
-
+    private static final double CORRIDOR_STEP_KM = 0.5;  // 반경보다 촘촘해야 선 둘레에 빈틈이 없다
     private final PopulationIndex population;
     private final BenefitCalculator benefits;
     private final StationPlanner planner;
     private final ExistingOptions existingOptions;
-
-    /** 가장 가까운 도심까지의 거리. 수도권은 서울시청이 가장 가까워 값이 바뀌지 않는다 */
-    private static double nearestCbdKm(double[] point) {
-        double best = Double.MAX_VALUE;
-        for (double[] cbd : CBDS) {
-            best = Math.min(best, Haversine.distanceKm(point[0], point[1], cbd[0], cbd[1]));
-        }
-        return best;
-    }
 
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
                           StationPlanner planner, ExistingOptions existingOptions) {
@@ -72,6 +45,24 @@ public class CostCalculator {
         this.benefits = benefits;
         this.planner = planner;
         this.existingOptions = existingOptions;
+    }
+
+    /** 선을 {@value #CORRIDOR_STEP_KM}km 마다 자른 점. 꼭짓점은 반드시 든다 */
+    static List<double[]> corridor(List<double[]> points) {
+        List<double[]> out = new ArrayList<>();
+        for (int i = 1; i < points.size(); i++) {
+            double[] p = points.get(i - 1), q = points.get(i);
+            double km = Haversine.distanceKm(p[0], p[1], q[0], q[1]);
+            int steps = Math.max(1, (int) Math.ceil(km / CORRIDOR_STEP_KM));
+            for (int s = 0; s < steps; s++) {
+                double f = (double) s / steps;
+                out.add(new double[]{p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f});
+            }
+        }
+        if (!points.isEmpty()) {
+            out.add(points.get(points.size() - 1));
+        }
+        return out;
     }
 
     public Outcome calculate(Scenario scenario,
@@ -87,12 +78,12 @@ public class CostCalculator {
         String zoneWarning = zoneWarning(scenario.getPoints(), zones);
         BenefitCalculator.Params params = benefits.load();
 
-        long people = population.populationNear(points, BUFFER_KM);
-        long workers = population.workersNear(points, BUFFER_KM);
-        double cbdDistance = points.stream()
-                .mapToDouble(CostCalculator::nearestCbdKm)
-                .min().orElse(0);
-        Integer dailyRiders = benefits.estimateDailyRiders(params, people, workers, cbdDistance);
+        // 찍은 점이 아니라 **선 전체**를 잰다 — 점만 세면 선의 1/2~1/8 만 잡히고 경유점을 찍을수록 수요가 늘어난다.
+        // 수요 회귀가 노선 단위로 학습돼 이 값을 그대로 받는다(etl/demand_model.py)
+        List<double[]> corridor = corridor(points);
+        long people = population.populationNear(corridor, BUFFER_KM);
+        long workers = population.workersNear(corridor, BUFFER_KM);
+        Integer dailyRiders = benefits.estimateDailyRiders(params, people, workers);
         Integer peak = benefits.peakPphpd(params, dailyRiders, lengthKm);
 
         // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 비교표에 함께 낸다.

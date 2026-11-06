@@ -67,7 +67,7 @@ export default function CostTable({
 
       {hasDemand && (
         <div className="metric small">
-          찍은 점 둘레 인구 <strong>{people(population)}명</strong> · 예상 이용객{' '}
+          노선 둘레 인구 <strong>{people(population)}명</strong> · 예상 이용객{' '}
           <strong>{people(riders)}명/일</strong> · 첨두 <strong>{people(peak)}명/시</strong>
         </div>
       )}
@@ -205,7 +205,7 @@ export default function CostTable({
           <strong>절대값보다 순위를 보세요</strong>
           {hasDemand && <> — 운영비를 넣지 않아 B/C가 높게 나옵니다</>} · 계산 근거와 한계
         </summary>
-        <p>비용 모델 오차 1.25배, 수요 모델 오차 1.75배입니다.</p>
+        <p>비용 모델 오차 1.25배, 수요 모델 오차 1.44배입니다.</p>
         {hasDemand && (
           <>
             <p>

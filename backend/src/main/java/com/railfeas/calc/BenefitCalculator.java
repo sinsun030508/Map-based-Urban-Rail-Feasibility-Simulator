@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
  * 수요 → 편익 → B/C.
  *
  * 수요  log(일이용객) = a + b1·log(인구) + b2·log(종사자) + b3·log(환승노선) + b4·도심거리
- *       계수는 etl/demand_model.py 산출(S6). **교차검증 1.75배 오차**를 안고 있다.
+ *       계수는 etl/demand_model.py 산출(S6). **교차검증 1.44배 오차**를 안고 있다.
  * 편익  전환 전 수단 대비 통행시간 절감 × 이용객 × 시간가치.
  *       1인당 절감은 평균 통행거리(노선이 더 짧으면 노선 전체)만큼이다.
  *       차량운행비·사고·환경 편익은 이번 범위 밖 (제안서 한계에 명시).
@@ -50,16 +50,13 @@ public class BenefitCalculator {
     }
 
     /** 노선 주변 인구·종사자로 일 이용객을 추정한다. 값이 없으면 null. */
-    public Integer estimateDailyRiders(Params p, long population, long workers,
-                                       double cbdDistanceKm) {
+    public Integer estimateDailyRiders(Params p, long population, long workers) {
         if (population <= 0 || !p.hasDemandModel()) {
             return null;
         }
         double log = p.get("demand_intercept")
                 + p.get("demand_pop_elasticity") * Math.log(population)
-                + p.get("demand_worker_elasticity") * Math.log(workers + 1.0)
-                + p.get("demand_cbd_slope") * cbdDistanceKm;
-        // 환승 노선 수는 신설 노선이라 1 로 본다 (log 1 = 0) — 기존 노선과의 환승은 미반영
+                + p.get("demand_worker_elasticity") * Math.log(workers + 1.0);
         return (int) Math.round(Math.exp(log));
     }
 

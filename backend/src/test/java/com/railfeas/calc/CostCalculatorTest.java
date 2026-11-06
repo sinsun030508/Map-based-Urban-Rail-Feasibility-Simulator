@@ -383,4 +383,60 @@ class CostCalculatorTest {
                 result(ModeType.DOUBLE_ELEC, 0.0), result(ModeType.EXPRESS_RAIL, 0.4)),
                 capacities, 340.5)).isEqualTo(ModeType.EXPRESS_RAIL);
     }
+
+    /** 노선 한가운데에만 사람이 사는 지역. 양 끝 1km 안에는 아무도 없다 */
+    private CostCalculator midpointPeople() throws java.io.IOException {
+        java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("population");
+        java.nio.file.Path census = dir.resolve("census.csv"), workers = dir.resolve("workers.csv");
+        java.nio.file.Files.writeString(census, "adm_cd,latitude,longitude,population,dong_name\n1,37.5215,126.9780,100000,가운데동\n");
+        java.nio.file.Files.writeString(workers, "dong_code,latitude,longitude,workers\n1,37.5215,126.9780,50000\n");
+        PopulationIndex index = new PopulationIndex(census.toString(), workers.toString());
+        index.load();
+
+        Map<String, Double> values = new java.util.HashMap<>(PARAMETERS);
+        values.put("demand_intercept", -2.5);
+        values.put("demand_pop_elasticity", 0.47);
+        values.put("demand_worker_elasticity", 0.69);
+        BenefitParameterRepository parameters = Mockito.mock(BenefitParameterRepository.class);
+        Mockito.when(parameters.findAll()).thenReturn(values.entrySet().stream()
+                .map(e -> newInstance(BenefitParameter.class, "paramName", e.getKey(), "value", BigDecimal.valueOf(e.getValue())))
+                .toList());
+        ExistingLineFinder existingLines = new ExistingLineFinder("없는파일.csv", "없는지방파일.csv");
+        existingLines.load();
+        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
+        intercity.load();
+        return new CostCalculator(index, new BenefitCalculator(parameters), new StationPlanner(index),
+                new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"), new UrbanLineSpeed("없는파일.csv")));
+    }
+
+    private Integer ridersOn(CostCalculator calculator, List<double[]> points) {
+        Scenario s = Scenario.builder().title("테스트").totalLengthKm(BigDecimal.valueOf(10.0))
+                .preferredStructure(StructureType.ELEVATED).build();
+        s.replacePoints(points.stream()
+                .map(p -> newInstance(com.railfeas.scenario.RoutePoint.class,
+                        "latitude", BigDecimal.valueOf(p[0]), "longitude", BigDecimal.valueOf(p[1])))
+                .toList(), BigDecimal.valueOf(10.0));
+        ModeCapacity capacity = capacity(ModeType.LIGHT_RAIL, null, 60_000, 2.0, 30.0, null);
+        return calculator.calculate(s, List.of(standard(ModeType.LIGHT_RAIL, StructureType.ELEVATED)),
+                Map.of(ModeType.LIGHT_RAIL, capacity), List.of()).results().get(0).getEstimatedRidership();
+    }
+
+    @Test
+    @DisplayName("선 가운데의 인구도 센다 — 찍은 점 둘레만 세면 양 끝에 사람이 없는 노선의 수요가 없다")
+    void countsPeopleAlongTheLine() throws Exception {
+        Integer riders = ridersOn(midpointPeople(), ROUTE_POINTS);
+
+        // exp(-2.5 + 0.47·ln(100000) + 0.69·ln(50001))
+        assertThat(riders).isEqualTo((int) Math.round(Math.exp(-2.5 + 0.47 * Math.log(100_000) + 0.69 * Math.log(50_001))));
+    }
+
+    @Test
+    @DisplayName("같은 선에 경유점을 더 찍어도 수요가 같다")
+    void waypointsDoNotChangeDemand() throws Exception {
+        CostCalculator calculator = midpointPeople();
+        List<double[]> withWaypoints = List.of(ROUTE_POINTS.get(0), new double[]{37.5215, 126.9780},
+                ROUTE_POINTS.get(1));
+
+        assertThat(ridersOn(calculator, withWaypoints)).isEqualTo(ridersOn(calculator, ROUTE_POINTS));
+    }
 }
