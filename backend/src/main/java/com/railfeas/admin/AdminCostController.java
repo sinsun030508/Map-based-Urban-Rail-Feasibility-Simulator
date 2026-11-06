@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>추가·삭제는 없다 — 다른 기준값과 같다. 행은 `etl/cost_model.py` 가 만들고, 외래키가 삭제를 막는다.
  * <b>값은 회귀 결과라</b> 손으로 고치면 모델과 어긋나고 시드를 다시 넣으면 내려간다.
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "관리자 — 단가")
 @RestController
 @RequestMapping("/api/admin/costs")
 public class AdminCostController {

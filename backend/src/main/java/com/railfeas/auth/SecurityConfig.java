@@ -2,6 +2,7 @@ package com.railfeas.auth;
 
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +28,14 @@ public class SecurityConfig {
     private final OAuth2FailureHandler oAuth2FailureHandler;
     private final JwtAuthenticationEntryPoint entryPoint;
     private final JwtAccessDeniedHandler deniedHandler;
+
+    @Value("${springdoc.api-docs.enabled:false}")
+    private boolean docsEnabled;
+
+    /** 켰을 때만 문서 경로를 연다 — 꺼져 있는데 열어 두면 나중에 켜는 순간 조용히 공개된다 */
+    static String[] publicDocs(boolean enabled) {
+        return enabled ? new String[]{"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"} : new String[0];
+    }
 
     public SecurityConfig(JwtAuthenticationFilter jwtFilter,
                           OAuth2UserService oAuth2UserService,
@@ -65,6 +74,7 @@ public class SecurityConfig {
                 // /error 를 막으면 400·500 이 전부 403 으로 바뀌어 원인을 알 수 없게 된다
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/auth/**", "/oauth2/**", "/login/**").permitAll()
+                .requestMatchers(publicDocs(docsEnabled)).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/reference/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())

@@ -30,7 +30,8 @@ services:
     image: redis:7-alpine
     container_name: railfeas-redis
     ports:
-      - "6379:6379"
+      # 비밀번호 없는 Redis 다 — DB 처럼 이 PC 에만 연다(test_no_secrets 가 본다)
+      - "127.0.0.1:6379:6379"
 
 volumes:
   db-data:

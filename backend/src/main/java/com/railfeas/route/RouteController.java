@@ -43,6 +43,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 지하는 안내하지 않고, 바꾸는 것은 사용자다. 지형 타일이 없으면 `available: false` 로 꺼진다(「산 없음」 이
  * 아니다). 노선 길이 상한은 저장·계산과 같다(`ScenarioService.MAX_ROUTE_KM`).
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "선형 제안")
 @RestController
 @RequestMapping("/api/route")
 public class RouteController {

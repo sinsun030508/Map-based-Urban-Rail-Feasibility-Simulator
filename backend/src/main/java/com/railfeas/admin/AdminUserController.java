@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * **통계는 지금 남아 있는 것만 센다** — 생성 기록을 따로 남기지 않아 지운 시나리오는 세지 못한다.
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "관리자 — 회원·통계")
 @RestController
 @RequestMapping("/api/admin")
 public class AdminUserController {

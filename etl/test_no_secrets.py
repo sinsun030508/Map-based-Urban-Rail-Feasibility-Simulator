@@ -74,3 +74,13 @@ def test_이_PC_의_비밀값이_저장소_파일에_없다():
     assert not found, '저장소 파일에 들어간 비밀값(값은 숨김) — ' + ' / '.join(
         f'{key} 파일 {len(files)}개: {", ".join(files[:3])}{" …" if len(files) > 3 else ""}'
         for key, files in sorted(found.items()))
+
+
+def test_compose_의_포트는_이_PC_에만_연다():
+    # 안 묶으면 같은 망의 다른 기기가 root DB·비밀번호 없는 Redis 에 붙는다. Redis 가 6379 로 다 열려 있었는데
+    # 이 검사가 없어 몰랐다(11-06)
+    text = (ROOT / 'docker-compose.yml').read_text(encoding='utf-8')
+    ports = re.findall(r'^\s*-\s*"?([\d.]*:?\d+:\d+)"?\s*$', text, re.M)
+    assert ports, 'compose 에서 포트를 못 찾았다 — 정규식을 고칠 것'
+    open_ports = [p for p in ports if not p.startswith('127.0.0.1:')]
+    assert not open_ports, f'127.0.0.1 로 묶이지 않은 포트: {open_ports}'

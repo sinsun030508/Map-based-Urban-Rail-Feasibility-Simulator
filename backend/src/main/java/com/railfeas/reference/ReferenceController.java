@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /** 프론트엔드가 수단 목록·규제 구역을 그리려면 로그인 전에도 읽어야 해서 공개한다. */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "기준 자료")
 @RestController
 @RequestMapping("/api/reference")
 public class ReferenceController {

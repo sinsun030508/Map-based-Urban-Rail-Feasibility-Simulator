@@ -19,6 +19,13 @@ spring:
     properties:
       hibernate.dialect: org.hibernate.dialect.MySQLDialect
     open-in-view: false
+# API 문서 — 관리자 경로까지 드러내므로 기본은 닫는다 (`SecurityConfig.publicDocs`)
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
+
 app:
   # ETL 산출물을 그대로 읽는다. 없으면 수요·B/C 가 비고 결과에 경고가 붙는다
   census-file: ${CENSUS_FILE:../data/build/census_population.csv}

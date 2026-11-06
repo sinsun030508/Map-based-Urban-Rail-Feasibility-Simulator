@@ -1044,6 +1044,16 @@ B/C 최고안이고, 없으면 선만 그린다. 표에는 그대로 남고 행�
 
 ---
 
+### API 문서 (springdoc, 2026-11-06)
+
+`SWAGGER_ENABLED=true` 일 때만 `/swagger-ui.html`·`/v3/api-docs` 가 열린다(기본 닫힘, 끄면 401). 관리자 경로까지 전부
+드러내기 때문이다. 경로 공개(`SecurityConfig.publicDocs`)도 같은 값을 봐서, 꺼 둔 채 경로만 열려 있다가 켜는 순간 조용히
+공개되는 일이 없다. 화면의 Authorize 에 로그인 응답의 `accessToken` 을 넣는다. `@AuthenticationPrincipal` 인자는 문서에 안 나온다.
+**`.env.example` 의 값은 `false` 다** — 빈 값이면 boolean 변환이 위험하고, 비밀값이 아니라 적어도 된다.
+
+**compose 포트 감시가 없었다** — CLAUDE.md 는 `test_no_secrets` 가 DB 포트를 본다고 적었는데 그런 검사가 없어서, 비밀번호
+없는 Redis 가 `6379:6379` 로 다 열려 있는 것을 몰랐다(11-06). 지금은 compose 의 모든 포트를 본다.
+
 ### 단가 관리 (`AdminCostController`, 2026-11-06)
 
 제안서 기능 8 의 「단가 기준값 관리」. 스키마는 그대로다.

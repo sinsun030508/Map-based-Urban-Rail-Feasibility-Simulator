@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 계산이 바로 멈춘다(`BenefitCalculator.Params` 가 없는 키에 예외를 던진다).
  * 바꿀 수 있는 것은 값과 근거뿐이다.
  */
+@io.swagger.v3.oas.annotations.tags.Tag(name = "관리자 — 기준값")
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
