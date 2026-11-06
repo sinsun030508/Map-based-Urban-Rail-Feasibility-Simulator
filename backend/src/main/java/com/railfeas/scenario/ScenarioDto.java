@@ -4,6 +4,7 @@ import com.railfeas.calc.ExistingOptions;
 import com.railfeas.common.ModeType;
 import com.railfeas.common.PointType;
 import com.railfeas.common.RegionClass;
+import com.railfeas.reference.CostStandard;
 import com.railfeas.common.StructureType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -14,6 +15,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 public class ScenarioDto {
 
@@ -47,14 +49,32 @@ public class ScenarioDto {
         }
     }
 
+    /**
+     * 건설비의 세 몫(억원). 합계만 저장돼 있어 그 결과가 쓴 단가(`standard_id`)로 되짚는다 — 연장 몫은 나머지라
+     * 합이 늘 합계이고, 역이 비켜 서 늘어난 연장도 여기 든다. 회귀식의 항이지 공종별 내역이 아니다.
+     * 단가 행이 없거나 단가가 바뀐 옛 결과라 나머지가 음수면 null(모른다)
+     */
+    public record CostParts(long fixed, long length, long stations) {
+        static CostParts of(long totalCost, int stationCount, CostStandard standard) {
+            if (standard == null) {
+                return null;
+            }
+            long stations = standard.getCostPerStation() * stationCount;
+            long length = totalCost - standard.getFixedCost() - stations;
+            return length < 0 ? null : new CostParts(standard.getFixedCost(), length, stations);
+        }
+    }
+
     public record ResultResponse(ModeType modeType, StructureType structureType,
-                                 int stationCount, long totalCost, Integer estimatedRidership,
+                                 int stationCount, long totalCost, CostParts costParts,
+                                 Integer estimatedRidership,
                                  Integer peakPphpd, BigDecimal travelTimeMin, Long benefitTotal,
                                  BigDecimal bcRatio, boolean feasible, String warning,
                                  List<StationResponse> stations) {
-        static ResultResponse of(ScenarioResult r) {
+        static ResultResponse of(ScenarioResult r, Map<Long, CostStandard> standards) {
             return new ResultResponse(r.getModeType(), r.getStructureType(), r.getStationCount(),
-                    r.getTotalCost(), r.getEstimatedRidership(), r.getPeakPphpd(),
+                    r.getTotalCost(), CostParts.of(r.getTotalCost(), r.getStationCount(), standards.get(r.getStandardId())),
+                    r.getEstimatedRidership(), r.getPeakPphpd(),
                     r.getTravelTimeMin(), r.getBenefitTotal(), r.getBcRatio(),
                     Boolean.TRUE.equals(r.getFeasible()), r.getWarning(),
                     r.getStations().stream().map(StationResponse::of).toList());
@@ -87,13 +107,14 @@ public class ScenarioDto {
                                  ExistingOptions.Option existingOption, LocalDateTime createdAt,
                                  LocalDateTime calculatedAt,
                                  List<PointResponse> points, List<ResultResponse> results) {
-        static DetailResponse of(Scenario s, ExistingOptions.Option existingOption) {
+        static DetailResponse of(Scenario s, ExistingOptions.Option existingOption,
+                                 Map<Long, CostStandard> standards) {
             return new DetailResponse(s.getId(), s.getTitle(), s.getTotalLengthKm(),
                     s.getRegionClass(), s.getPopulation1km(), s.getRecommendedMode(),
                     s.getPreferredStructure(), existingOption, s.getCreatedAt(),
                     s.getCalculatedAt(),
                     s.getPoints().stream().map(PointResponse::of).toList(),
-                    s.getResults().stream().map(ResultResponse::of).toList());
+                    s.getResults().stream().map(r -> ResultResponse.of(r, standards)).toList());
         }
     }
 }

@@ -1,5 +1,6 @@
 import BcChart from './BcChart';
 import CostChart from './CostChart';
+import RowBreakdown from './RowBreakdown';
 import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
@@ -89,6 +90,7 @@ export default function CostTable({
       <BcChart results={sorted} selected={selected} onSelect={onSelect} />
       <CostChart results={sorted} existingOption={existingOption}
                  selected={selected} onSelect={onSelect} />
+      <RowBreakdown row={sorted.find((r) => resultKey(r) === selected)} />
 
       <table className="cost">
         <thead>
