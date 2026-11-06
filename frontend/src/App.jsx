@@ -182,7 +182,7 @@ export default function App() {
   // 사용자가 로그인하면 관리자 화면이 그려졌다(서버가 요청은 막지만 화면이 보였다)
   if (admin && user.role === 'ADMIN') {
     // 관리자가 기준값을 고쳤을 수 있다. 다시 받지 않으면 낡은 결과를 알릴 수 없다
-    return <AdminPage onClose={() => { setAdmin(false); refreshReference(); }} />;
+    return <AdminPage me={user.userId} onClose={() => { setAdmin(false); refreshReference(); }} />;
   }
   if (compare) return <ComparePage onClose={() => setCompare(false)} />;
 

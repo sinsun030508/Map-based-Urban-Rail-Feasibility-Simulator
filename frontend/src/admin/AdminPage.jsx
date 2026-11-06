@@ -1,11 +1,13 @@
 import { Fragment, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { MODE_LABEL } from '../modeLabels';
+import AdminUsers from './AdminUsers';
+import AdminStats from './AdminStats';
 
 /**
- * 관리자 기준값 CRUD (제안서 기능 8).
+ * 관리자 화면 (제안서 기능 8) — 기준값 · 회원 · 통계 세 탭.
  *
- * 값만 고치고 끝내지 않는다 — **근거를 함께 받는다.** 이 프로젝트에서 숫자보다 중요한 것이
+ * 기준값은 값만 고치고 끝내지 않는다 — **근거를 함께 받는다.** 이 프로젝트에서 숫자보다 중요한 것이
  * 출처라서, 근거를 비우면 저장 버튼이 눌리지 않는다.
  *
  * 추가·삭제는 없다. 기준값 목록은 ETL·시드가 만들고, 행이 사라지면 계산이 바로 멈춘다.
@@ -28,7 +30,8 @@ const toNumber = (v) => (v === '' || v == null ? null : Number(v));
  */
 const isNumber = (v) => v !== '' && v != null && Number.isFinite(Number(v));
 
-export default function AdminPage({ onClose }) {
+export default function AdminPage({ me, onClose }) {
+  const [tab, setTab] = useState('reference');
   const [parameters, setParameters] = useState([]);
   const [modes, setModes] = useState([]);
   const [draft, setDraft] = useState({});
@@ -111,13 +114,25 @@ export default function AdminPage({ onClose }) {
   return (
     <div className="admin">
       <header>
-        <strong>기준값 관리</strong>
-        <span className="muted small">
-          값을 바꾸면 근거도 함께 남겨야 합니다. 저장 즉시 다음 계산부터 적용됩니다.
-        </span>
+        <strong>관리자</strong>
+        <nav className="admin-tabs">
+          {[['reference', '기준값'], ['users', '회원'], ['stats', '통계']].map(([id, label]) => (
+            <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
+          ))}
+        </nav>
+        {tab === 'reference' && (
+          <span className="muted small">
+            값을 바꾸면 근거도 함께 남겨야 합니다. 저장 즉시 다음 계산부터 적용됩니다.
+          </span>
+        )}
         <span className="spacer" />
         <button onClick={onClose}>지도로 돌아가기</button>
       </header>
+
+      {tab === 'users' && <AdminUsers me={me} />}
+      {tab === 'stats' && <AdminStats />}
+      {tab === 'reference' && (
+      <>
 
       {/* 행이 없는 실패(불러오기)만 위에 띄운다 — 저장 실패는 해당 행 아래로 간다 */}
       {error && error.key == null && <p className="error">{error.message}</p>}
@@ -222,6 +237,8 @@ export default function AdminPage({ onClose }) {
           </tbody>
         </table>
       </section>
+      </>
+      )}
     </div>
   );
 }

@@ -240,3 +240,21 @@ table.admin-table.compare td.existing .existing-facts { display: block; white-sp
 .mountain-note p { margin: 2px 0; }
 .mountain-note button { margin: 4px 0; }
 
+/* 관리자 탭·회원·통계 */
+.admin-tabs { display: flex; gap: 4px; }
+.admin-tabs button { padding: 4px 12px; }
+.admin-tabs button.on { background: #1a56db; border-color: #1a56db; color: #fff; }
+table.admin-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.admin-table td.actions { white-space: nowrap; }
+table.admin-table td.actions button + button { margin-left: 4px; }
+button.danger { color: var(--accent); }
+.stat-tiles { display: flex; gap: 12px; margin: 12px 0 16px; }
+.stat-tiles > div { flex: 1; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; }
+.stat-tiles b { display: block; font-size: 24px; }
+.stat-tiles span { font-size: 12px; color: var(--muted); }
+.stats-daily { margin: 0 0 16px; max-width: none; }
+.stat-day { cursor: default; }
+.stat-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.stat-table h3 { font-size: 13px; margin: 0 0 4px; }
+td.stat-bar-cell { width: 100%; }
+.stat-bar { display: block; height: 10px; min-width: 2px; background: #1a56db; border-radius: 0 4px 4px 0; }
