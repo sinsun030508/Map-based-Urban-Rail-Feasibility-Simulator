@@ -68,3 +68,21 @@ def test_용인은_하차가_전년을_그대로_베낀_해를_건너뛴다():
     got, year = R.yongin(df)
     assert year == 2024
     assert got == {'에버라인선': pytest.approx((366 + 36 + 400 + 40) / 366)}
+
+
+KRIC_HTML = '''<table><tr><th>항목명</th><th>설명</th></tr></table>
+<table>
+<tr><th rowspan="2">역명</th><th>호(선)명</th><th colspan="2">합계</th><th colspan="2">1월</th></tr>
+<tr><th>승차인원(명)</th><th>하차인원(명)</th><th>승차인원(명)</th><th>하차인원(명)</th></tr>
+<tr><td>합 계</td><td>1,000</td><td>2,000</td><td>10</td><td>20</td></tr>
+<tr><td>양촌</td><td>김포골드</td><td>600</td><td>1,200</td><td>6</td><td>12</td></tr>
+</table>'''
+
+
+def test_KRIC_표는_합계_행의_연간_승차_하차를_읽는다():
+    assert R.kric_total(KRIC_HTML) == (1000, 2000)
+
+
+def test_KRIC_합계_행이_없으면_멈춘다():
+    with pytest.raises(ValueError, match='합 계'):
+        R.kric_total('<table><tr><td>양촌</td><td>김포골드</td><td>1</td><td>2</td></tr></table>')

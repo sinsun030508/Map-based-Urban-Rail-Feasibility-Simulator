@@ -88,3 +88,11 @@ def test_학습용_역_목록에_없는_노선은_역_마스터에서_좌표를_
     got = D.with_master_coords(st, master)
     assert sorted(got[got.line_name == '의정부선'].latitude) == [37.7, 37.8]
     assert got[got.line_name == '2호선'].latitude.tolist() == [37.5]       # 이미 있는 노선은 안 덮는다
+
+
+def test_역_마스터의_연장_구간은_본선_이름으로_합친다():
+    st = pd.DataFrame({'line_name': ['2호선'], 'latitude': [37.5], 'longitude': [127.0], 'daily_total': [1.0]})
+    master = pd.DataFrame({'line_name': ['신분당선', '신분당선(연장)', '신분당선(연장2)'], 'latitude': [37.4, 37.3, 37.5],
+                           'longitude': [127.1, 127.1, 127.0]})
+    got = D.with_master_coords(st, master)
+    assert sorted(got[got.line_name == '신분당선'].latitude) == [37.3, 37.4]   # 연장2(신사~신논현)는 승하차 자료가 없어 안 합친다

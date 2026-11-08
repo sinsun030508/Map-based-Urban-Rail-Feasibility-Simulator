@@ -16,6 +16,9 @@
   15159353  인천교통공사_일별 역별 시간대별 이용인원현황   (일자, 호선, 역, 승차/하차) 행 × 시간대 열 — 1·2호선만(7호선 인천 구간은 서울 7호선의 일부)
   15109434  경기도 의정부시_경전철 승하차 현황   (일자, 역) 행, 합계(승차)·합계(하차) — 한 달치
   15114113  경기도 용인시_용인경전철 역사별 승하차인원 현황   역 행 × 「n년 승차·하차」 열
+  KRIC 「역별 승강차실적(월)」 (국토부 철도산업정보센터, 키 없는 공개 표) — 공공데이터포털에 없는 운영기관
+            김포골드라인(A010010047), 신분당선 강남~정자(네오트랜스 A010010045)·미금~광교(경기철도 A010010046).
+            신사~신논현(2022 연장)은 KRIC 에도 없다 — 신분당선은 강남~광교 13역으로 센다
 출력  data/build/regional_line_ridership.csv   line_name, daily_total, period, source
 
 틀려도 조용히 넘어가는 곳
@@ -30,6 +33,7 @@
 """
 
 import calendar
+import html as htmllib
 import json
 import re
 import sys
@@ -44,6 +48,10 @@ CACHE = ROOT / 'data' / 'cache' / 'regional'
 OUT = ROOT / 'data' / 'build' / 'regional_line_ridership.csv'
 PORTAL = 'https://www.data.go.kr'
 UA = {'User-Agent': 'railfeas-student-project'}
+
+KRIC = 'https://www.kric.go.kr/jsp/industry/rss/citystapassList.jsp'
+KRIC_YEAR = 2025
+KRIC_LINES = {'김포골드라인': ['A010010047'], '신분당선': ['A010010045', 'A010010046']}
 
 DAEGU_BLOCKS = {'대구 도시철도 1호선': ('설화명곡', '하양'),
                 '대구 도시철도 2호선': ('문양', '영남대'),
@@ -120,6 +128,25 @@ def yongin(df):
     raise ValueError('용인 파일에 온전한 해가 없다')
 
 
+def kric_total(page):
+    """KRIC 역별 승강차실적 표의 「합 계」 행 — (연간 승차, 연간 하차)"""
+    for row in re.findall(r'<tr.*?</tr>', page, re.S):
+        cells = [htmllib.unescape(re.sub(r'<[^>]+>|\s+', ' ', c)).strip()
+                 for c in re.findall(r'<t[hd][^>]*>(.*?)</t[hd]>', row, re.S)]
+        if cells and cells[0].replace(' ', '') == '합계' and len(cells) >= 3 and cells[1].replace(',', '').isdigit():
+            return int(cells[1].replace(',', '')), int(cells[2].replace(',', ''))
+    raise ValueError('KRIC 표에 「합 계」 행이 없다 — 운영기관 코드나 연도를 확인할 것')
+
+
+def kric_download(org, year):
+    CACHE.mkdir(parents=True, exist_ok=True)
+    path = CACHE / f'kric_{org}_{year}.html'
+    if not path.exists():
+        form = urllib.parse.urlencode({'q_org_cd': org, 'q_fdate': str(year)}).encode()
+        path.write_bytes(urllib.request.urlopen(urllib.request.Request(KRIC, data=form, headers=UA), timeout=60).read())
+    return path.read_text(encoding='utf-8')
+
+
 def download(pk):
     """공공데이터포털 파일데이터 한 건을 받아 캐시에 둔다. 돌려주는 것은 (경로, 파일 이름)"""
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -186,6 +213,11 @@ def main():
 
     got, year = yongin(pd.read_csv(download('15114113')[0], encoding='cp949'))
     rows += [(k, v, str(year), '경기도 용인시_용인경전철 역사별 승하차인원 현황') for k, v in got.items()]
+
+    days = 366 if calendar.isleap(KRIC_YEAR) else 365
+    for line, orgs in KRIC_LINES.items():
+        total = sum(sum(kric_total(kric_download(org, KRIC_YEAR))) for org in orgs)
+        rows.append((line, total / days, str(KRIC_YEAR), 'KRIC 역별 승강차실적(월)'))
 
     df = pd.DataFrame(rows, columns=['line_name', 'daily_total', 'period', 'source'])
     df['daily_total'] = df.daily_total.round(0).astype(int)
