@@ -75,7 +75,8 @@ export default function CostTable({
           <strong>{people(riders)}명/일</strong> · 첨두 <strong>{people(peak)}명/시</strong>
           <div className="muted">
             {lightFactor != null && <>경전철은 같은 인구에서 이용객이 적어 그 행만 {lightFactor.toFixed(2)}배로 셉니다. </>}
-            트램·BRT는 국내 운영 이용객 자료가 없어 보정하지 않았습니다(수요 자료 없음).
+            트램은 국내 운영 노선이 없어 보정하지 않았습니다(수요 자료 없음). BRT는 세종 실측과 견주면 이용객이 크게
+            과대 추정되는데 아직 보정하지 않았습니다 — BRT의 B/C는 특히 높게 나옵니다.
           </div>
         </div>
       )}
