@@ -195,8 +195,8 @@ export default function MapView({
       const el = document.createElement('div');
       const terminal = i === 0 || i === all.length - 1;
       el.className = terminal ? 'station-dot terminal' : 'station-dot';
-      // **이름을 모르면 글자를 달지 않는다.** 역 이름은 반경 안 집계구의 행정동인데, 집계구는 기존 역
-      // 주변으로 모은 자료라 서울~부산 중간은 비어 있다. 전에는 순번(5, 6 … 23)을 이름 자리에 찍어
+      // **이름을 모르면 글자를 달지 않는다.** 역 이름은 반경 안 집계구의 행정동인데, 값이 가려진 곳은 칸이 없다.
+      // 집계구를 전국으로 받기 전에는 서울~부산에 이런 역이 206개였다. 전에는 순번(5, 6 … 23)을 이름 자리에 찍어
       // 뜻 없는 숫자가 줄지어 보였다(11-05). 순번과 이유는 마우스를 올리면 보인다
       if (!terminal && s.name) {
         const label = document.createElement('span');

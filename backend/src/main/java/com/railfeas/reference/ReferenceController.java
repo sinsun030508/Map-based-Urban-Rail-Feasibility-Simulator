@@ -62,7 +62,7 @@ public class ReferenceController {
     /**
      * 화면 범위 안의 집계구 인구 — 3D 인구밀도 표시용.
      * 객체가 아니라 [위도, 경도, 인구] 배열로 보낸다. 칸이 많아 키 이름이 응답의 절반을 차지한다.
-     * 수집한 77개 시군구(수도권 위주) 밖은 비어 있다.
+     * 전국 252개 시군구를 받았다. 값이 가려진 집계구는 없다.
      */
     @GetMapping("/population")
     public List<double[]> population(@RequestParam double minLat, @RequestParam double minLng,
