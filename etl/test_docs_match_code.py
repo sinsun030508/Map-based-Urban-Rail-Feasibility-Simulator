@@ -211,7 +211,7 @@ class Test모델식:
         seed = (self.ROOT / 'db/seed/S6__demand_model.sql').read_text(encoding='utf-8')
         want = [float(re.search(r"\('demand_%s',\s*(-?[0-9.]+)" % k, seed).group(1))
                 for k in ('intercept', 'pop_elasticity', 'worker_elasticity', 'light_rail_coef')]
-        # 경전철 항은 음수라 문서에 「- 0.638·경전철」 로 적는다
+        # 경전철 항은 음수라 문서에 「- 0.617·경전철」 로 적는다
         pat = (r'log\(일이용객\) = ' + self.NUM + r' \+ ' + self.NUM + r'·log\(인구\) \+ ' + self.NUM
                + r'·log\(종사자\) - ' + self.NUM + r'·경전철')
         for name, text in self.DEMAND_DOCS.items():

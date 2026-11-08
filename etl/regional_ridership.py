@@ -2,7 +2,7 @@
 수도권 밖 도시철도 노선별 일평균 승하차 — 수요 회귀의 표본을 수도권 밖으로 넓힌다.
 
 왜 필요한가
-  수요 회귀(`demand_model.py`)는 서울 열린데이터광장의 수도권 노선 26개로만 배웠다. 대전·부산·대구 공사가
+  수요 회귀(`demand_model.py`)는 서울 열린데이터광장의 수도권 노선 26개로만 배웠다. 대전·부산·대구·광주 공사가
   공공데이터포털에 **역별 승차·하차(자동개집표기)** 를 올려 두어 서울 자료와 단위가 같다(역 승차 + 하차의 합).
   11-08 에 견줘 보니 수도권 밖 중전철도 0.68~1.12배로 맞았고, 「수도권 밖」 변수는 표준오차보다 작았다 —
   지역을 따로 두지 않고 합쳐 배운다(research-log 「수도권 밖으로 표본을 넓힌다」).
@@ -12,6 +12,7 @@
   3033569   부산교통공사_도시철도 역별 수송 수입현황   호선·역 행, 연 일평균 승차·하차
   15060371  대구교통공사_월별승차인원       (년, 월) 행 × 역 열, 1~3호선 역이 순서대로
   15060372  대구교통공사_월별하차인원       같은 모양
+  15060048  광주교통공사_역일시간대별 승하차량   (일자, 역, 승차/하차) 행 × 시간대 열, 올해 지난 달까지
 출력  data/build/regional_line_ridership.csv   line_name, daily_total, period, source
 
 틀려도 조용히 넘어가는 곳
@@ -81,6 +82,12 @@ def daegu(on, off, months=12):
     return out
 
 
+def gwangju(df):
+    hours = [c for c in df.columns if re.fullmatch(r'\d{2}_\d{2}', c)]
+    total = float(df[hours].apply(pd.to_numeric, errors='coerce').sum().sum())
+    return {'광주 도시철도 1호선': total / df['일자'].nunique()}
+
+
 def download(pk):
     """공공데이터포털 파일데이터 한 건을 받아 캐시에 둔다. 돌려주는 것은 (경로, 파일 이름)"""
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -132,6 +139,10 @@ def main():
     keep = daegu_months(on, off)
     period = f'{keep[0] // 100}-{keep[0] % 100:02d}~{keep[-1] // 100}-{keep[-1] % 100:02d}'
     rows += [(k, v, period, '대구교통공사_월별승차·하차인원') for k, v in daegu(on, off).items()]
+
+    gj = pd.read_csv(download('15060048')[0], encoding='cp949')
+    period = f"{gj['일자'].min()}~{gj['일자'].max()}"
+    rows += [(k, v, period, '광주교통공사_역일시간대별 승하차량') for k, v in gwangju(gj).items()]
 
     df = pd.DataFrame(rows, columns=['line_name', 'daily_total', 'period', 'source'])
     df['daily_total'] = df.daily_total.round(0).astype(int)

@@ -18,7 +18,8 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
-     * 편익 이용자 배수를 서울교통공사 한 파일로 다시 잰 시각(0.745 → 0.777) — 모든 B/C 가 약 4% 오른다.
+     * 수요 표본에 광주 1호선을 더한 시각(34 → 35) — 계수가 조금 바뀌고 BRT 배수가 0.347 → 0.356 이 된다.
+     * 그 전 — 11-09 00:05 편익 이용자 배수를 서울교통공사 한 파일로 다시 잰 시각(0.745 → 0.777) — 모든 B/C 가 약 4% 오른다.
      * 그 전 — 11-08 23:41 수요 회귀 표본에 대전·부산·대구 도시철도 8개 노선을 더한 시각(26 → 34) — 계수가 바뀌어 모든 이용객·B/C 가 조금씩
      * 움직이고 경전철 배수가 0.46 → 0.53 이 된다.
      * 그 전 — 11-08 22:42 편익을 노선 이용자 수(역 승하차 합 × 0.745)로 세고 BRT 이용객에 세종 실측 배수(0.35)를 곱한 시각 — 모든 B/C 가
@@ -35,7 +36,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 9, 0, 5);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 9, 0, 14);
 
     private CalculationRules() {
     }
