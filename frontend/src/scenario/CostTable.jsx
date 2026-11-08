@@ -7,7 +7,7 @@ import { STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
 import { bc, money, people } from '../format';
 import { mergeWarnings } from './warnings';
-import { baseRow, lightRailFactor } from './demandNote';
+import { baseRow, brtFactor, lightRailFactor } from './demandNote';
 
 
 export default function CostTable({
@@ -35,6 +35,7 @@ export default function CostTable({
   const base = baseRow(results);
   const riders = base?.estimatedRidership;
   const lightFactor = lightRailFactor(results);
+  const busFactor = brtFactor(results);
   // 소요시간을 아는 기존 **도시철도**가 있으면 편익의 전환 전 시간은 **시내버스와 그 노선
   // 중 빠른 쪽**이다. 어느 쪽이 빨랐는지는 모른다 — 짧은 노선은 역까지 가는 몫 때문에 버스가
   // 빠를 수 있어 "기존 2호선보다 느림" 이라고 단정하면 틀린 말이 된다.
@@ -74,9 +75,10 @@ export default function CostTable({
           노선 둘레 인구 <strong>{people(population)}명</strong> · 예상 이용객{' '}
           <strong>{people(riders)}명/일</strong> · 첨두 <strong>{people(peak)}명/시</strong>
           <div className="muted">
+            이용객은 역 승차·하차를 합한 수라 한 통행을 두 번 셉니다 — 편익은 노선 이용자 수로 바꿔 셉니다.{' '}
             {lightFactor != null && <>경전철은 같은 인구에서 이용객이 적어 그 행만 {lightFactor.toFixed(2)}배로 셉니다. </>}
-            트램은 국내 운영 노선이 없어 보정하지 않았습니다(수요 자료 없음). BRT는 세종 실측과 견주면 이용객이 크게
-            과대 추정되는데 아직 보정하지 않았습니다 — BRT의 B/C는 특히 높게 나옵니다.
+            {busFactor != null && <>BRT는 세종 BRT 실측에 맞춰 그 행만 {busFactor.toFixed(2)}배로 셉니다. </>}
+            트램은 국내 운영 노선이 없어 보정하지 않았습니다(수요 자료 없음).
           </div>
         </div>
       )}

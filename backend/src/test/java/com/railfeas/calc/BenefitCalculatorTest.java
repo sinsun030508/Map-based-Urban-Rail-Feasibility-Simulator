@@ -35,6 +35,7 @@ class BenefitCalculatorTest {
         v.put("peak_direction_coef", 9.0);     // K = 9/연장, 상한 0.3
         v.put("peak_direction_max", 0.3);
         v.put("avg_trip_km", 13.6);            // 서울시 2019 지하철 1회 이동
+        v.put("users_per_ridership", 1.0);     // 아래 기대값은 이용자 = 이용객으로 셈한 값이다
         return new BenefitCalculator.Params(v);
     }
 
@@ -222,5 +223,36 @@ class BenefitCalculatorTest {
         assertThat(calculator().ridersFor(with, 10_000, ModeType.BRT_HIGH)).isEqualTo(10_000);
         assertThat(calculator().ridersFor(without, 10_000, ModeType.LIGHT_RAIL)).isEqualTo(10_000);
         assertThat(calculator().ridersFor(with, null, ModeType.LIGHT_RAIL)).isNull();
+    }
+
+    @Test
+    @DisplayName("편익은 역 승하차 합이 아니라 노선 이용자 수로 센다 — 한 통행을 두 번 세지 않는다")
+    void benefitCountsLineUsersNotStationTaps() {
+        BenefitCalculator.Params half = params();
+        Map<String, Double> v = new HashMap<>();
+        v.put("users_per_ridership", 0.5);
+        for (String k : new String[]{"baseline_speed_kmh", "time_value_won_per_hour", "analysis_years",
+                "construction_years", "discount_rate", "discount_rate_late", "discount_switch_year", "avg_trip_km"}) {
+            v.put(k, half.get(k));
+        }
+        Long all = calculator().benefitTotal(params(), 10_000, 10.0, 30.0);
+        Long users = calculator().benefitTotal(new BenefitCalculator.Params(v), 10_000, 10.0, 30.0);
+
+        assertThat(users).isBetween(all / 2 - 1, all / 2 + 1);
+    }
+
+    @Test
+    @DisplayName("BRT 배수는 BRT 두 등급에만 — 계수가 없으면 그대로")
+    void brtFactorOnBothBrtGrades() {
+        Map<String, Double> v = new HashMap<>();
+        v.put("demand_brt_factor", 0.35);
+        BenefitCalculator.Params with = new BenefitCalculator.Params(v);
+
+        assertThat(calculator().ridersFor(with, 10_000, ModeType.BRT_HIGH)).isEqualTo(3_500);
+        assertThat(calculator().ridersFor(with, 10_000, ModeType.BRT_LOW)).isEqualTo(3_500);
+        assertThat(calculator().ridersFor(with, 10_000, ModeType.HEAVY_METRO)).isEqualTo(10_000);
+        assertThat(calculator().ridersFor(with, 10_000, ModeType.TRAM)).isEqualTo(10_000);
+        assertThat(calculator().ridersFor(new BenefitCalculator.Params(new HashMap<>()), 10_000, ModeType.BRT_HIGH))
+                .isEqualTo(10_000);
     }
 }

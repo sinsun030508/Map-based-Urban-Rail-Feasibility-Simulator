@@ -47,7 +47,8 @@ class CostCalculatorTest {
             Map.entry("weekday_factor", 1.1041),
             Map.entry("peak_direction_coef", 10.06),
             Map.entry("peak_direction_max", 0.395),
-            Map.entry("avg_trip_km", 13.6));
+            Map.entry("avg_trip_km", 13.6),
+            Map.entry("users_per_ridership", 1.0));
 
     private CostCalculator calculator() {
         // 역 좌표 파일을 주지 않으면 기존 노선 안내는 비활성 — 계산기만 떼어 본다

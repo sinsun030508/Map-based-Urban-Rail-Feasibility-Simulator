@@ -17,7 +17,10 @@
   노선 단위는 탄력성 합이 약 1 이라 그 문제가 없고, 교차검증도 역 단위 1.75배보다 낫다.
   경전철은 0/1 변수로 따로 둔다 — 같은 인구에서 경전철 이용객이 약 절반이다(표본 밖 부산 4호선도 같은 도시
   중전철보다 약 1.8배 과대, research-log 「승하차 합은 통행 두 번이다」). 넣지 않으면 경전철 두 노선이 다른 계수를 끌어당긴다.
-  트램은 국내 운영 노선이 없어 보정하지 않는다. BRT 는 세종 실측이 4~8배 과대를 보이지만 보정은 결정 대기다.
+  트램은 국내 운영 노선이 없어 보정하지 않는다.
+  BRT 는 회귀에 넣지 않고 **배수 하나**로 맞춘다(`brt_factor`) — 세종 BRT 축(B1 대전역~오송역 정류장 둘레)의
+  모델 예측과 행복청 2024 축 이용객(B1+B2+B4 승차 ×2)의 비. 노선별로 보면 4.8~8.5배 과대지만 같은 길을 여러 노선이
+  나눠 타므로 축 단위로 잰다(2.8배, 11-08 사용자 결정). 같은 지역의 대전 1호선은 1.12배로 맞아 지역 탓이 아니다.
   도심거리는 넣지 않았다 — 종사자를 넣으면 뜻이 없고(표준오차보다 작다), 지방·장거리에서 값을 크게 깎는다.
 
 한계 (보고서에 그대로 옮길 것)
@@ -27,6 +30,7 @@
   - 교통카드 기준이라 현금 이용은 빠진다
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -35,9 +39,14 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / 'data' / 'build'
+BRT_CACHE = ROOT / 'data' / 'cache' / 'brt'   # sejong_brt_speed.py 가 받아 둔 BIS 선형·정류장
 DB_SEED = ROOT / 'db' / 'seed'
 MIN_STATIONS = 5      # 역이 이보다 적은 노선은 자료가 잘린 것이다
 RADIUS_KM = 1.0       # 백엔드 CostCalculator.BUFFER_KM 과 같다
+# 세종 BRT 축 — 행복청 2024: 연간 1,203만 명 중 B1 36.6%·B2 25.0%, B4 100만 명(뉴시스 2025-02-03 보도).
+# 버스 「이용객」 은 승차 집계라 ×2 해 모델의 단위(역 승하차 합)에 맞춘다. 정류장은 B1(대전역~오송역) 선형
+BRT_AXIS_SHAPE = '187000003'
+BRT_AXIS_BOARDINGS = (12_030_000 * (0.366 + 0.250) + 1_000_000) / 365
 # 경전철 노선(운영현황의 수단 구분). 표본에 들어오는 것은 이용객 자료가 있는 우이신설선·신림선뿐이다
 LIGHT_RAIL = {'우이신설선', '신림선', '부산김해경전철', '의정부경전철', '용인경전철', '에버라인', '김포골드라인'}
 
@@ -81,11 +90,16 @@ def lines(stations, census, workers):
     return df[df.population > 0].reset_index(drop=True)
 
 
-def load():
+def cells_of():
     census = pd.read_csv(BUILD / 'census_population.csv', encoding='utf-8-sig')
     census = census.dropna(subset=['latitude', 'longitude', 'population']).rename(columns={'population': 'value'})
     workers = pd.read_csv(BUILD / 'dong_workers.csv', encoding='utf-8-sig')
     workers = workers.dropna(subset=['latitude', 'longitude', 'workers']).rename(columns={'workers': 'value'})
+    return census, workers
+
+
+def load():
+    census, workers = cells_of()
     return lines(pd.read_csv(BUILD / 'station_population.csv'), census, workers)
 
 
@@ -110,7 +124,23 @@ def fit(df, upto=len(FEATURES)):
     return beta, se, r2, loo_error(X, y), names
 
 
-def to_sql(beta, se, r2, loo, n, names, path):
+def brt_factor(beta, population, workers, boardings):
+    """BRT 실측 ÷ 모델 예측. 예측은 경전철 항 없는 기준값이다(BRT 는 경전철이 아니다)"""
+    predicted = np.exp(beta[0] + beta[1] * np.log(population) + beta[2] * np.log(workers + 1))
+    return float(2 * boardings / predicted)
+
+
+def brt_axis(census, workers):
+    """세종 BRT 축 정류장 둘레 인구·종사자. 캐시가 없으면 None — BRT 배수를 쓰지 않는다"""
+    path = BRT_CACHE / f'shape_{BRT_AXIS_SHAPE}.json'
+    if not path.exists():
+        return None
+    shape = json.loads(path.read_text(encoding='utf-8'))
+    stops = sorted({tuple(shape['points'][s['idx']]) for s in shape['stops']})
+    return covered(census, stops), covered(workers, stops), len(stops)
+
+
+def to_sql(beta, se, r2, loo, n, names, path, brt=None):
     lines_ = [
         'SET NAMES utf8mb4;',
         '',
@@ -130,6 +160,8 @@ def to_sql(beta, se, r2, loo, n, names, path):
     values = [(keys[i], beta[i], '계수', f'표준오차 {se[i]:.3f}')
               for i in range(len(beta))]
     values.append(('demand_loo_error', float(np.exp(loo)), '배', '교차검증 평균 오차'))
+    if brt is not None:
+        values.append(('demand_brt_factor', brt, '배', '세종 BRT 축 실측(행복청 2024) ÷ 모델 예측 — BRT 행에만'))
     for name, value, unit, source in values:
         lines_.append(
             'INSERT INTO benefit_parameter (param_name, value, unit, source) '
@@ -165,7 +197,16 @@ def main():
     print('\n[가장 과대추정]')
     print(df.nlargest(4, 'ratio')[show].to_string(index=False, float_format=lambda v: f'{v:,.2f}'))
 
-    to_sql(beta, se, r2, loo, len(df), names, DB_SEED / 'S6__demand_model.sql')
+    axis = brt_axis(*cells_of())
+    brt = None
+    if axis is None:
+        print('\n[BRT] 세종 BRT 선형 캐시가 없다 — sejong_brt_speed.py 를 먼저. BRT 배수 없이 쓴다')
+    else:
+        pop, wk, n_stops = axis
+        brt = brt_factor(beta, pop, wk, BRT_AXIS_BOARDINGS)
+        print(f'\n[BRT] 세종 축 정류장 {n_stops}  인구 {pop:,.0f}  종사자 {wk:,.0f}  '
+              f'실측 승차 {BRT_AXIS_BOARDINGS:,.0f}/일 → 배수 {brt:.4f} (예측이 {1 / brt:.2f}배 과대)')
+    to_sql(beta, se, r2, loo, len(df), names, DB_SEED / 'S6__demand_model.sql', brt=brt)
     print(f'\n{DB_SEED / "S6__demand_model.sql"} 생성')
 
 

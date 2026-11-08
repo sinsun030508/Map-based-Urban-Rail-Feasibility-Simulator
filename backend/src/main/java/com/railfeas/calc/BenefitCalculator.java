@@ -15,9 +15,9 @@ import org.springframework.stereotype.Component;
  * 수요  log(일이용객) = a + b1·log(인구) + b2·log(종사자) + b3·경전철
  *       계수는 etl/demand_model.py 산출(S6). **교차검증 1.39배 오차**를 안고 있다.
  *       경전철 항은 경전철 행에만 쓴다(같은 인구에서 이용객이 약 절반). 트램은 국내 운영 노선이 없어
- *       보정하지 않는다 — 같다는 뜻이 아니라 모른다는 뜻이다. BRT 는 세종 실측과 견주면 4~8배 과대인데
- *       아직 보정하지 않았다(research-log 「승하차 합은 통행 두 번이다」, 결정 대기).
- * 편익  전환 전 수단 대비 통행시간 절감 × 이용객 × 시간가치.
+ *       보정하지 않는다 — 같다는 뜻이 아니라 모른다는 뜻이다. BRT 는 세종 실측(축 전체)으로 맞춘 배수를
+ *       곱한다(research-log 「승하차 합은 통행 두 번이다」, 11-08 사용자 결정).
+ * 편익  전환 전 수단 대비 통행시간 절감 × 노선 이용자(이용객 × users_per_ridership) × 시간가치.
  *       1인당 절감은 평균 통행거리(노선이 더 짧으면 노선 전체)만큼이다.
  *       차량운행비·사고·환경 편익은 이번 범위 밖 (제안서 한계에 명시).
  * B/C   편익의 현재가치 ÷ 사업비의 현재가치 (지침 6.3.1).
@@ -65,14 +65,22 @@ public class BenefitCalculator {
     }
 
     /**
-     * 수단마다의 일 이용객. 경전철만 `demand_light_rail_coef` 를 곱한다 — 회귀가 경전철을 0/1 변수로
-     * 따로 학습했다. 계수가 없으면(이전 시드) 기준값 그대로다.
+     * 수단마다의 일 이용객(역 승하차 합).
+     *   경전철 — `demand_light_rail_coef` 를 곱한다. 회귀가 경전철을 0/1 변수로 따로 학습했다
+     *   BRT 두 등급 — `demand_brt_factor` 를 곱한다. 세종 BRT 축 실측 ÷ 모델 예측(etl/demand_model.py)
+     * 계수가 없으면(이전 시드) 기준값 그대로다. 트램은 국내 운영 노선이 없어 보정하지 않는다.
      */
     public Integer ridersFor(Params p, Integer baseRiders, ModeType mode) {
-        if (baseRiders == null || mode != ModeType.LIGHT_RAIL || !p.has("demand_light_rail_coef")) {
-            return baseRiders;
+        if (baseRiders == null) {
+            return null;
         }
-        return (int) Math.round(baseRiders * Math.exp(p.get("demand_light_rail_coef")));
+        if (mode == ModeType.LIGHT_RAIL && p.has("demand_light_rail_coef")) {
+            return (int) Math.round(baseRiders * Math.exp(p.get("demand_light_rail_coef")));
+        }
+        if ((mode == ModeType.BRT_HIGH || mode == ModeType.BRT_LOW) && p.has("demand_brt_factor")) {
+            return (int) Math.round(baseRiders * p.get("demand_brt_factor"));
+        }
+        return baseRiders;
     }
 
     /**
@@ -169,7 +177,10 @@ public class BenefitCalculator {
         if (savedHours <= 0) {
             return 0L;
         }
-        double yearly = savedHours * dailyRiders * 365 * p.get("time_value_won_per_hour");
+        // 이용객은 역 승하차 합이라 한 통행을 두 번 센다. 절감은 통행마다이므로 **노선 이용자 수**(승차 + 환승유입)로
+        // 바꿔 곱한다 — 서울교통공사 8개 노선 수송인원 ÷ 승하차 합 중앙값(S7). 첨두는 단면 환산에서 따로 ×0.5 를 한다
+        double users = dailyRiders * p.get("users_per_ridership");
+        double yearly = savedHours * users * 365 * p.get("time_value_won_per_hour");
         int years = (int) p.get("analysis_years");
         double sum = 0;
         for (int y = 1; y <= years; y++) {

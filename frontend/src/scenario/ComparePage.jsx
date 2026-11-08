@@ -138,7 +138,7 @@ export default function ComparePage({ onClose }) {
                   {chosen.map((d) => <td key={d.id}>{people(d.population1km)}명</td>)}
                 </tr>
                 <tr>
-                  <td className="name" title="경전철은 같은 인구에서 이용객이 적어 따로 보정합니다 — 이 칸은 경전철이 아닌 수단의 값입니다. 트램은 수요 자료가 없고, BRT는 실측보다 크게 과대 추정되는데 아직 보정하지 않았습니다">예상 이용객</td>
+                  <td className="name" title="역 승차·하차를 합한 수입니다. 경전철·BRT는 실측에 맞춰 따로 줄입니다 — 이 칸은 그 밖의 수단의 값입니다. 트램은 수요 자료가 없어 보정하지 않았습니다">예상 이용객</td>
                   {chosen.map((d) => {
                     const r = baseRow(d.results || []);
                     return <td key={d.id}>{people(r?.estimatedRidership)}명/일</td>;

@@ -15,3 +15,4 @@ INSERT INTO benefit_parameter (param_name, value, unit, source) VALUES ('demand_
 INSERT INTO benefit_parameter (param_name, value, unit, source) VALUES ('demand_worker_elasticity', 0.6392, '계수', '표준오차 0.151');
 INSERT INTO benefit_parameter (param_name, value, unit, source) VALUES ('demand_light_rail_coef', -0.7765, '계수', '표준오차 0.303');
 INSERT INTO benefit_parameter (param_name, value, unit, source) VALUES ('demand_loo_error', 1.3937, '배', '교차검증 평균 오차');
+INSERT INTO benefit_parameter (param_name, value, unit, source) VALUES ('demand_brt_factor', 0.3521, '배', '세종 BRT 축 실측(행복청 2024) ÷ 모델 예측 — BRT 행에만');

@@ -1,6 +1,7 @@
 """노선 단위 수요 회귀 — 학습이 백엔드와 같은 방식으로 세는가."""
 
 import numpy as np
+import pytest
 import pandas as pd
 
 import demand_model as D
@@ -54,3 +55,16 @@ def test_경전철_노선을_가른다():
     c = cells([(37.5, 127.0, 100.0)])
     got = D.lines(st, c, c).set_index('line_name').light_rail.to_dict()
     assert got == {'우이신설선': True, '2호선': False}
+
+
+def test_BRT_배수는_실측_승차_두_배를_예측으로_나눈_값이다():
+    # 예측 = exp(0 + 1·ln 1000 + 0·ln(1)) = 1000. 승차 175명/일 → 승하차 환산 350 → 0.35
+    beta = np.array([0.0, 1.0, 0.0, -0.8])   # 경전철 항은 BRT 예측에 쓰지 않는다
+    assert D.brt_factor(beta, population=1000, workers=0, boardings=175) == pytest.approx(0.35)
+
+
+def test_S6_에_BRT_배수가_들어간다(tmp_path):
+    out = tmp_path / 'S6.sql'
+    D.to_sql(np.array([-2.0, 0.5, 0.7, -0.8]), np.array([1, 0.1, 0.1, 0.3]), 0.9, 0.3, 26,
+             ['절편', 'log(인구)', 'log(종사자)', '경전철'], out, brt=0.3521)
+    assert "('demand_brt_factor', 0.3521, '배'" in out.read_text(encoding='utf-8')
