@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
  * 수요 → 편익 → B/C.
  *
  * 수요  log(일이용객) = a + b1·log(인구) + b2·log(종사자) + b3·경전철
- *       계수는 etl/demand_model.py 산출(S6). **교차검증 1.39배 오차**를 안고 있다.
+ *       계수는 etl/demand_model.py 산출(S6). **교차검증 1.34배 오차**를 안고 있다.
  *       경전철 항은 경전철 행에만 쓴다(같은 인구에서 이용객이 약 절반). 트램은 국내 운영 노선이 없어
  *       보정하지 않는다 — 같다는 뜻이 아니라 모른다는 뜻이다. BRT 는 세종 실측(축 전체)으로 맞춘 배수를
  *       곱한다(research-log 「승하차 합은 통행 두 번이다」, 11-08 사용자 결정).

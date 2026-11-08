@@ -68,3 +68,14 @@ def test_S6_에_BRT_배수가_들어간다(tmp_path):
     D.to_sql(np.array([-2.0, 0.5, 0.7, -0.8]), np.array([1, 0.1, 0.1, 0.3]), 0.9, 0.3, 26,
              ['절편', 'log(인구)', 'log(종사자)', '경전철'], out, brt=0.3521)
     assert "('demand_brt_factor', 0.3521, '배'" in out.read_text(encoding='utf-8')
+
+
+def test_수도권_밖_노선은_역_좌표는_역_목록에서_승하차_합은_표에서_가져온다():
+    st = pd.DataFrame({'line_name': ['부산 도시철도 4호선'] * D.MIN_STATIONS + ['짧은선'] * 2,
+                       'latitude': 35.2, 'longitude': 129.1, 'daily_total': 0.0})
+    totals = pd.DataFrame({'line_name': ['부산 도시철도 4호선', '짧은선', '좌표없는선'], 'daily_total': [54988, 10, 10]})
+    c = cells([(35.2, 129.1, 100.0)])
+    got = D.regional_lines(st, c, c, totals)
+    assert got.line_name.tolist() == ['부산 도시철도 4호선']      # 역이 모자라거나 좌표가 없는 노선은 뺀다
+    assert got.daily_total.tolist() == [54988] and got.light_rail.tolist() == [True]
+    assert got.population.tolist() == [100]

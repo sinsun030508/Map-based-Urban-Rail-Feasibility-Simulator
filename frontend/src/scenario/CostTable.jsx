@@ -216,7 +216,7 @@ export default function CostTable({
           <strong>절대값보다 순위를 보세요</strong>
           {hasDemand && <> — 운영비를 넣지 않아 B/C가 높게 나옵니다</>} · 계산 근거와 한계
         </summary>
-        <p>비용 모델 오차 1.25배, 수요 모델 오차 1.39배입니다.</p>
+        <p>비용 모델 오차 1.25배, 수요 모델 오차 1.34배입니다.</p>
         {hasDemand && (
           <>
             <p>

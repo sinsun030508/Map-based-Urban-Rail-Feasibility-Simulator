@@ -1,7 +1,8 @@
 """
 수요 회귀 — 노선 둘레 인구·종사자로 노선의 일 이용객을 추정한다.
 
-입력  data/build/station_population.csv  노선·역·일 이용객 (sgis_population.py 산출)
+입력  data/build/station_population.csv  노선·역·일 이용객 (sgis_population.py 산출) — 수도권 노선과 전국 역 좌표
+      data/build/regional_line_ridership.csv  수도권 밖 노선 일평균 승하차 (regional_ridership.py 산출)
       data/build/census_population.csv   집계구 인구
       data/build/dong_workers.csv        행정동 종사자
 출력  db/seed/S6__demand_model.sql        계수 + 진단값
@@ -24,7 +25,7 @@
   도심거리는 넣지 않았다 — 종사자를 넣으면 뜻이 없고(표준오차보다 작다), 지방·장거리에서 값을 크게 깎는다.
 
 한계 (보고서에 그대로 옮길 것)
-  - 표본이 노선 수만큼(26개)이고 전부 수도권이다. 지방·장거리는 외삽이다
+  - 표본이 노선 수만큼(34개)이다 — 수도권 26 + 대전·부산·대구 8. 장거리·광주 등 다른 지역은 외삽이다
   - 일 이용객 합에 환승과 구간 밖 통행이 섞인다
   - 학습은 역 둘레, 예측은 선 전체 둘레다. 역이 드문 선은 예측 입력이 조금 크다
   - 교통카드 기준이라 현금 이용은 빠진다
@@ -48,7 +49,8 @@ RADIUS_KM = 1.0       # 백엔드 CostCalculator.BUFFER_KM 과 같다
 BRT_AXIS_SHAPE = '187000003'
 BRT_AXIS_BOARDINGS = (12_030_000 * (0.366 + 0.250) + 1_000_000) / 365
 # 경전철 노선(운영현황의 수단 구분). 표본에 들어오는 것은 이용객 자료가 있는 우이신설선·신림선뿐이다
-LIGHT_RAIL = {'우이신설선', '신림선', '부산김해경전철', '의정부경전철', '용인경전철', '에버라인', '김포골드라인'}
+LIGHT_RAIL = {'우이신설선', '신림선', '부산김해경전철', '의정부경전철', '용인경전철', '에버라인', '김포골드라인',
+              '부산 도시철도 4호선', '대구 도시철도 3호선'}
 
 
 def ols(X, y):
@@ -90,6 +92,20 @@ def lines(stations, census, workers):
     return df[df.population > 0].reset_index(drop=True)
 
 
+def regional_lines(stations, census, workers, totals):
+    """수도권 밖 노선 — 역 좌표는 역 목록에서, 일평균 승하차 합은 공사 자료 표에서 가져온다"""
+    rows = []
+    for _, t in totals.iterrows():
+        g = stations[stations.line_name == t.line_name]
+        if len(g) < MIN_STATIONS:
+            continue
+        points = list(zip(g.latitude, g.longitude))
+        rows.append({'line_name': t.line_name, 'stations': len(g), 'population': covered(census, points),
+                     'workers': covered(workers, points), 'daily_total': float(t.daily_total),
+                     'light_rail': t.line_name in LIGHT_RAIL})
+    return pd.DataFrame(rows, columns=['line_name', 'stations', 'population', 'workers', 'daily_total', 'light_rail'])
+
+
 def cells_of():
     census = pd.read_csv(BUILD / 'census_population.csv', encoding='utf-8-sig')
     census = census.dropna(subset=['latitude', 'longitude', 'population']).rename(columns={'population': 'value'})
@@ -100,7 +116,14 @@ def cells_of():
 
 def load():
     census, workers = cells_of()
-    return lines(pd.read_csv(BUILD / 'station_population.csv'), census, workers)
+    stations = pd.read_csv(BUILD / 'station_population.csv')
+    df = lines(stations, census, workers)
+    regional = BUILD / 'regional_line_ridership.csv'
+    if not regional.exists():
+        print(f'[주의] {regional.name} 이 없다 — regional_ridership.py 를 먼저. 수도권 노선만으로 배운다')
+        return df
+    more = regional_lines(stations, census, workers, pd.read_csv(regional))
+    return pd.concat([df, more[more.population > 0]], ignore_index=True)
 
 
 FEATURES = [
@@ -150,7 +173,7 @@ def to_sql(beta, se, r2, loo, n, names, path, brt=None):
             f' {"-" if b < 0 else "+"} {abs(b):.4f}·{n}' for n, b in zip(names[1:], beta[1:])),
         f'-- 표본 {n}개 노선, R2 {r2:.3f}, 교차검증 {np.exp(loo):.2f}배',
         '-- 인구·종사자는 노선 둘레 1km 를 겹침 없이 합친 값이다. 경전철 항은 경전철 행에만 쓴다.',
-        '-- 수도권 노선 자료다. 지방·장거리는 외삽이다.',
+        '-- 수도권 노선과 대전·부산·대구 도시철도다. 장거리·다른 지역은 외삽이다.',
         '-- =====================================================',
         '',
         'DELETE FROM benefit_parameter WHERE param_name LIKE \'demand_%\';',
