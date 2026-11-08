@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  *
  * 계수 출처
  *   비용  cost_standard (etl/cost_model.py, 교차검증 1.25배)
- *   수요  benefit_parameter demand_* (etl/demand_model.py, 노선 단위, 교차검증 1.34배, 경전철은 ridersFor)
+ *   수요  benefit_parameter demand_* (etl/demand_model.py, 노선 단위, 교차검증 1.33배, 경전철은 ridersFor)
  *   편익  benefit_parameter (S7) — 시간가치·할인율은 투자평가지침 제7판,
  *         첨두율·기준속도는 지침에 원단위가 없어 가정값이다
  *

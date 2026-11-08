@@ -79,3 +79,12 @@ def test_수도권_밖_노선은_역_좌표는_역_목록에서_승하차_합은
     assert got.line_name.tolist() == ['부산 도시철도 4호선']      # 역이 모자라거나 좌표가 없는 노선은 뺀다
     assert got.daily_total.tolist() == [54988] and got.light_rail.tolist() == [True]
     assert got.population.tolist() == [100]
+
+
+def test_학습용_역_목록에_없는_노선은_역_마스터에서_좌표를_가져온다():
+    st = pd.DataFrame({'line_name': ['2호선'], 'latitude': [37.5], 'longitude': [127.0], 'daily_total': [1.0]})
+    master = pd.DataFrame({'line_name': ['2호선', '의정부선', '의정부선'], 'latitude': [1.0, 37.7, 37.8],
+                           'longitude': [1.0, 127.0, 127.1]})
+    got = D.with_master_coords(st, master)
+    assert sorted(got[got.line_name == '의정부선'].latitude) == [37.7, 37.8]
+    assert got[got.line_name == '2호선'].latitude.tolist() == [37.5]       # 이미 있는 노선은 안 덮는다

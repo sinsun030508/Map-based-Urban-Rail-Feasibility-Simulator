@@ -25,7 +25,7 @@
   도심거리는 넣지 않았다 — 종사자를 넣으면 뜻이 없고(표준오차보다 작다), 지방·장거리에서 값을 크게 깎는다.
 
 한계 (보고서에 그대로 옮길 것)
-  - 표본이 노선 수만큼(35개)이다 — 수도권 26 + 대전·부산·대구·광주 9. 장거리·다른 지역은 외삽이다
+  - 표본이 노선 수만큼(39개)이다 — 서울 자료 26 + 인천·의정부·용인 4 + 대전·부산·대구·광주 9. 장거리·다른 지역은 외삽이다
   - 일 이용객 합에 환승과 구간 밖 통행이 섞인다
   - 학습은 역 둘레, 예측은 선 전체 둘레다. 역이 드문 선은 예측 입력이 조금 크다
   - 교통카드 기준이라 현금 이용은 빠진다
@@ -50,7 +50,7 @@ BRT_AXIS_SHAPE = '187000003'
 BRT_AXIS_BOARDINGS = (12_030_000 * (0.366 + 0.250) + 1_000_000) / 365
 # 경전철 노선(운영현황의 수단 구분). 표본에 들어오는 것은 이용객 자료가 있는 우이신설선·신림선뿐이다
 LIGHT_RAIL = {'우이신설선', '신림선', '부산김해경전철', '의정부경전철', '용인경전철', '에버라인', '김포골드라인',
-              '부산 도시철도 4호선', '대구 도시철도 3호선'}
+              '부산 도시철도 4호선', '대구 도시철도 3호선', '인천2호선', '의정부선', '에버라인선'}
 
 
 def ols(X, y):
@@ -106,6 +106,12 @@ def regional_lines(stations, census, workers, totals):
     return pd.DataFrame(rows, columns=['line_name', 'stations', 'population', 'workers', 'daily_total', 'light_rail'])
 
 
+def with_master_coords(stations, master):
+    """학습용 역 목록(수도권 승하차가 붙은 표)에 없는 노선은 역 마스터에서 좌표를 가져온다 — 인천·의정부·용인 등"""
+    extra = master[~master.line_name.isin(stations.line_name)][['line_name', 'latitude', 'longitude']]
+    return pd.concat([stations, extra], ignore_index=True)
+
+
 def cells_of():
     census = pd.read_csv(BUILD / 'census_population.csv', encoding='utf-8-sig')
     census = census.dropna(subset=['latitude', 'longitude', 'population']).rename(columns={'population': 'value'})
@@ -122,7 +128,8 @@ def load():
     if not regional.exists():
         print(f'[주의] {regional.name} 이 없다 — regional_ridership.py 를 먼저. 수도권 노선만으로 배운다')
         return df
-    more = regional_lines(stations, census, workers, pd.read_csv(regional))
+    master = pd.read_csv(BUILD / 'station_master.csv', encoding='utf-8-sig').dropna(subset=['latitude', 'longitude'])
+    more = regional_lines(with_master_coords(stations, master), census, workers, pd.read_csv(regional))
     return pd.concat([df, more[more.population > 0]], ignore_index=True)
 
 
