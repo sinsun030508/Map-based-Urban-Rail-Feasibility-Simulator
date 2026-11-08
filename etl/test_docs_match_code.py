@@ -231,3 +231,18 @@ class Test모델식:
             m = re.search(pat, text)
             assert m, f'{name} 에서 비용 식을 못 찾았다 — 문장이 바뀌었으면 정규식도 고칠 것'
             assert [float(g) for g in m.groups()] == pytest.approx(want, abs=0.0006), f'{name} 의 비용 식이 모델과 다르다'
+
+
+class Test편익배수:
+    """S7 의 users_per_ridership 는 seoul_line_users.py 가 잰 노선 이용자 ÷ 승하차 합의 중앙값이어야 한다.
+    11-08 처음 넣은 0.745 는 두 출처·두 해를 섞은 값이었다 — 손으로 고친 값이 산출과 어긋나면 여기서 깨진다."""
+
+    ROOT = Path(__file__).resolve().parent.parent
+
+    def test_S7_의_이용자_배수가_ETL_산출_중앙값과_같다(self):
+        import csv
+        rows = list(csv.DictReader((self.ROOT / 'data/build/line_users_ratio.csv').open(encoding='utf-8')))
+        want = round(st.median(float(r['ratio']) for r in rows), 3)
+        seed = (self.ROOT / 'db/seed/S7__benefit_parameter.sql').read_text(encoding='utf-8')
+        got = float(re.search(r"\('users_per_ridership',\s*([0-9.]+)", seed).group(1))
+        assert got == pytest.approx(want, abs=0.0005), f'S7 {got} 이 산출 중앙값 {want} 과 다르다'

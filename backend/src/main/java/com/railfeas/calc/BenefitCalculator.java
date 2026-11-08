@@ -178,7 +178,7 @@ public class BenefitCalculator {
             return 0L;
         }
         // 이용객은 역 승하차 합이라 한 통행을 두 번 센다. 절감은 통행마다이므로 **노선 이용자 수**(승차 + 환승유입)로
-        // 바꿔 곱한다 — 서울교통공사 8개 노선 수송인원 ÷ 승하차 합 중앙값(S7). 첨두는 단면 환산에서 따로 ×0.5 를 한다
+        // 바꿔 곱한다 — 서울교통공사 8개 노선 수송인원 ÷ 승하차 합 중앙값(S7, etl/seoul_line_users.py). 첨두는 단면 환산에서 따로 ×0.5 를 한다
         double users = dailyRiders * p.get("users_per_ridership");
         double yearly = savedHours * users * 365 * p.get("time_value_won_per_hour");
         int years = (int) p.get("analysis_years");
