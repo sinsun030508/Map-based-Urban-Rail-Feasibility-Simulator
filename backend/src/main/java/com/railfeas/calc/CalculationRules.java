@@ -18,7 +18,9 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
-     * 인구·종사자 자료를 전국 시군구로 넓힌 시각 — 역이 없는 구간도 인구가 잡혀 장거리 수요와 역 배치가 달라진다.
+     * 수요 회귀에 경전철 0/1 변수를 넣은 시각 — 경전철 행의 이용객이 약 0.46배가 되고, 다른 계수도 경전철 두 노선에
+     * 끌려가지 않게 다시 학습돼 모든 수단의 이용객·B/C 가 움직인다(트램·BRT 는 자료가 없어 보정 안 함).
+     * 그 전 — 11-07 18:03 인구·종사자 자료를 전국 시군구로 넓혔다 — 역이 없는 구간도 인구가 잡혀 장거리 수요와 역 배치가 달라진다.
      * 그 전 — 11-07 00:13 노선 수요를 찍은 점 둘레가 아니라 선 전체로 세고, 수요 회귀를 노선 단위로 다시 학습했다 — 모든 이용객·B/C 가
      * 움직인다. 그 전 — 11-04 21:37 권장 연장(`S1` 의 `max_length_km`)을 운영 노선 최장 연장으로 바꿨다 — 지하철 35→60.2,
      * 경전철 30→29.1. 35~60km 노선에서 지하철의 「권장 연장 초과」 경고가 사라지고 추천 후보에
@@ -28,7 +30,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 7, 18, 3);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 8, 22, 14);
 
     private CalculationRules() {
     }

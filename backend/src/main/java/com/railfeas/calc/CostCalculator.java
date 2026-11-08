@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  *
  * 계수 출처
  *   비용  cost_standard (etl/cost_model.py, 교차검증 1.25배)
- *   수요  benefit_parameter demand_* (etl/demand_model.py, 노선 단위, 교차검증 1.44배)
+ *   수요  benefit_parameter demand_* (etl/demand_model.py, 노선 단위, 교차검증 1.39배, 경전철은 ridersFor)
  *   편익  benefit_parameter (S7) — 시간가치·할인율은 투자평가지침 제7판,
  *         첨두율·기준속도는 지침에 원단위가 없어 가정값이다
  *
@@ -83,8 +83,8 @@ public class CostCalculator {
         List<double[]> corridor = corridor(points);
         long people = population.populationNear(corridor, BUFFER_KM);
         long workers = population.workersNear(corridor, BUFFER_KM);
-        Integer dailyRiders = benefits.estimateDailyRiders(params, people, workers);
-        Integer peak = benefits.peakPphpd(params, dailyRiders, lengthKm);
+        // 수단을 가리지 않은 기준값. 경전철 행은 루프 안에서 경전철 배수를 곱한다(ridersFor)
+        Integer baseRiders = benefits.estimateDailyRiders(params, people, workers);
 
         // 이미 전철이 다니는 길이면 신설안이 1위로 올라와도 쓸모가 없다 — 비교표에 함께 낸다.
         // **편익보다 먼저 찾는다.** 기존 KTX 가 있으면 전환 전 시간이 시내버스가 아니라
@@ -100,6 +100,8 @@ public class CostCalculator {
         for (CostStandard std : standards) {
             ModeCapacity capacity = capacities.get(std.getModeType());
             int stations = estimateStations(lengthKm, capacity);
+            Integer dailyRiders = benefits.ridersFor(params, baseRiders, std.getModeType());
+            Integer peak = benefits.peakPphpd(params, dailyRiders, lengthKm);
 
             // 역을 **먼저** 놓는다. 역이 선에서 옆으로 비켜 서면 노선이 그만큼 길어지고,
             // 그 길이로 비용·편익을 내야 "인구만 더 담고 돈은 안 드는" 값이 안 나온다.

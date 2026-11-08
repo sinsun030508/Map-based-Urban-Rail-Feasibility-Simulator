@@ -37,10 +37,20 @@ def test_이용객이_없는_역은_세지_않는다():
     assert row.stations == D.MIN_STATIONS
 
 
-def test_회귀는_탄력성을_되찾는다():
+def test_회귀는_탄력성과_경전철_배수를_되찾는다():
     rng = np.random.default_rng(1)
     pop, wk = rng.uniform(1e5, 2e6, 40), rng.uniform(5e4, 2e6, 40)
-    df = pd.DataFrame({'population': pop, 'workers': wk, 'daily_total': np.exp(-2 + 0.5 * np.log(pop) + 0.7 * np.log(wk + 1))})
+    light = np.arange(40) % 8 == 0
+    df = pd.DataFrame({'population': pop, 'workers': wk, 'light_rail': light,
+                       'daily_total': np.exp(-2 + 0.5 * np.log(pop) + 0.7 * np.log(wk + 1) - 0.8 * light)})
     beta, _, r2, loo, _ = D.fit(df)
-    assert np.allclose(beta, [-2, 0.5, 0.7], atol=1e-6)
+    assert np.allclose(beta, [-2, 0.5, 0.7, -0.8], atol=1e-6)
     assert r2 > 0.999 and loo < 1e-6
+
+
+def test_경전철_노선을_가른다():
+    st = pd.DataFrame({'line_name': ['우이신설선'] * D.MIN_STATIONS + ['2호선'] * D.MIN_STATIONS,
+                       'latitude': 37.5, 'longitude': 127.0, 'daily_total': 1000.0})
+    c = cells([(37.5, 127.0, 100.0)])
+    got = D.lines(st, c, c).set_index('line_name').light_rail.to_dict()
+    assert got == {'우이신설선': True, '2호선': False}

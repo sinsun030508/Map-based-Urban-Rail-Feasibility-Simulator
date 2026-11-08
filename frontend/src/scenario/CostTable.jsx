@@ -7,6 +7,7 @@ import { STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
 import { bc, money, people } from '../format';
 import { mergeWarnings } from './warnings';
+import { baseRow, lightRailFactor } from './demandNote';
 
 
 export default function CostTable({
@@ -30,7 +31,10 @@ export default function CostTable({
   const candidates = sorted.filter((r) => !gainsNothing(r));
   const noGain = hasDemand && !candidates.length;
   const best = (overLength ? candidates.find((r) => !overLength(r)) : null) || candidates[0];
-  const riders = results.find((r) => r.estimatedRidership != null)?.estimatedRidership;
+  // 이용객·첨두는 **기준 행(경전철이 아닌 행)** 의 값이다 — 경전철 행만 경전철 배수가 곱해져 다르다(demandNote.js)
+  const base = baseRow(results);
+  const riders = base?.estimatedRidership;
+  const lightFactor = lightRailFactor(results);
   // 소요시간을 아는 기존 **도시철도**가 있으면 편익의 전환 전 시간은 **시내버스와 그 노선
   // 중 빠른 쪽**이다. 어느 쪽이 빨랐는지는 모른다 — 짧은 노선은 역까지 가는 몫 때문에 버스가
   // 빠를 수 있어 "기존 2호선보다 느림" 이라고 단정하면 틀린 말이 된다.
@@ -42,7 +46,7 @@ export default function CostTable({
   const ktxExcluded = existingOption?.kind === 'INTERCITY_RAIL';
   const slowerThan = existingBaseline ? `시내버스와 ${existingBaseline} 중 빠른 쪽` : '시내버스';
   const zeroCount = sorted.filter(gainsNothing).length;
-  const peak = results.find((r) => r.peakPphpd != null)?.peakPphpd;
+  const peak = base?.peakPphpd;
 
   // 같은 수단의 지하·고가 차이 — "지하를 고르면 얼마가 더 드는가"
   const pair = results.find(
@@ -69,6 +73,10 @@ export default function CostTable({
         <div className="metric small">
           노선 둘레 인구 <strong>{people(population)}명</strong> · 예상 이용객{' '}
           <strong>{people(riders)}명/일</strong> · 첨두 <strong>{people(peak)}명/시</strong>
+          <div className="muted">
+            {lightFactor != null && <>경전철은 같은 인구에서 이용객이 적어 그 행만 {lightFactor.toFixed(2)}배로 셉니다. </>}
+            트램·BRT는 국내 운영 이용객 자료가 없어 보정하지 않았습니다(수요 자료 없음).
+          </div>
         </div>
       )}
 
@@ -205,7 +213,7 @@ export default function CostTable({
           <strong>절대값보다 순위를 보세요</strong>
           {hasDemand && <> — 운영비를 넣지 않아 B/C가 높게 나옵니다</>} · 계산 근거와 한계
         </summary>
-        <p>비용 모델 오차 1.25배, 수요 모델 오차 1.44배입니다.</p>
+        <p>비용 모델 오차 1.25배, 수요 모델 오차 1.39배입니다.</p>
         {hasDemand && (
           <>
             <p>

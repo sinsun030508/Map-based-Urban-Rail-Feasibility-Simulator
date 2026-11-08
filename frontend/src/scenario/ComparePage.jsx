@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { baseRow } from './demandNote';
 import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
 import { isStale, STALE_MESSAGE } from './stale';
@@ -137,16 +138,16 @@ export default function ComparePage({ onClose }) {
                   {chosen.map((d) => <td key={d.id}>{people(d.population1km)}명</td>)}
                 </tr>
                 <tr>
-                  <td className="name">예상 이용객</td>
+                  <td className="name" title="경전철은 같은 인구에서 이용객이 적어 따로 보정합니다 — 이 칸은 경전철이 아닌 수단의 값입니다. 트램·BRT는 수요 자료가 없어 보정하지 않았습니다">예상 이용객</td>
                   {chosen.map((d) => {
-                    const r = (d.results || [])[0];
+                    const r = baseRow(d.results || []);
                     return <td key={d.id}>{people(r?.estimatedRidership)}명/일</td>;
                   })}
                 </tr>
                 <tr>
                   <td className="name">첨두 단면</td>
                   {chosen.map((d) => {
-                    const r = (d.results || [])[0];
+                    const r = baseRow(d.results || []);
                     return <td key={d.id}>{people(r?.peakPphpd)}명/시</td>;
                   })}
                 </tr>
@@ -226,7 +227,7 @@ export default function ComparePage({ onClose }) {
               <h2>수단별 B/C</h2>
               <p className="muted small">
                 같은 수단을 노선끼리 견줍니다. 괄호는 건설비입니다.
-                절대값보다 순위를 보세요 — 수요 모델 오차가 1.44배이고, 운영비를 넣지 않아
+                절대값보다 순위를 보세요 — 수요 모델 오차가 1.39배이고, 운영비를 넣지 않아
                 B/C가 높게 나옵니다(경전철 예타 사례로 약 0.78배).
               </p>
               <table className="admin-table compare">

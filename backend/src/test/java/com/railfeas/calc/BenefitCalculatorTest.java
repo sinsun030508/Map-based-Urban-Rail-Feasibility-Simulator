@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import com.railfeas.common.ModeType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -206,5 +207,20 @@ class BenefitCalculatorTest {
         } catch (IllegalStateException expected) {
             assertThat(expected).hasMessageContaining("time_value_won_per_hour");
         }
+    }
+
+    @Test
+    @DisplayName("경전철 계수는 경전철에만 — 계수가 없으면(이전 시드) 경전철도 기준값 그대로")
+    void lightRailFactorOnlyWhenKnown() {
+        Map<String, Double> v = new HashMap<>();
+        v.put("demand_light_rail_coef", Math.log(0.5));
+        BenefitCalculator.Params with = new BenefitCalculator.Params(v);
+        BenefitCalculator.Params without = new BenefitCalculator.Params(new HashMap<>());
+
+        assertThat(calculator().ridersFor(with, 10_000, ModeType.LIGHT_RAIL)).isEqualTo(5_000);
+        assertThat(calculator().ridersFor(with, 10_000, ModeType.TRAM)).isEqualTo(10_000);
+        assertThat(calculator().ridersFor(with, 10_000, ModeType.BRT_HIGH)).isEqualTo(10_000);
+        assertThat(calculator().ridersFor(without, 10_000, ModeType.LIGHT_RAIL)).isEqualTo(10_000);
+        assertThat(calculator().ridersFor(with, null, ModeType.LIGHT_RAIL)).isNull();
     }
 }

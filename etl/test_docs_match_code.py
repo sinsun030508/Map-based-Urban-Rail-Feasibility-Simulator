@@ -203,17 +203,23 @@ class Test모델식:
     # 클래스 본문의 컴프리헨션은 위의 ROOT 를 못 본다(파이썬 규칙) — 경로를 다시 쓴다
     DOCS = {n: (Path(__file__).resolve().parent.parent / n).read_text(encoding='utf-8')
             for n in ('README.md', 'docs/engineering-notes.md')}
+    # 수요 식은 CLAUDE.md 의 규칙에도 적혀 있다(비용 식은 없다)
+    DEMAND_DOCS = {**DOCS, 'CLAUDE.md': (Path(__file__).resolve().parent.parent / 'CLAUDE.md').read_text(encoding='utf-8')}
     NUM = r'(-?[0-9]+\.[0-9]+)'
 
     def test_수요_식이_S6_시드와_같다(self):
         seed = (self.ROOT / 'db/seed/S6__demand_model.sql').read_text(encoding='utf-8')
         want = [float(re.search(r"\('demand_%s',\s*(-?[0-9.]+)" % k, seed).group(1))
-                for k in ('intercept', 'pop_elasticity', 'worker_elasticity')]
-        pat = r'log\(일이용객\) = ' + self.NUM + r' \+ ' + self.NUM + r'·log\(인구\) \+ ' + self.NUM + r'·log\(종사자\)'
-        for name, text in self.DOCS.items():
+                for k in ('intercept', 'pop_elasticity', 'worker_elasticity', 'light_rail_coef')]
+        # 경전철 항은 음수라 문서에 「- 0.777·경전철」 로 적는다
+        pat = (r'log\(일이용객\) = ' + self.NUM + r' \+ ' + self.NUM + r'·log\(인구\) \+ ' + self.NUM
+               + r'·log\(종사자\) - ' + self.NUM + r'·경전철')
+        for name, text in self.DEMAND_DOCS.items():
             m = re.search(pat, text)
             assert m, f'{name} 에서 수요 식을 못 찾았다 — 문장이 바뀌었으면 정규식도 고칠 것'
-            assert [float(g) for g in m.groups()] == pytest.approx(want, abs=0.0006), f'{name} 의 수요 식이 S6 과 다르다'
+            got = [float(g) for g in m.groups()]
+            got[3] = -got[3]
+            assert got == pytest.approx(want, abs=0.0006), f'{name} 의 수요 식이 S6 과 다르다'
 
     def test_비용_식이_지금_적합과_같다(self):
         _, model = C.residuals()

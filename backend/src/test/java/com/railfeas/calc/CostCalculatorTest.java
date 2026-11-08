@@ -397,6 +397,7 @@ class CostCalculatorTest {
         values.put("demand_intercept", -2.5);
         values.put("demand_pop_elasticity", 0.47);
         values.put("demand_worker_elasticity", 0.69);
+        values.put("demand_light_rail_coef", -0.7);
         BenefitParameterRepository parameters = Mockito.mock(BenefitParameterRepository.class);
         Mockito.when(parameters.findAll()).thenReturn(values.entrySet().stream()
                 .map(e -> newInstance(BenefitParameter.class, "paramName", e.getKey(), "value", BigDecimal.valueOf(e.getValue())))
@@ -416,9 +417,10 @@ class CostCalculatorTest {
                 .map(p -> newInstance(com.railfeas.scenario.RoutePoint.class,
                         "latitude", BigDecimal.valueOf(p[0]), "longitude", BigDecimal.valueOf(p[1])))
                 .toList(), BigDecimal.valueOf(10.0));
-        ModeCapacity capacity = capacity(ModeType.LIGHT_RAIL, null, 60_000, 2.0, 30.0, null);
-        return calculator.calculate(s, List.of(standard(ModeType.LIGHT_RAIL, StructureType.ELEVATED)),
-                Map.of(ModeType.LIGHT_RAIL, capacity), List.of()).results().get(0).getEstimatedRidership();
+        // 중전철 — 수단 배수가 없는 기준값을 본다(경전철은 lightRailGetsItsOwnDemand 가 본다)
+        ModeCapacity capacity = capacity(ModeType.HEAVY_METRO, null, 80_000, 2.0, 30.0, null);
+        return calculator.calculate(s, List.of(standard(ModeType.HEAVY_METRO, StructureType.ELEVATED)),
+                Map.of(ModeType.HEAVY_METRO, capacity), List.of()).results().get(0).getEstimatedRidership();
     }
 
     @Test
@@ -438,5 +440,28 @@ class CostCalculatorTest {
                 ROUTE_POINTS.get(1));
 
         assertThat(ridersOn(calculator, withWaypoints)).isEqualTo(ridersOn(calculator, ROUTE_POINTS));
+    }
+
+    @Test
+    @DisplayName("경전철 행만 이용객에 경전철 배수를 곱한다 — 다른 수단은 그대로")
+    void lightRailGetsItsOwnDemand() throws Exception {
+        CostCalculator calculator = midpointPeople();
+        Scenario s = Scenario.builder().title("테스트").totalLengthKm(BigDecimal.valueOf(10.0))
+                .preferredStructure(StructureType.ELEVATED).build();
+        s.replacePoints(ROUTE_POINTS.stream()
+                .map(p -> newInstance(com.railfeas.scenario.RoutePoint.class,
+                        "latitude", BigDecimal.valueOf(p[0]), "longitude", BigDecimal.valueOf(p[1])))
+                .toList(), BigDecimal.valueOf(10.0));
+        Map<ModeType, ModeCapacity> caps = Map.of(
+                ModeType.LIGHT_RAIL, capacity(ModeType.LIGHT_RAIL, null, 60_000, 2.0, 30.0, null),
+                ModeType.HEAVY_METRO, capacity(ModeType.HEAVY_METRO, null, 80_000, 2.0, 30.0, null));
+        var results = calculator.calculate(s, List.of(standard(ModeType.LIGHT_RAIL, StructureType.ELEVATED),
+                standard(ModeType.HEAVY_METRO, StructureType.ELEVATED)), caps, List.of()).results();
+        int base = (int) Math.round(Math.exp(-2.5 + 0.47 * Math.log(100_000) + 0.69 * Math.log(50_001)));
+        Integer light = results.stream().filter(r -> r.getModeType() == ModeType.LIGHT_RAIL).findFirst().orElseThrow().getEstimatedRidership();
+        Integer heavy = results.stream().filter(r -> r.getModeType() == ModeType.HEAVY_METRO).findFirst().orElseThrow().getEstimatedRidership();
+
+        assertThat(heavy).isEqualTo(base);
+        assertThat(light).isEqualTo((int) Math.round(base * Math.exp(-0.7)));
     }
 }
