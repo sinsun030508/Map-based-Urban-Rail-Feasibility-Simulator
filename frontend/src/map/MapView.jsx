@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapStyle, INITIAL_VIEW } from './mapStyle';
 import { routeThroughStations } from '../geo/routeLine';
 import usePopulation3D from './usePopulation3D';
+import { visibleLabels } from './labelLayout';
 
 const ROUTE_SOURCE = 'route';
 const EXISTING_SOURCE = 'existing-route';
@@ -210,10 +211,32 @@ export default function MapView({
           ? ` · 예상 ${s.estimatedDailyUsers.toLocaleString()}명/일`
           : ''
       }`;
-      return new maplibregl.Marker({ element: el })
+      const marker = new maplibregl.Marker({ element: el })
         .setLngLat([Number(s.longitude), Number(s.latitude)])
         .addTo(map);
+      marker.labelPriority = s.estimatedDailyUsers ?? 0;
+      return marker;
     });
+
+    // 겹치는 이름표는 숨긴다(`labelLayout.js`). 숨겨도 자리는 남겨야(visibility) 다음에 다시 잴 수 있다
+    const declutter = () => {
+      const items = [];
+      stationMarkersRef.current.forEach((m, i) => {
+        const label = m.getElement().querySelector('span');
+        if (!label) return;
+        const p = map.project(m.getLngLat());
+        items.push({ id: i, x: p.x + 7, y: p.y - label.offsetHeight / 2,
+          w: label.offsetWidth, h: label.offsetHeight, priority: m.labelPriority });
+      });
+      const shown = visibleLabels(items);
+      items.forEach(({ id }) => {
+        stationMarkersRef.current[id].getElement().querySelector('span').style.visibility =
+          shown.has(id) ? 'visible' : 'hidden';
+      });
+    };
+    declutter();
+    map.on('moveend', declutter);
+    return () => map.off('moveend', declutter);
   }, [stations]);
 
   /**
