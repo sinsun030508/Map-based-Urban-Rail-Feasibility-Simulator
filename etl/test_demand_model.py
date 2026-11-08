@@ -95,4 +95,5 @@ def test_역_마스터의_연장_구간은_본선_이름으로_합친다():
     master = pd.DataFrame({'line_name': ['신분당선', '신분당선(연장)', '신분당선(연장2)'], 'latitude': [37.4, 37.3, 37.5],
                            'longitude': [127.1, 127.1, 127.0]})
     got = D.with_master_coords(st, master)
-    assert sorted(got[got.line_name == '신분당선'].latitude) == [37.3, 37.4]   # 연장2(신사~신논현)는 승하차 자료가 없어 안 합친다
+    # 연장(미금~광교)·연장2(신사~신논현) 모두 KRIC 에 승하차가 있어(경기철도·새서울철도) 한 노선으로 센다
+    assert sorted(got[got.line_name == '신분당선'].latitude) == [37.3, 37.4, 37.5]
