@@ -94,6 +94,10 @@ class AdminControllerTest {
                 {"discount_rate", "-0.01"}, {"discount_rate", "1"}, {"discount_rate_late", "1.5"},
                 {"peak_hour_ratio", "0"}, {"peak_hour_ratio", "1.2"},
                 {"operating_cost_ratio", "1"}, {"time_value_won_per_hour", "0"},
+                // 이용자 ÷ 승하차 합 — 0 이면 편익이 전부 0, 1 을 넘으면 통행보다 이용자가 많다
+                {"users_per_ridership", "0"}, {"users_per_ridership", "1.2"},
+                // BRT 배수는 계수가 아니라 이용객에 곱하는 값 — 0·음수면 이용객이 0·음수다
+                {"demand_brt_factor", "0"}, {"demand_brt_factor", "-0.3"},
         };
         for (String[] c : bad) {
             assertThatThrownBy(() -> controller(c[0], 1).updateParameter(c[0], request(Double.parseDouble(c[1]))))
@@ -105,6 +109,8 @@ class AdminControllerTest {
                 .isEqualByComparingTo("100");
         assertThat(controller("discount_rate", 0.045).updateParameter("discount_rate", request(0)).value())
                 .isEqualByComparingTo("0");
+        assertThat(controller("users_per_ridership", 0.777).updateParameter("users_per_ridership", request(1)).value())
+                .isEqualByComparingTo("1");
     }
 
     /** 범위 표의 이름이 틀리면 그 범위는 **조용히** 안 걸린다 — 시드와 맞춰 본다 */
@@ -113,12 +119,14 @@ class AdminControllerTest {
     void 범위표와_시드() throws Exception {
         var seed = new java.util.HashMap<String, BigDecimal>();
         var row = java.util.regex.Pattern.compile("\\('([a-z_]+)',\\s*(-?[0-9.]+)\\s*,");
-        var m = row.matcher(java.nio.file.Files.readString(
-                java.nio.file.Path.of("../db/seed/S7__benefit_parameter.sql")));
-        while (m.find()) {
-            seed.put(m.group(1), new BigDecimal(m.group(2)));
+        // 수요 값(demand_*)은 S6 에서 온다 — demand_brt_factor 처럼 범위가 있는 것도 있어 둘 다 읽는다
+        for (String file : new String[]{"S7__benefit_parameter.sql", "S6__demand_model.sql"}) {
+            var m = row.matcher(java.nio.file.Files.readString(java.nio.file.Path.of("../db/seed/" + file)));
+            while (m.find()) {
+                seed.put(m.group(1), new BigDecimal(m.group(2)));
+            }
         }
-        // 정규식이 행을 놓치면 아래가 빈 채로 통과한다. S7 은 13행이다(수요 계수 6개는 S6 에서 온다)
+        // 정규식이 행을 놓치면 아래가 빈 채로 통과한다
         assertThat(seed).hasSizeGreaterThanOrEqualTo(AdminController.RANGES.size());
         assertThat(seed.keySet()).containsAll(AdminController.RANGES.keySet());
         AdminController.RANGES.forEach((name, range) ->
@@ -130,6 +138,8 @@ class AdminControllerTest {
     void 회귀_계수는_자유() {
         assertThat(controller("demand_intercept", 2.79).updateParameter("demand_intercept", request(-5)).value())
                 .isEqualByComparingTo("-5");
+        assertThat(controller("demand_light_rail_coef", -0.6).updateParameter("demand_light_rail_coef", request(-2)).value())
+                .isEqualByComparingTo("-2");
     }
 
     // ── 수단 기준값 ─────────────────────────────────────────────────────────────

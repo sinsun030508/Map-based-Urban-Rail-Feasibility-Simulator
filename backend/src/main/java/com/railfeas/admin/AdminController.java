@@ -91,8 +91,11 @@ public class AdminController {
      * - **기간은 반복 횟수다** — 편익을 해마다 할인해 더하므로 10억 년이면 계산이 끝나지 않는다.
      *   상한(분석 100년·공사 20년)은 판단값이다(지침은 철도 40년·공사 5년 원칙)
      * - 할인율이 음수거나 100% 이상이면 할인이 뜻을 잃는다. 비율은 1 을 넘을 수 없다
-     * - **수요 회귀 계수(`demand_*`)는 범위를 두지 않는다** — 절편·기울기는 음수가 정상이다.
+     * - **수요 회귀 계수(`demand_*`)는 범위를 두지 않는다** — 절편·기울기·경전철 항은 음수가 정상이다.
      *   운영비 비율처럼 0 이 정상인 값도 있어 일괄 양수를 강요하지 않는다
+     * - **단 `demand_brt_factor` 는 계수가 아니라 이용객에 곱하는 배수다** — 0 이하면 BRT 이용객이 0·음수가 된다
+     * - `users_per_ridership` 는 노선 이용자 ÷ 역 승하차 합이라 0 초과 1 이하다(환승유입은 하차의 일부다).
+     *   0 이면 편익이 전부 0 이 되는데 화면엔 B/C 0.00 만 찍힌다
      */
     record Range(BigDecimal min, boolean minOpen, BigDecimal max, boolean maxOpen) {
 
@@ -136,7 +139,9 @@ public class AdminController {
             Map.entry("discount_rate_late", Range.of("0", false, "1", true)),
             Map.entry("operating_cost_ratio", Range.of("0", false, "1", true)),
             Map.entry("peak_hour_ratio", Range.of("0", true, "1", false)),
-            Map.entry("peak_direction_max", Range.of("0", true, "1", false)));
+            Map.entry("peak_direction_max", Range.of("0", true, "1", false)),
+            Map.entry("users_per_ridership", Range.of("0", true, "1", false)),
+            Map.entry("demand_brt_factor", Range.positive()));
 
     @PutMapping("/parameters/{name}")
     @Transactional

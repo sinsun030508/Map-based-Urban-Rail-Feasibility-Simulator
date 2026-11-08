@@ -142,9 +142,10 @@ export default function AdminPage({ me, onClose }) {
       <section>
         <h2>편익 원단위 ({parameters.length})</h2>
         <p className="muted small">
-          <code>demand_</code>로 시작하는 값은 <strong>회귀 결과</strong>입니다
-          (<code>etl/demand_model.py</code>). 손으로 고치면 모델과 어긋나므로,
-          바꾸려면 회귀를 다시 돌려 S6을 재생성하는 쪽이 맞습니다.
+          <code>demand_</code>로 시작하는 값은 <strong>회귀와 실측 비교의 결과</strong>입니다
+          (<code>etl/demand_model.py</code>). <code>users_per_ridership</code>도 자료에서 잰 값입니다
+          (<code>etl/seoul_line_users.py</code>). 손으로 고치면 산출과 어긋나므로, 바꾸려면 생성기를 다시 돌려
+          시드를 재생성하는 쪽이 맞습니다.
         </p>
         <table className="admin-table">
           <thead>
