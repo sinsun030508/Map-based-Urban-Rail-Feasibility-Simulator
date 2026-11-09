@@ -36,15 +36,24 @@ test('돌아가는 편이 싸면 차액이 음수다', () => {
   assert.match(n.cost, /돌아가면 건설비 −340억 · \+3\.0분/);
 });
 
-test('트램은 지하 단가가 없어 터널비를 모른다 — 0원이 아니다', () => {
+test('터널비를 모르면(응답이 null) 0원이 아니라 모른다고 적는다', () => {
   const n = mountainNote(RES, { modeType: 'TRAM', structureType: 'AT_GRADE' });
-  assert.match(n.cost, /지하 단가가 없어 터널비를 모릅니다 — 비교표 건설비에 없습니다/);
+  assert.match(n.cost, /터널비를 모릅니다 — 비교표 건설비에 없습니다/);
   assert.doesNotMatch(n.cost, /\+0억/);
 });
 
-test('BRT 는 도로 기준이라 판정하지 않는다', () => {
-  const n = mountainNote(RES, { modeType: 'BRT_HIGH', structureType: 'AT_GRADE' });
-  assert.match(n.cost, /BRT 는 도로 기준이라 산 판정을 하지 않습니다/);
+test('BRT 는 도로 기울기(7%)로 따로 잰 터널을 적는다 — 비교표 건설비에 들어 있다', () => {
+  const res = { ...RES, roadTunnelKm: 1.2,
+    deltas: [...RES.deltas, { mode: 'BRT_HIGH', structure: 'AT_GRADE', tunnelExtraCost: 176, detourExtraCost: null, detourExtraMin: null }] };
+  const n = mountainNote(res, { modeType: 'BRT_HIGH', structureType: 'AT_GRADE' });
+  assert.match(n.cost, /BRT 는 도로 기울기\(7%\)로 봅니다 — 터널 1\.2km · 뚫는 비용 176억 — 비교표 건설비에 들어 있습니다/);
+});
+
+test('도로 기울기로는 터널이 없으면 그렇게 적는다', () => {
+  const res = { ...RES, roadTunnelKm: 0,
+    deltas: [...RES.deltas, { mode: 'BRT_HIGH', structure: 'AT_GRADE', tunnelExtraCost: 0, detourExtraCost: null, detourExtraMin: null }] };
+  const n = mountainNote(res, { modeType: 'BRT_HIGH', structureType: 'AT_GRADE' });
+  assert.match(n.cost, /BRT 는 도로 기울기\(7%\)로 보면 터널이 필요 없습니다/);
 });
 
 test('지형 자료가 없으면 「산 없음」 이 아니라 「안 봤다」 고 적는다', () => {
@@ -78,4 +87,11 @@ test('돌면 손해인 구간은 뚫는다고 적는다 — 「돌아갈 길이 
   assert.match(all.lengths, /돌아가는 편이 비싸 뚫습니다/);
   assert.doesNotMatch(all.lengths, /돌아갈 수 있는 구간이 없습니다/);
   assert.equal(all.canApply, false);
+});
+
+test('철도 고가처럼 터널 추가분이 0 이면 「0억이 들어 있다」 가 아니라 이유를 적는다', () => {
+  const res = { ...RES, deltas: [{ mode: 'EXPRESS_RAIL', structure: 'ELEVATED', tunnelExtraCost: 0, detourExtraCost: null, detourExtraMin: null }] };
+  const n = mountainNote(res, { modeType: 'EXPRESS_RAIL', structureType: 'ELEVATED' });
+  assert.match(n.cost, /산악 터널이 고가와 km당 공사비가 비슷해 더할 비용이 없습니다/);
+  assert.doesNotMatch(n.cost, /0억/);
 });

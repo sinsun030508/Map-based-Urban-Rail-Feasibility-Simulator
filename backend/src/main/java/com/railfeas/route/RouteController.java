@@ -3,6 +3,7 @@ package com.railfeas.route;
 import com.railfeas.calc.MountainCost;
 import com.railfeas.calc.MountainDetour;
 import com.railfeas.calc.MountainPlans;
+import com.railfeas.calc.MountainTunnelKm;
 import com.railfeas.calc.Terrain;
 import com.railfeas.calc.WaterBodies;
 import com.railfeas.calc.WaterDetour;
@@ -61,9 +62,9 @@ public class RouteController {
                                  List<WaterBodies.Span> waterKm) {
     }
 
-    /** available — 지형 자료가 있나. points — 돌아갈 수 있는 구간을 돌아간 선 */
+    /** available — 지형 자료가 있나. points — 돌아갈 수 있는 구간을 돌아간 선. roadTunnelKm — 도로(BRT) 기울기로 잰 터널 km */
     public record MountainResponse(boolean available, List<Point> points, List<MountainDetour.Mountain> mountains,
-                                   List<MountainCost.Delta> deltas) {
+                                   List<MountainCost.Delta> deltas, Double roadTunnelKm) {
     }
 
     private final WaterDetour detour;
@@ -99,18 +100,20 @@ public class RouteController {
         ScenarioService.lengthOf(request.points());
         List<double[]> route = coords(request);
         if (!terrain.available()) {
-            return new MountainResponse(false, points(route), List.of(), List.of());
+            return new MountainResponse(false, points(route), List.of(), List.of(), null);
         }
         if (request.structure() == StructureType.UNDERGROUND) {
-            return new MountainResponse(true, points(route), List.of(), List.of());
+            return new MountainResponse(true, points(route), List.of(), List.of(), null);
         }
         List<CostStandard> active = standards.findByActiveTrue();
         MountainDetour.Plan plan = plans.plan(route, terrain, MountainCost.breakEven(active));
         Map<ModeType, ModeCapacity> byMode = capacities.findAll().stream()
                 .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
+        // 도로는 철도보다 가파르게 오르므로 철도 산 구간이 없으면 도로도 없다
+        Double road = plan.mountains().isEmpty() ? 0.0 : MountainTunnelKm.roadKm(route, terrain);
         return new MountainResponse(true, points(plan.points()), plan.mountains(),
                 plan.mountains().isEmpty() ? List.of()
-                        : MountainCost.deltas(plan, active, byMode));
+                        : MountainCost.deltas(plan, active, byMode, road), road);
     }
 
     private static List<double[]> coords(DetourRequest request) {

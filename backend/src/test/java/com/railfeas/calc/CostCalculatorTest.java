@@ -505,31 +505,37 @@ class CostCalculatorTest {
             standard(ModeType.TRAM, StructureType.AT_GRADE, 300L),
             standard(ModeType.BRT_HIGH, StructureType.AT_GRADE, 100L));
 
-    @Test
-    @DisplayName("산 구간이 있으면 지상·고가 행에 터널 km × (지하 단가 − 그 행 단가)를 더한다 — 지하 행은 0")
-    void tunnelCostIsAddedToSurfaceRows() {
-        List<ScenarioResult> none = withTunnel((route, standards) -> java.util.OptionalDouble.of(0), tunnelStandards);
-        List<ScenarioResult> two = withTunnel((route, standards) -> java.util.OptionalDouble.of(2.0), tunnelStandards);
+    private static TunnelKm tunnels(double rail, double road) {
+        return (route, standards) -> new TunnelKm.Tunnels(java.util.OptionalDouble.of(rail), java.util.OptionalDouble.of(road));
+    }
 
+    @Test
+    @DisplayName("산 구간이 있으면 지상·고가 행에 터널 km × KDI km당 추가분을 더한다 — 지하 행은 0")
+    void tunnelCostIsAddedToSurfaceRows() {
+        List<ScenarioResult> none = withTunnel(tunnels(0, 0), tunnelStandards);
+        List<ScenarioResult> two = withTunnel(tunnels(2.0, 1.0), tunnelStandards);
+
+        long heavy = Math.round(2.0 * (319 - 317) * MountainCost.DEFLATOR_2019);
         ScenarioResult elevated = row(two, ModeType.HEAVY_METRO, StructureType.ELEVATED);
-        assertThat(elevated.getTunnelCost()).isEqualTo(600L);   // 2km × (800 − 500)
+        assertThat(elevated.getTunnelCost()).isEqualTo(heavy);
         assertThat(elevated.getTotalCost())
-                .isEqualTo(row(none, ModeType.HEAVY_METRO, StructureType.ELEVATED).getTotalCost() + 600L);
+                .isEqualTo(row(none, ModeType.HEAVY_METRO, StructureType.ELEVATED).getTotalCost() + heavy);
         assertThat(row(two, ModeType.HEAVY_METRO, StructureType.UNDERGROUND).getTunnelCost()).isZero();
         assertThat(row(none, ModeType.HEAVY_METRO, StructureType.ELEVATED).getTunnelCost()).isZero();
     }
 
     @Test
-    @DisplayName("지하 단가가 없는 트램·도로 기준인 BRT 는 터널비를 모른다 — 더하지 않고(NULL) 경고를 단다")
-    void tunnelCostUnknownIsFlaggedNotZero() {
-        List<ScenarioResult> none = withTunnel((route, standards) -> java.util.OptionalDouble.of(0), tunnelStandards);
-        List<ScenarioResult> two = withTunnel((route, standards) -> java.util.OptionalDouble.of(2.0), tunnelStandards);
+    @DisplayName("트램은 경량전철 NATM − 노면전차, BRT 는 도로 기울기로 잰 터널 km × (도로 터널 − 그 행 km단가) — 경고 없이 더한다")
+    void tramAndBrtUseKdiRoadAndLightRail() {
+        List<ScenarioResult> two = withTunnel(tunnels(2.0, 1.0), tunnelStandards);
+        double f = MountainCost.DEFLATOR_2019;
 
-        for (ModeType mode : new ModeType[]{ModeType.TRAM, ModeType.BRT_HIGH}) {
-            ScenarioResult r = row(two, mode, StructureType.AT_GRADE);
-            assertThat(r.getTunnelCost()).as(mode.name()).isNull();
-            assertThat(r.getTotalCost()).isEqualTo(row(none, mode, StructureType.AT_GRADE).getTotalCost());
-            assertThat(r.getWarning()).as(mode.name()).contains("산 구간 2.0km");
+        ScenarioResult tram = row(two, ModeType.TRAM, StructureType.AT_GRADE);
+        assertThat(tram.getTunnelCost()).isEqualTo(Math.round(2.0 * (265.6 - 13.4) * f));
+        ScenarioResult brt = row(two, ModeType.BRT_HIGH, StructureType.AT_GRADE);
+        assertThat(brt.getTunnelCost()).isEqualTo(Math.round(1.0 * (145.84 * f - 100)));   // 도로 터널 1.0km
+        for (ScenarioResult r : List.of(tram, brt)) {
+            assertThat(r.getWarning() == null ? "" : r.getWarning()).doesNotContain("산 구간");
         }
     }
 

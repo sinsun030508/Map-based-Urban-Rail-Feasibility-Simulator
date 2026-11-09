@@ -58,7 +58,7 @@ export default function RowBreakdown({ row }) {
           <p className="muted small">
             비용 회귀식의 세 항으로 나눈 몫입니다 — 공사 내역(토목·궤도 등)이 아닙니다.
             {shares.some((s) => s.key === 'tunnel') && (
-              <> 산 구간 터널은 그린 노선이 산을 지나 뚫는 몫으로, 도심 지하 단가로 매긴 외삽입니다.</>
+              <> 산 구간 터널은 그린 노선이 산을 지나 뚫는 몫으로, KDI 예타 세부지침(2021)의 산악 터널 표준공사비에서 매겼습니다.</>
             )}
           </p>
         </figure>

@@ -33,7 +33,12 @@ export function mountainNote(res, row) {
 
 function costLine(res, row, anyDetour) {
   if (row.modeType === 'BRT_HIGH' || row.modeType === 'BRT_LOW') {
-    return 'BRT 는 도로 기준이라 산 판정을 하지 않습니다';
+    // 도로는 철도(35‰)보다 가파르게 오른다 — 도로 기울기(규칙 제25조, 7%)로 따로 잰 터널을 쓴다(11-09)
+    const b = (res.deltas || []).find((x) => x.mode === row.modeType && x.structure === row.structureType);
+    if (res.roadTunnelKm === 0) return 'BRT 는 도로 기울기(7%)로 보면 터널이 필요 없습니다';
+    if (!b || b.tunnelExtraCost == null || res.roadTunnelKm == null) return 'BRT 의 터널비를 모릅니다 — 비교표 건설비에 없습니다';
+    return `BRT 는 도로 기울기(7%)로 봅니다 — 터널 ${res.roadTunnelKm.toFixed(1)}km · 뚫는 비용 ${money(b.tunnelExtraCost)}`
+      + ' — 비교표 건설비에 들어 있습니다';
   }
   if (row.structureType === 'UNDERGROUND') {
     return '지하는 이미 땅속이라 산 안내가 없습니다';
@@ -42,9 +47,12 @@ function costLine(res, row, anyDetour) {
   if (!d) return null;
   // 비교표 건설비는 그린 노선 그대로 — 산을 뚫는 비용이 이미 들어 있다(11-09). 「뚫기 +」 로 적으면 두 번 더해 읽힌다
   const known = d.tunnelExtraCost != null;
-  const tunnel = known
-    ? `뚫는 비용 ${money(d.tunnelExtraCost)} — 비교표 건설비에 들어 있습니다`
-    : '지하 단가가 없어 터널비를 모릅니다 — 비교표 건설비에 없습니다';
+  // KDI 로는 철도 산악 터널이 교량(고가)과 km당 비슷하거나 더 싸 추가분이 0 일 수 있다 — 「0억이 들어 있다」 보다 이유를 적는다
+  const tunnel = !known
+    ? '터널비를 모릅니다 — 비교표 건설비에 없습니다'
+    : d.tunnelExtraCost === 0
+      ? '산악 터널이 고가와 km당 공사비가 비슷해 더할 비용이 없습니다'
+      : `뚫는 비용 ${money(d.tunnelExtraCost)} — 비교표 건설비에 들어 있습니다`;
   if (!anyDetour) return tunnel;
   const min = d.detourExtraMin == null ? '' : ` · +${d.detourExtraMin.toFixed(1)}분`;
   if (d.detourExtraCost == null) return `${tunnel} / 돌아가기 비용은 남은 터널값을 몰라 모릅니다${min}`;

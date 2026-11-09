@@ -23,6 +23,12 @@ import java.util.OptionalDouble;
 public final class MountainProfile {
 
     public static final double GRADE = 0.035;
+    /**
+     * 도로(BRT)의 최대 종단경사 — 「도로의 구조·시설 기준에 관한 규칙」 제25조 표, 간선도로 산지·설계속도 80km/h 7%
+     * (60km/h 면 8%). BRT 의 설계속도는 정해진 값이 없어 80km/h 로 둔다(가정값 — 완만한 쪽이라 터널을 길게 잡는다).
+     * 규칙의 「필요하면 1%p 더한다」 단서는 쓰지 않는다
+     */
+    public static final double ROAD_GRADE = 0.07;
     public static final double COVER_M = 20;
     public static final double STEP_KM = 0.1;
     /** 이만큼 이하로 떨어진 터널 토막은 한 구간으로 본다(가정값) — 안 합치면 산맥 하나가 0.1km 토막 수십 개로 쪼개진다 */
@@ -43,6 +49,11 @@ public final class MountainProfile {
     }
 
     public static List<Section> sections(List<double[]> route, Elevation elevation) {
+        return sections(route, elevation, GRADE);
+    }
+
+    /** @param grade 선로·도로가 오를 수 있는 최대 기울기 — 철도 {@link #GRADE}, 도로 {@link #ROAD_GRADE} */
+    public static List<Section> sections(List<double[]> route, Elevation elevation, double grade) {
         List<double[]> pts = sample(route);
         int n = pts.size();
         if (n < 2) {
@@ -74,14 +85,14 @@ public final class MountainProfile {
             }
             // 모르는 표본과 맞닿은 끝은 열린 끝이다 — 그 끝에 닿는 터널은 판정하지 않는다
             boolean openStart = i > 0, openEnd = j < n - 1;
-            run(pts, s, g, i, j, openStart, openEnd, out);
+            run(pts, s, g, i, j, openStart, openEnd, out, grade);
             i = j + 1;
         }
         return out;
     }
 
     private static void run(List<double[]> pts, double[] s, double[] g, int a, int b,
-                            boolean openStart, boolean openEnd, List<Section> result) {
+                            boolean openStart, boolean openEnd, List<Section> result, double grade) {
         List<Section> out = new ArrayList<>();
         int m = b - a + 1;
         double[] lower = new double[m], upper = new double[m];
@@ -90,12 +101,12 @@ public final class MountainProfile {
             upper[k] = g[a + k];
         }
         for (int k = 1; k < m; k++) {
-            double d = GRADE * (s[a + k] - s[a + k - 1]) * 1000;
+            double d = grade * (s[a + k] - s[a + k - 1]) * 1000;
             lower[k] = Math.min(lower[k], lower[k - 1] + d);
             upper[k] = Math.max(upper[k], upper[k - 1] - d);
         }
         for (int k = m - 2; k >= 0; k--) {
-            double d = GRADE * (s[a + k + 1] - s[a + k]) * 1000;
+            double d = grade * (s[a + k + 1] - s[a + k]) * 1000;
             lower[k] = Math.min(lower[k], lower[k + 1] + d);
             upper[k] = Math.max(upper[k], upper[k + 1] - d);
         }

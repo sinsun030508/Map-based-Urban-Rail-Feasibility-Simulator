@@ -70,11 +70,12 @@ public class CostCalculator {
     }
 
     /**
-     * 터널 T km × (같은 수단 지하 km단가 − 이 행 km단가). 지하 행은 0(이미 땅속). <b>BRT 는 도로 기준이라 판정하지 않고</b>,
-     * <b>지하 단가가 없는 수단(트램)은 모른다</b> — 둘 다 0 을 더하면 산을 지나도 싸게 읽혀 NULL 로 두고 경고를 단다.
-     * 단가는 {@link MountainCost} 와 같다(외삽 — 지하 단가 표본에 산악 터널이 없다)
+     * 터널 km × km당 추가분({@link MountainCost#extraPerKm} — KDI 2021 산악 NATM 터널 − 그 행의 기준 구조, 11-09).
+     * 지하 행은 0. <b>BRT 는 도로 기울기로 잰 터널 km</b>를 쓴다 — 도로는 더 가파르게 올라 터널이 짧다.
+     * km당 추가분을 모르는 수단은 0 을 더하면 싸게 읽혀 NULL 로 두고 경고를 단다(지금 비교표의 수단엔 없다)
      */
-    static TunnelCost tunnelCost(OptionalDouble tunnelKm, CostStandard std, List<CostStandard> standards) {
+    static TunnelCost tunnelCost(TunnelKm.Tunnels tunnels, CostStandard std) {
+        OptionalDouble tunnelKm = ROAD.contains(std.getModeType()) ? tunnels.road() : tunnels.rail();
         if (tunnelKm.isEmpty()) {
             return new TunnelCost(null, null);
         }
@@ -82,17 +83,11 @@ public class CostCalculator {
         if (km <= 0 || std.getStructureType() == StructureType.UNDERGROUND) {
             return new TunnelCost(0L, null);
         }
-        String span = String.format("산 구간 %.1fkm", km);
-        if (ROAD.contains(std.getModeType())) {
-            return new TunnelCost(null, span + " 터널비 미포함(도로 기준)");
+        Double extra = MountainCost.extraPerKm(std);
+        if (extra == null) {
+            return new TunnelCost(null, String.format("산 구간 %.1fkm 터널비 모름(미포함)", km));
         }
-        Long underground = standards.stream()
-                .filter(u -> u.getModeType() == std.getModeType() && u.getStructureType() == StructureType.UNDERGROUND)
-                .map(CostStandard::getCostPerKm).findFirst().orElse(null);
-        if (underground == null) {
-            return new TunnelCost(null, span + " 터널비 모름(미포함)");
-        }
-        return new TunnelCost(Math.round(km * (underground - std.getCostPerKm())), null);
+        return new TunnelCost(Math.round(km * extra), null);
     }
 
     /** warning 칸(VARCHAR 200)에 맞춘다 — 넘치면 저장이 통째로 실패한다 */
@@ -151,7 +146,7 @@ public class CostCalculator {
         boolean servesShortTrips = existing == null || existing.servesShortTrips();
 
         // 그린 선이 뚫어야 하는 터널 길이 — 구조와 무관해 한 번만 잰다(산 구간 캐시를 같이 쓴다)
-        OptionalDouble tunnelKm = tunnel.on(points, standards);
+        TunnelKm.Tunnels tunnelKm = tunnel.on(points, standards);
 
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
@@ -177,7 +172,7 @@ public class CostCalculator {
             // 노선이 뭉개진 경우(길이 0)에는 빈 목록이 오므로 최소값으로 받친다.
             int stationCount = Math.max(MIN_STATIONS, placed.size());
 
-            TunnelCost tunnelPart = tunnelCost(tunnelKm, std, standards);
+            TunnelCost tunnelPart = tunnelCost(tunnelKm, std);
             long cost = std.getFixedCost()
                     + Math.round(std.getCostPerKm() * routeKm)
                     + (long) std.getCostPerStation() * stationCount

@@ -3,6 +3,7 @@ package com.railfeas.route;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.railfeas.calc.MountainCost;
+import com.railfeas.calc.MountainDetour;
 import com.railfeas.calc.MountainPlans;
 import com.railfeas.calc.PlanStore;
 import com.railfeas.calc.Terrain;
@@ -41,13 +42,17 @@ class RouteControllerTest {
 
     /** 지형은 저장소의 추풍령 타일 2장(1752/802·803) — CI 에는 받은 캐시가 없다 */
     private static RouteController controller(Path dem) {
-        WaterBodies water = new WaterBodies("../data/build/water_bodies.geojson");
-        org.springframework.test.util.ReflectionTestUtils.invokeMethod(water, "load");
-        CostStandardRepository standards = Mockito.mock(CostStandardRepository.class);
-        Mockito.when(standards.findByActiveTrue()).thenReturn(List.of(
+        return controller(dem, List.of(
                 standard(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 875),
                 standard(ModeType.HEAVY_METRO, StructureType.ELEVATED, 550),
                 standard(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24)));
+    }
+
+    private static RouteController controller(Path dem, List<CostStandard> active) {
+        WaterBodies water = new WaterBodies("../data/build/water_bodies.geojson");
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(water, "load");
+        CostStandardRepository standards = Mockito.mock(CostStandardRepository.class);
+        Mockito.when(standards.findByActiveTrue()).thenReturn(active);
         ModeCapacityRepository capacities = Mockito.mock(ModeCapacityRepository.class);
         Mockito.when(capacities.findAll()).thenReturn(List.of());
         // 캐시는 비어 있는 것으로 — 이 테스트는 판정을 본다
@@ -166,8 +171,11 @@ class RouteControllerTest {
                 }
             }
         }
-        assertThat(res.deltas()).extracting(MountainCost.Delta::mode).containsExactly(ModeType.HEAVY_METRO);
+        // BRT 도 도로 기울기(7%)로 잰 터널로 비용이 나온다(11-09). 도로는 더 가파르게 올라 터널이 철도보다 길 수 없다
+        assertThat(res.deltas()).extracting(MountainCost.Delta::mode).containsExactly(ModeType.HEAVY_METRO, ModeType.BRT_HIGH);
         assertThat(res.deltas().get(0).tunnelExtraCost()).isPositive();
+        double rail = res.mountains().stream().mapToDouble(MountainDetour.Mountain::tunnelKm).sum();
+        assertThat(res.roadTunnelKm()).isNotNull().isBetween(0.0, rail);
     }
 
     @Test
@@ -181,7 +189,9 @@ class RouteControllerTest {
     @Test
     @DisplayName("단가로 손익을 따진다 — 손해인 곳은 뚫고 이득인 곳은 돈다(손익분기 약 0.59)")
     void 손해인_우회는_빠진다() {
-        RouteController c = controller();
+        // 손익분기는 단가에서 나온다 — 트램(터널 추가분 ÷ km단가 약 1.08)으로 보면 아래 두 경우가 갈린다
+        RouteController c = controller(Path.of("src/test/resources/dem"),
+                List.of(standard(ModeType.TRAM, StructureType.AT_GRADE, 273)));
 
         // 터널 0.3km 를 피하려 1.06km 를 돈다(비율 3.5) — 뚫는다. 점은 그대로다
         var lossy = c.mountain(new RouteController.DetourRequest(
@@ -197,6 +207,12 @@ class RouteControllerTest {
         assertThat(worth.mountains()).hasSize(1);
         assertThat(worth.mountains().get(0).detoured()).isTrue();
         assertThat(worth.points().size()).isGreaterThan(2);
+
+        // 지하철 고가는 KDI 로 산악 터널이 교량과 km당 비슷해(추가분 약 2억/km) 같은 곳도 뚫는 편이 싸다
+        var metro = controller().mountain(new RouteController.DetourRequest(
+                List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED));
+        assertThat(metro.mountains().get(0).detoured()).isFalse();
+        assertThat(metro.mountains().get(0).costlier()).isTrue();
     }
 
     @Test

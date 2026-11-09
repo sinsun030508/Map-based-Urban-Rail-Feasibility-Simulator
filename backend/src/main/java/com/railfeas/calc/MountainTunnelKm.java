@@ -25,16 +25,25 @@ public class MountainTunnelKm implements TunnelKm {
     }
 
     @Override
-    public OptionalDouble on(List<double[]> route, List<CostStandard> standards) {
+    public Tunnels on(List<double[]> route, List<CostStandard> standards) {
         if (!terrain.available() || route.size() < 2) {
-            return OptionalDouble.empty();
+            return TunnelKm.NONE.on(route, standards);
         }
         try {
             MountainDetour.Plan plan = plans.plan(route, terrain, MountainCost.breakEven(standards));
-            return OptionalDouble.of(plan.mountains().stream().mapToDouble(MountainDetour.Mountain::tunnelKm).sum());
+            double rail = plan.mountains().stream().mapToDouble(MountainDetour.Mountain::tunnelKm).sum();
+            // 도로는 철도보다 가파르게 오르므로 철도 산 구간이 없으면 도로도 없다
+            double road = rail == 0 ? 0 : roadKm(route, terrain);
+            return new Tunnels(OptionalDouble.of(rail), OptionalDouble.of(road));
         } catch (RuntimeException e) {
             log.warn("산 구간을 판정하지 못해 터널비를 모른다고 둡니다 — {}", e.getMessage());
-            return OptionalDouble.empty();
+            return TunnelKm.NONE.on(route, standards);
         }
+    }
+
+    /** 도로 기울기({@link MountainProfile#ROAD_GRADE})로 잰 터널 km — BRT 행. 선형 탐색이 없어 캐시 없이 잰다 */
+    public static double roadKm(List<double[]> route, Elevation terrain) {
+        return MountainProfile.sections(route, terrain, MountainProfile.ROAD_GRADE).stream()
+                .mapToDouble(MountainProfile.Section::tunnelKm).sum();
     }
 }

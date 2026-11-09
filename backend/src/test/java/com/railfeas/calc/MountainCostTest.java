@@ -49,78 +49,89 @@ class MountainCostTest {
         return new MountainDetour.Mountain(index, tunnelKm, detoured, false, addedKm, detoured ? null : "이유", List.of());
     }
 
-    @Test
-    @DisplayName("터널비는 지하 km단가와의 차이다 — 지하 행은 빠진다")
-    void 터널비는_지하와의_단가차() {
-        var plan = new MountainDetour.Plan(List.of(), List.of(mountain(1, 2.0, false, 0)));
-        var deltas = MountainCost.deltas(plan, List.of(
-                std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 1_000),
-                std(ModeType.HEAVY_METRO, StructureType.ELEVATED, 400)), speed(ModeType.HEAVY_METRO, 30));
+    private static final org.assertj.core.data.Offset<Double> NEAR = org.assertj.core.data.Offset.offset(0.01);
 
-        assertThat(deltas).hasSize(1);
-        var d = deltas.get(0);
-        assertThat(d.structure()).isEqualTo(StructureType.ELEVATED);
-        assertThat(d.tunnelExtraCost()).isEqualTo(1_200L);
-        // 돌아갈 수 있는 구간이 없다 — 돌아가는 안이 없다는 뜻이지 0원이 아니다
-        assertThat(d.detourExtraCost()).isNull();
-        assertThat(d.detourExtraMin()).isNull();
+    @Test
+    @DisplayName("km당 터널 추가분은 KDI 산악 NATM 터널 − 그 행의 기준 구조(2019 → 2025) — 터널이 더 싸면 0, 지하 행은 0")
+    void 추가분은_KDI_표준공사비다() {
+        double f = MountainCost.DEFLATOR_2019;
+        assertThat(MountainCost.extraPerKm(std(ModeType.HEAVY_METRO, StructureType.ELEVATED, 550))).isCloseTo((319 - 317) * f, NEAR);
+        assertThat(MountainCost.extraPerKm(std(ModeType.LIGHT_RAIL, StructureType.ELEVATED, 348))).isCloseTo((265.6 - 190.8) * f, NEAR);
+        assertThat(MountainCost.extraPerKm(std(ModeType.DOUBLE_ELEC, StructureType.ELEVATED, 423))).isZero();   // 터널 192 < 교량 317
+        assertThat(MountainCost.extraPerKm(std(ModeType.EXPRESS_RAIL, StructureType.ELEVATED, 335))).isZero();
+        assertThat(MountainCost.extraPerKm(std(ModeType.TRAM, StructureType.AT_GRADE, 273))).isCloseTo((265.6 - 13.4) * f, NEAR);
+        assertThat(MountainCost.extraPerKm(std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 875))).isZero();
+        // BRT 는 도로 2차로 터널(14,584천원/m) − 그 행 km단가
+        assertThat(MountainCost.extraPerKm(std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24))).isCloseTo(145.84 * f - 24, NEAR);
+        assertThat(MountainCost.extraPerKm(std(ModeType.BRT_LOW, StructureType.AT_GRADE, 4))).isCloseTo(145.84 * f - 4, NEAR);
     }
 
     @Test
-    @DisplayName("돌아가는 안은 늘어난 길이 + 못 돌아간 구간의 터널이다")
-    void 돌아가는_안은_남은_터널을_함께_센다() {
+    @DisplayName("물가 배수는 S4 시드의 2019년 GDP 디플레이터 배수와 같다")
+    void 물가_배수는_S4_와_같다() throws Exception {
+        String s4 = java.nio.file.Files.readString(java.nio.file.Path.of("../db/seed/S4__price_index.sql"));
+        var m = java.util.regex.Pattern.compile("\\(2019,\\s*[0-9.]+,\\s*([0-9.]+)").matcher(s4);
+        assertThat(m.find()).isTrue();
+        assertThat(MountainCost.DEFLATOR_2019).isEqualTo(Double.parseDouble(m.group(1)));
+    }
+
+    @Test
+    @DisplayName("뚫는 안은 터널 km × km당 추가분, 돌아가는 안은 늘어난 길이 + 못 돌아간 구간의 터널이다")
+    void 두_안() {
         var plan = new MountainDetour.Plan(List.of(), List.of(mountain(1, 2.0, true, 3.0), mountain(2, 1.0, false, 0)));
-        var d = MountainCost.deltas(plan, List.of(
-                std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 1_000),
-                std(ModeType.HEAVY_METRO, StructureType.ELEVATED, 400)), speed(ModeType.HEAVY_METRO, 30)).get(0);
+        var d = MountainCost.deltas(plan, List.of(std(ModeType.LIGHT_RAIL, StructureType.ELEVATED, 400)),
+                speed(ModeType.LIGHT_RAIL, 30), null).get(0);
+        double extra = (265.6 - 190.8) * MountainCost.DEFLATOR_2019;
 
-        assertThat(d.tunnelExtraCost()).isEqualTo(1_800L);          // 3km × 600
-        assertThat(d.detourExtraCost()).isEqualTo(1_800L);          // 3km × 400 + 1km × 600
-        assertThat(d.detourExtraMin()).isEqualTo(6.0);               // 3km ÷ 30km/h
+        assertThat(d.tunnelExtraCost()).isEqualTo(Math.round(3.0 * extra));
+        assertThat(d.detourExtraCost()).isEqualTo(Math.round(3.0 * 400) + Math.round(1.0 * extra));
+        assertThat(d.detourExtraMin()).isEqualTo(6.0);
+        // 지하 행은 빠진다
+        assertThat(MountainCost.deltas(plan, List.of(std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 875)),
+                Map.of(), null)).isEmpty();
     }
 
     @Test
-    @DisplayName("트램은 지하 단가가 없어 터널비를 모른다 — 우회비는 있다")
-    void 트램은_터널비를_모른다() {
-        var all = new MountainDetour.Plan(List.of(), List.of(mountain(1, 2.0, true, 3.0)));
-        var d = MountainCost.deltas(all, List.of(std(ModeType.TRAM, StructureType.AT_GRADE, 273)),
-                speed(ModeType.TRAM, 22.1)).get(0);
-        assertThat(d.tunnelExtraCost()).isNull();
-        assertThat(d.detourExtraCost()).isEqualTo(819L);
-
-        // 못 돌아간 구간이 남으면 그 터널값도 모른다 — 일부만 더해 싸 보이게 하지 않는다
-        var some = new MountainDetour.Plan(List.of(), List.of(mountain(1, 2.0, true, 3.0), mountain(2, 1.0, false, 0)));
-        assertThat(MountainCost.deltas(some, List.of(std(ModeType.TRAM, StructureType.AT_GRADE, 273)),
-                speed(ModeType.TRAM, 22.1)).get(0).detourExtraCost()).isNull();
+    @DisplayName("트램도 이제 안다 — 경량전철 NATM − 노면전차(같은 KDI 표)")
+    void 트램() {
+        var plan = new MountainDetour.Plan(List.of(), List.of(mountain(1, 2.0, false, 0)));
+        var d = MountainCost.deltas(plan, List.of(std(ModeType.TRAM, StructureType.AT_GRADE, 273)),
+                speed(ModeType.TRAM, 22.1), null).get(0);
+        assertThat(d.tunnelExtraCost()).isEqualTo(Math.round(2.0 * (265.6 - 13.4) * MountainCost.DEFLATOR_2019));
     }
 
     @Test
-    @DisplayName("BRT 는 도로 기준이라 빠진다")
-    void BRT_는_빠진다() {
+    @DisplayName("BRT 는 도로 기울기로 잰 터널 km 로 센다 — 모르면 모름, 돌아가는 안은 없다")
+    void BRT_는_도로_터널로() {
         var plan = new MountainDetour.Plan(List.of(), List.of(mountain(1, 2.0, true, 3.0)));
-        assertThat(MountainCost.deltas(plan, List.of(
-                std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24),
-                std(ModeType.BRT_LOW, StructureType.AT_GRADE, 4)), Map.of())).isEmpty();
+        var brt = List.of(std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24));
+        var d = MountainCost.deltas(plan, brt, Map.of(), 1.5).get(0);
+        assertThat(d.tunnelExtraCost()).isEqualTo(Math.round(1.5 * (145.84 * MountainCost.DEFLATOR_2019 - 24)));
+        assertThat(d.detourExtraCost()).isNull();
+        assertThat(MountainCost.deltas(plan, brt, Map.of(), null).get(0).tunnelExtraCost()).isNull();
     }
 
     @Test
-    @DisplayName("손익분기는 (지하−구조 km단가) ÷ 구조 km단가의 중앙값이다 — BRT·지하 단가 없는 수단은 빠진다")
+    @DisplayName("손익분기는 km당 추가분 ÷ 그 행 km단가의 중앙값이다 — BRT·지하는 빠진다")
     void 손익분기() {
+        double f = MountainCost.DEFLATOR_2019;
+        double heavy = (319 - 317) * f / 550, light = (265.6 - 190.8) * f / 400, tram = (265.6 - 13.4) * f / 273;
+        // 정렬: 복선전철 0, 지하철, 경전철, 트램 → 가운데 둘의 평균
         assertThat(MountainCost.breakEven(List.of(
                 std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 875),
                 std(ModeType.HEAVY_METRO, StructureType.ELEVATED, 550),
-                std(ModeType.LIGHT_RAIL, StructureType.UNDERGROUND, 600),
                 std(ModeType.LIGHT_RAIL, StructureType.ELEVATED, 400),
-                std(ModeType.DOUBLE_ELEC, StructureType.UNDERGROUND, 700),
                 std(ModeType.DOUBLE_ELEC, StructureType.ELEVATED, 400),
                 std(ModeType.TRAM, StructureType.AT_GRADE, 273),
                 std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24))))
-                .isCloseTo(325.0 / 550, org.assertj.core.data.Offset.offset(1e-9));
+                .isCloseTo((heavy + light) / 2, org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(tram).isGreaterThan(light);
     }
 
     @Test
-    @DisplayName("견줄 지하 단가가 하나도 없으면 손익분기를 모른다")
+    @DisplayName("견줄 행이 없으면(BRT·지하뿐) 손익분기를 모른다")
     void 손익분기를_모른다() {
-        assertThat(MountainCost.breakEven(List.of(std(ModeType.TRAM, StructureType.AT_GRADE, 273)))).isNull();
+        assertThat(MountainCost.breakEven(List.of(std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24),
+                std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 875)))).isNull();
     }
 }

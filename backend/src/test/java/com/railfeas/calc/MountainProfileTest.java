@@ -101,4 +101,18 @@ class MountainProfileTest {
         // 역삼역 둘레가 이랬다: 45 → 71 → 80 → 64 → 47m (폭 0.2km)
         assertThat(MountainProfile.sections(ROUTE, terrain(s -> Math.abs(s - 5) < 0.05 ? 80 : 40))).isEmpty();
     }
+
+    @Test
+    @DisplayName("도로는 더 가파르게 오를 수 있다 — 50‰ 언덕은 철도(35‰)엔 터널, 도로(7%)엔 아니다")
+    void roadClimbsSteeper() {
+        Elevation hill = terrain(s -> Math.max(0, 150 - 50 * Math.abs(s - 5)));
+        assertThat(MountainProfile.sections(ROUTE, hill)).isNotEmpty();
+        assertThat(MountainProfile.sections(ROUTE, hill, MountainProfile.ROAD_GRADE)).isEmpty();
+        // 100‰ 원뿔(높이 200m)은 둘 다 터널이지만 도로가 짧다 — 200‰ 처럼 너무 가파르면 둘 다 같아진다
+        Elevation cone = terrain(s -> Math.max(0, 200 * (1 - Math.abs(s - 5) / 2)));
+        double rail = MountainProfile.sections(ROUTE, cone).stream().mapToDouble(MountainProfile.Section::tunnelKm).sum();
+        double road = MountainProfile.sections(ROUTE, cone, MountainProfile.ROAD_GRADE).stream()
+                .mapToDouble(MountainProfile.Section::tunnelKm).sum();
+        assertThat(road).isGreaterThan(0).isLessThan(rail);
+    }
 }
