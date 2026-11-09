@@ -1,6 +1,7 @@
 package com.railfeas.calc;
 
 import com.railfeas.common.ModeType;
+import com.railfeas.common.StructureType;
 import com.railfeas.geo.Haversine;
 import com.railfeas.reference.CostStandard;
 import com.railfeas.reference.ModeCapacity;
@@ -15,6 +16,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalDouble;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,6 +31,9 @@ import org.springframework.stereotype.Component;
  *         첨두율·기준속도는 지침에 원단위가 없어 가정값이다
  *
  * 정차역 수는 실제 배치가 아니라 수단별 표준 역간격으로 나눈 추정값이다.
+ *
+ * 산 구간 — 그린 노선이 산을 지나면 <b>뚫는 비용</b>을 건설비에 더한다({@link #tunnelCost}, 11-09). 돌아가는 안은
+ * 사용자가 선형을 바꿔야 그 노선이 되므로 표에 넣지 않는다 — 바꾸면 다시 계산되고 그때 남은 터널만 더해진다.
  */
 @Component
 public class CostCalculator {
@@ -34,17 +41,66 @@ public class CostCalculator {
     private static final int MIN_STATIONS = 2;        // 출발·도착
     private static final double BUFFER_KM = 1.0;      // 인구 집계 반경
     private static final double CORRIDOR_STEP_KM = 0.5;  // 반경보다 촘촘해야 선 둘레에 빈틈이 없다
+    private static final int WARNING_MAX = 200;       // scenario_result.warning VARCHAR(200)
+    private static final Set<ModeType> ROAD = Set.of(ModeType.BRT_HIGH, ModeType.BRT_LOW);
     private final PopulationIndex population;
     private final BenefitCalculator benefits;
     private final StationPlanner planner;
     private final ExistingOptions existingOptions;
+    private final TunnelKm tunnel;
 
+    /** 지형을 보지 않는 계산기 — 터널비는 「모른다」(NULL)로 남는다 */
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
                           StationPlanner planner, ExistingOptions existingOptions) {
+        this(population, benefits, planner, existingOptions, TunnelKm.NONE);
+    }
+
+    @Autowired
+    public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
+                          StationPlanner planner, ExistingOptions existingOptions, TunnelKm tunnel) {
         this.population = population;
         this.benefits = benefits;
         this.planner = planner;
         this.existingOptions = existingOptions;
+        this.tunnel = tunnel;
+    }
+
+    /** 이 행의 터널비와, 모를 때 붙일 경고. 터널을 모르면(지형 없음) 둘 다 비고 경고도 없다 */
+    record TunnelCost(Long cost, String note) {
+    }
+
+    /**
+     * 터널 T km × (같은 수단 지하 km단가 − 이 행 km단가). 지하 행은 0(이미 땅속). <b>BRT 는 도로 기준이라 판정하지 않고</b>,
+     * <b>지하 단가가 없는 수단(트램)은 모른다</b> — 둘 다 0 을 더하면 산을 지나도 싸게 읽혀 NULL 로 두고 경고를 단다.
+     * 단가는 {@link MountainCost} 와 같다(외삽 — 지하 단가 표본에 산악 터널이 없다)
+     */
+    static TunnelCost tunnelCost(OptionalDouble tunnelKm, CostStandard std, List<CostStandard> standards) {
+        if (tunnelKm.isEmpty()) {
+            return new TunnelCost(null, null);
+        }
+        double km = tunnelKm.getAsDouble();
+        if (km <= 0 || std.getStructureType() == StructureType.UNDERGROUND) {
+            return new TunnelCost(0L, null);
+        }
+        String span = String.format("산 구간 %.1fkm", km);
+        if (ROAD.contains(std.getModeType())) {
+            return new TunnelCost(null, span + " 터널비 미포함(도로 기준)");
+        }
+        Long underground = standards.stream()
+                .filter(u -> u.getModeType() == std.getModeType() && u.getStructureType() == StructureType.UNDERGROUND)
+                .map(CostStandard::getCostPerKm).findFirst().orElse(null);
+        if (underground == null) {
+            return new TunnelCost(null, span + " 터널비 모름(미포함)");
+        }
+        return new TunnelCost(Math.round(km * (underground - std.getCostPerKm())), null);
+    }
+
+    /** warning 칸(VARCHAR 200)에 맞춘다 — 넘치면 저장이 통째로 실패한다 */
+    static String fitWarning(String warning) {
+        if (warning == null || warning.length() <= WARNING_MAX) {
+            return warning;
+        }
+        return warning.substring(0, WARNING_MAX - 1) + "…";
     }
 
     /** 선을 {@value #CORRIDOR_STEP_KM}km 마다 자른 점. 꼭짓점은 반드시 든다 */
@@ -94,6 +150,9 @@ public class CostCalculator {
                 : existing.doorToDoorHours(params.get("baseline_speed_kmh"));
         boolean servesShortTrips = existing == null || existing.servesShortTrips();
 
+        // 그린 선이 뚫어야 하는 터널 길이 — 구조와 무관해 한 번만 잰다(산 구간 캐시를 같이 쓴다)
+        OptionalDouble tunnelKm = tunnel.on(points, standards);
+
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
         Map<ModeType, StationPlanner.Plan> plannedByMode = new HashMap<>();
@@ -118,9 +177,11 @@ public class CostCalculator {
             // 노선이 뭉개진 경우(길이 0)에는 빈 목록이 오므로 최소값으로 받친다.
             int stationCount = Math.max(MIN_STATIONS, placed.size());
 
+            TunnelCost tunnelPart = tunnelCost(tunnelKm, std, standards);
             long cost = std.getFixedCost()
                     + Math.round(std.getCostPerKm() * routeKm)
-                    + (long) std.getCostPerStation() * stationCount;
+                    + (long) std.getCostPerStation() * stationCount
+                    + (tunnelPart.cost() == null ? 0 : tunnelPart.cost());
 
             Double speed = capacity == null || capacity.getSpeedKmh() == null
                     ? null : capacity.getSpeedKmh().doubleValue();
@@ -135,6 +196,7 @@ public class CostCalculator {
                     .standardId(std.getId())
                     .stationCount(stationCount)
                     .totalCost(cost)
+                    .tunnelCost(tunnelPart.cost())
                     .estimatedRidership(dailyRiders)
                     .peakPphpd(peak)
                     .travelTimeMin(travelTimeMin(routeKm, speed))
@@ -143,7 +205,7 @@ public class CostCalculator {
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
                     .warning(warning(routeKm, peak, capacity, zoneWarning, people,
-                            stations - stationCount))
+                            stations - stationCount, tunnelPart.note()))
                     .build();
             attachStations(result, placed, dailyRiders);
             results.add(result);
@@ -245,7 +307,7 @@ public class CostCalculator {
 
     /** 경고는 계산을 막지 않는다. 판단 근거만 덧붙인다. */
     private String warning(double lengthKm, Integer peak, ModeCapacity capacity,
-                           String zoneWarning, long people, int dropped) {
+                           String zoneWarning, long people, int dropped, String tunnelNote) {
         List<String> notes = new ArrayList<>();
         if (dropped > 0) {
             // 왜 역이 적은지 말해 주지 않으면 "계산이 덜 됐나" 로 읽힌다. 33km 노선에
@@ -275,7 +337,10 @@ public class CostCalculator {
         if (zoneWarning != null) {
             notes.add(zoneWarning);
         }
-        return notes.isEmpty() ? null : String.join(" / ", notes);
+        if (tunnelNote != null) {
+            notes.add(tunnelNote);
+        }
+        return notes.isEmpty() ? null : fitWarning(String.join(" / ", notes));
     }
 
     /**

@@ -33,7 +33,7 @@ class CostPartsTest {
     @Test
     @DisplayName("세 몫으로 나누고 합은 합계와 같다 — 10km·역 5개: 1,000 + 5,000 + 1,000")
     void 나눈다() {
-        var parts = ScenarioDto.CostParts.of(7_000, 5, standard(1_000, 500, 200));
+        var parts = ScenarioDto.CostParts.of(7_000, 5, standard(1_000, 500, 200), null);
 
         assertThat(parts.fixed()).isEqualTo(1_000);
         assertThat(parts.stations()).isEqualTo(1_000);
@@ -44,13 +44,13 @@ class CostPartsTest {
     @Test
     @DisplayName("단가 행이 없으면 모른다")
     void 단가가_없으면_모른다() {
-        assertThat(ScenarioDto.CostParts.of(7_000, 5, null)).isNull();
+        assertThat(ScenarioDto.CostParts.of(7_000, 5, null, null)).isNull();
     }
 
     @Test
     @DisplayName("단가가 바뀐 옛 결과라 나머지가 음수면 모른다 — 음수 막대를 그리지 않는다")
     void 나머지가_음수면_모른다() {
-        assertThat(ScenarioDto.CostParts.of(1_000, 5, standard(1_000, 500, 200))).isNull();
+        assertThat(ScenarioDto.CostParts.of(1_000, 5, standard(1_000, 500, 200), null)).isNull();
     }
 
     @Test
@@ -70,5 +70,17 @@ class CostPartsTest {
     @DisplayName("단가 행을 모르면 낡았다고 단정하지 않는다")
     void 모르는_단가() {
         assertThat(ScenarioDto.standardChanged(java.util.Arrays.asList(9L, null), Map.of())).isFalse();
+    }
+
+    @Test
+    @DisplayName("산 구간 터널비는 연장 몫에 섞지 않고 따로 뗀다 — 네 몫의 합이 합계다")
+    void 터널비를_뗀다() {
+        var parts = ScenarioDto.CostParts.of(7_600, 5, standard(1_000, 500, 200), 600L);
+
+        assertThat(parts.tunnel()).isEqualTo(600);
+        assertThat(parts.length()).isEqualTo(5_000);
+        assertThat(parts.fixed() + parts.length() + parts.stations() + parts.tunnel()).isEqualTo(7_600);
+        // 모르는 터널비(NULL)는 합계에 들어 있지 않다 — 0 몫이다
+        assertThat(ScenarioDto.CostParts.of(7_000, 5, standard(1_000, 500, 200), null).tunnel()).isZero();
     }
 }

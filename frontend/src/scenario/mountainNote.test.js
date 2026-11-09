@@ -23,15 +23,22 @@ test('계산 전에는 수단과 무관한 길이만 — 비용 칸이 없다', 
   assert.equal(n.canApply, true);
 });
 
-test('고른 행의 단가로 두 안의 건설비·소요시간을 적는다', () => {
+test('뚫는 비용은 비교표 건설비에 이미 들어 있다고 적고, 돌아가는 안은 표와의 차액으로 적는다(11-09)', () => {
   const n = mountainNote(RES, { modeType: 'HEAVY_METRO', structureType: 'ELEVATED' });
-  assert.match(n.cost, /뚫기 \+1,040억/);
-  assert.match(n.cost, /돌아가기 \+3,195억 · \+9\.4분/);
+  assert.match(n.cost, /뚫는 비용 1,040억 — 비교표 건설비에 들어 있습니다/);
+  assert.match(n.cost, /돌아가면 건설비 \+2,155억 · \+9\.4분/);   // 3,195 − 1,040
+  assert.doesNotMatch(n.cost, /뚫기 \+/);                            // 두 번 더해 읽히지 않게
+});
+
+test('돌아가는 편이 싸면 차액이 음수다', () => {
+  const res = { ...RES, deltas: [{ mode: 'HEAVY_METRO', structure: 'ELEVATED', tunnelExtraCost: 1040, detourExtraCost: 700, detourExtraMin: 3.0 }] };
+  const n = mountainNote(res, { modeType: 'HEAVY_METRO', structureType: 'ELEVATED' });
+  assert.match(n.cost, /돌아가면 건설비 −340억 · \+3\.0분/);
 });
 
 test('트램은 지하 단가가 없어 터널비를 모른다 — 0원이 아니다', () => {
   const n = mountainNote(RES, { modeType: 'TRAM', structureType: 'AT_GRADE' });
-  assert.match(n.cost, /지하 단가가 없어 터널비를 모릅니다/);
+  assert.match(n.cost, /지하 단가가 없어 터널비를 모릅니다 — 비교표 건설비에 없습니다/);
   assert.doesNotMatch(n.cost, /\+0억/);
 });
 

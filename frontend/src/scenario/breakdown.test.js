@@ -14,6 +14,14 @@ test('작지만 양수인 몫은 0% 로 찍지 않는다', () => {
   assert.equal(s[0].pct, '<1%');
 });
 
+test('산 구간 터널비가 있으면 넷째 몫으로 — 없으면 막대를 붙이지 않는다', () => {
+  const s = costShares({ fixed: 1000, length: 7000, stations: 1000, tunnel: 1000 });
+  assert.deepEqual(s.map((x) => x.key), ['fixed', 'length', 'stations', 'tunnel']);
+  assert.deepEqual(s.map((x) => x.pct), ['10%', '70%', '10%', '10%']);
+  assert.deepEqual(costShares({ fixed: 1000, length: 8000, stations: 1000, tunnel: 0 }).map((x) => x.key),
+    ['fixed', 'length', 'stations']);
+});
+
 test('구성을 모르면 그리지 않는다 — 0% 가 아니다', () => {
   assert.equal(costShares(null), null);
   assert.equal(costShares(undefined), null);

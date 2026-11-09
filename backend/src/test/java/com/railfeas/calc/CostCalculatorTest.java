@@ -58,6 +58,10 @@ class CostCalculatorTest {
     }
 
     private CostCalculator calculator(IntercityRailFinder intercity) {
+        return calculator(intercity, TunnelKm.NONE);
+    }
+
+    private CostCalculator calculator(IntercityRailFinder intercity, TunnelKm tunnel) {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
         index.load();
 
@@ -73,7 +77,7 @@ class CostCalculatorTest {
 
         return new CostCalculator(index, new BenefitCalculator(parameters),
                 new StationPlanner(index), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"),
-                        new UrbanLineSpeed("없는파일.csv")));
+                        new UrbanLineSpeed("없는파일.csv")), tunnel);
     }
 
     private static <T> T newInstance(Class<T> type, Object... nameValues) {
@@ -107,9 +111,13 @@ class CostCalculatorTest {
     }
 
     private CostStandard standard(ModeType mode, StructureType structure) {
+        return standard(mode, structure, 500L);
+    }
+
+    private CostStandard standard(ModeType mode, StructureType structure, long perKm) {
         return newInstance(CostStandard.class,
                 "id", 1L, "modeType", mode, "structureType", structure,
-                "fixedCost", 1_000L, "costPerKm", 500L, "costPerStation", 200L,
+                "fixedCost", 1_000L, "costPerKm", perKm, "costPerStation", 200L,
                 "active", true);
     }
 
@@ -464,5 +472,83 @@ class CostCalculatorTest {
 
         assertThat(heavy).isEqualTo(base);
         assertThat(light).isEqualTo((int) Math.round(base * Math.exp(-0.7)));
+    }
+
+    // ── 산 구간 터널비 ─────────────────────────────────────────────────────────
+    // 비교표는 그린 그대로의 노선을 센다 — 산을 지나면 뚫어야 하므로 뚫는 비용이 건설비에 든다(11-09).
+    // 돌아가는 안은 사용자가 선형을 바꿔야 그 노선이 되므로 표에 넣지 않는다
+
+    private List<ScenarioResult> withTunnel(TunnelKm tunnel, List<CostStandard> standards) {
+        Scenario s = Scenario.builder().title("테스트").totalLengthKm(BigDecimal.valueOf(10.0))
+                .preferredStructure(StructureType.ELEVATED).build();
+        s.replacePoints(ROUTE_POINTS.stream()
+                .map(p -> newInstance(com.railfeas.scenario.RoutePoint.class,
+                        "latitude", BigDecimal.valueOf(p[0]), "longitude", BigDecimal.valueOf(p[1])))
+                .toList(), BigDecimal.valueOf(10.0));
+        Map<ModeType, ModeCapacity> caps = new java.util.HashMap<>();
+        for (ModeType m : ModeType.values()) {
+            caps.put(m, capacity(m, null, 80_000, 2.0, 30.0, null));
+        }
+        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
+        intercity.load();
+        return calculator(intercity, tunnel).calculate(s, standards, caps, List.of()).results();
+    }
+
+    private static ScenarioResult row(List<ScenarioResult> rows, ModeType mode, StructureType structure) {
+        return rows.stream().filter(r -> r.getModeType() == mode && r.getStructureType() == structure)
+                .findFirst().orElseThrow();
+    }
+
+    private final List<CostStandard> tunnelStandards = List.of(
+            standard(ModeType.HEAVY_METRO, StructureType.ELEVATED, 500L),
+            standard(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 800L),
+            standard(ModeType.TRAM, StructureType.AT_GRADE, 300L),
+            standard(ModeType.BRT_HIGH, StructureType.AT_GRADE, 100L));
+
+    @Test
+    @DisplayName("산 구간이 있으면 지상·고가 행에 터널 km × (지하 단가 − 그 행 단가)를 더한다 — 지하 행은 0")
+    void tunnelCostIsAddedToSurfaceRows() {
+        List<ScenarioResult> none = withTunnel((route, standards) -> java.util.OptionalDouble.of(0), tunnelStandards);
+        List<ScenarioResult> two = withTunnel((route, standards) -> java.util.OptionalDouble.of(2.0), tunnelStandards);
+
+        ScenarioResult elevated = row(two, ModeType.HEAVY_METRO, StructureType.ELEVATED);
+        assertThat(elevated.getTunnelCost()).isEqualTo(600L);   // 2km × (800 − 500)
+        assertThat(elevated.getTotalCost())
+                .isEqualTo(row(none, ModeType.HEAVY_METRO, StructureType.ELEVATED).getTotalCost() + 600L);
+        assertThat(row(two, ModeType.HEAVY_METRO, StructureType.UNDERGROUND).getTunnelCost()).isZero();
+        assertThat(row(none, ModeType.HEAVY_METRO, StructureType.ELEVATED).getTunnelCost()).isZero();
+    }
+
+    @Test
+    @DisplayName("지하 단가가 없는 트램·도로 기준인 BRT 는 터널비를 모른다 — 더하지 않고(NULL) 경고를 단다")
+    void tunnelCostUnknownIsFlaggedNotZero() {
+        List<ScenarioResult> none = withTunnel((route, standards) -> java.util.OptionalDouble.of(0), tunnelStandards);
+        List<ScenarioResult> two = withTunnel((route, standards) -> java.util.OptionalDouble.of(2.0), tunnelStandards);
+
+        for (ModeType mode : new ModeType[]{ModeType.TRAM, ModeType.BRT_HIGH}) {
+            ScenarioResult r = row(two, mode, StructureType.AT_GRADE);
+            assertThat(r.getTunnelCost()).as(mode.name()).isNull();
+            assertThat(r.getTotalCost()).isEqualTo(row(none, mode, StructureType.AT_GRADE).getTotalCost());
+            assertThat(r.getWarning()).as(mode.name()).contains("산 구간 2.0km");
+        }
+    }
+
+    @Test
+    @DisplayName("지형 자료가 없으면 터널비를 모른다 — 더하지 않고, 행마다 경고를 달지도 않는다")
+    void noTerrainMeansUnknownWithoutNoise() {
+        List<ScenarioResult> rows = withTunnel(TunnelKm.NONE, tunnelStandards);
+        assertThat(rows).allSatisfy(r -> {
+            assertThat(r.getTunnelCost()).isNull();
+            assertThat(r.getWarning() == null ? "" : r.getWarning()).doesNotContain("산 구간");
+        });
+    }
+
+    @Test
+    @DisplayName("경고는 warning 칸(VARCHAR 200)을 넘지 않는다")
+    void warningFitsColumn() {
+        String longWarning = "가".repeat(150) + " / " + "나".repeat(150);
+        assertThat(CostCalculator.fitWarning(longWarning)).hasSizeLessThanOrEqualTo(200).endsWith("…");
+        assertThat(CostCalculator.fitWarning("짧다")).isEqualTo("짧다");
+        assertThat(CostCalculator.fitWarning(null)).isNull();
     }
 }

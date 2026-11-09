@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS scenario_result (
 
     station_count      INT         NOT NULL,
     total_cost         BIGINT      NOT NULL COMMENT '억원',
+    tunnel_cost        BIGINT               COMMENT 'total_cost 중 산 구간 터널비(억원). 0=더할 것 없음, NULL=모름(트램·BRT·지형 없음)',
     estimated_ridership INT                 COMMENT '일 이용객',
     peak_pphpd         INT                  COMMENT '첨두시 한 방향 최대 이용객',
     travel_time_min    DECIMAL(6,1)         COMMENT '끝에서 끝까지 소요시간 (표정속도 기준)',

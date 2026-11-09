@@ -44,6 +44,10 @@ public class ScenarioResult {
     @Column(name = "total_cost", nullable = false)
     private Long totalCost;
 
+    /** total_cost 중 산 구간 터널비(억원). 0 = 판정했고 더할 것 없음, NULL = 모른다(트램·BRT·지형 자료 없음) */
+    @Column(name = "tunnel_cost")
+    private Long tunnelCost;
+
     @Column(name = "estimated_ridership")
     private Integer estimatedRidership;
 
@@ -70,7 +74,7 @@ public class ScenarioResult {
 
     @Builder
     private ScenarioResult(Scenario scenario, ModeType modeType, StructureType structureType,
-                           Long standardId, Integer stationCount, Long totalCost,
+                           Long standardId, Integer stationCount, Long totalCost, Long tunnelCost,
                            Integer estimatedRidership, Integer peakPphpd, BigDecimal travelTimeMin,
                            Long benefitTotal, BigDecimal bcRatio, Boolean feasible, String warning) {
         this.scenario = scenario;
@@ -79,6 +83,7 @@ public class ScenarioResult {
         this.standardId = standardId;
         this.stationCount = stationCount;
         this.totalCost = totalCost;
+        this.tunnelCost = tunnelCost;
         this.estimatedRidership = estimatedRidership;
         this.peakPphpd = peakPphpd;
         this.travelTimeMin = travelTimeMin;

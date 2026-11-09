@@ -63,14 +63,16 @@ public class ScenarioDto {
                 .anyMatch(s -> s != null && !Boolean.TRUE.equals(s.getActive()));
     }
 
-    public record CostParts(long fixed, long length, long stations) {
-        static CostParts of(long totalCost, int stationCount, CostStandard standard) {
+    /** tunnel — 산 구간 터널비(11-09). 모르는 터널비(NULL)는 합계에 없으므로 0 몫이다 */
+    public record CostParts(long fixed, long length, long stations, long tunnel) {
+        static CostParts of(long totalCost, int stationCount, CostStandard standard, Long tunnelCost) {
             if (standard == null) {
                 return null;
             }
             long stations = standard.getCostPerStation() * stationCount;
-            long length = totalCost - standard.getFixedCost() - stations;
-            return length < 0 ? null : new CostParts(standard.getFixedCost(), length, stations);
+            long tunnel = tunnelCost == null ? 0 : tunnelCost;
+            long length = totalCost - standard.getFixedCost() - stations - tunnel;
+            return length < 0 ? null : new CostParts(standard.getFixedCost(), length, stations, tunnel);
         }
     }
 
@@ -82,7 +84,7 @@ public class ScenarioDto {
                                  List<StationResponse> stations) {
         static ResultResponse of(ScenarioResult r, Map<Long, CostStandard> standards) {
             return new ResultResponse(r.getModeType(), r.getStructureType(), r.getStationCount(),
-                    r.getTotalCost(), CostParts.of(r.getTotalCost(), r.getStationCount(), standards.get(r.getStandardId())),
+                    r.getTotalCost(), CostParts.of(r.getTotalCost(), r.getStationCount(), standards.get(r.getStandardId()), r.getTunnelCost()),
                     r.getEstimatedRidership(), r.getPeakPphpd(),
                     r.getTravelTimeMin(), r.getBenefitTotal(), r.getBcRatio(),
                     Boolean.TRUE.equals(r.getFeasible()), r.getWarning(),

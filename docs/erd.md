@@ -79,6 +79,7 @@ erDiagram
         enum structure_type
         int station_count
         bigint total_cost "억원, 명목"
+        bigint tunnel_cost "그중 산 구간 터널비, NULL=모름"
         int estimated_ridership "일 승차+하차"
         int peak_pphpd "첨두 단면"
         decimal travel_time_min

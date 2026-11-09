@@ -55,7 +55,12 @@ export default function RowBreakdown({ row }) {
             ariaLabel={`${name} 건설비 구성. ${shares.map((s) => `${s.label} ${s.pct}`).join(', ')}`}
             valueOf={(r) => r.pct}
           />
-          <p className="muted small">비용 회귀식의 세 항으로 나눈 몫입니다 — 공사 내역(토목·궤도 등)이 아닙니다.</p>
+          <p className="muted small">
+            비용 회귀식의 세 항으로 나눈 몫입니다 — 공사 내역(토목·궤도 등)이 아닙니다.
+            {shares.some((s) => s.key === 'tunnel') && (
+              <> 산 구간 터널은 그린 노선이 산을 지나 뚫는 몫으로, 도심 지하 단가로 매긴 외삽입니다.</>
+            )}
+          </p>
         </figure>
       )}
       {rows.length > 0 ? (
