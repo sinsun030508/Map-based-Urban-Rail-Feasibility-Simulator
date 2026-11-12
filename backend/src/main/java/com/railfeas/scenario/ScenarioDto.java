@@ -63,16 +63,31 @@ public class ScenarioDto {
                 .anyMatch(s -> s != null && !Boolean.TRUE.equals(s.getActive()));
     }
 
-    /** tunnel — 산 구간 터널비(11-09). 모르는 터널비(NULL)는 합계에 없으므로 0 몫이다 */
-    public record CostParts(long fixed, long length, long stations, long tunnel) {
+    /**
+     * tunnel — 산 구간 터널비(11-09). road — 트램·BRT 새 도로의 다리값(11-12). 모르는 몫(NULL)은 합계에 없으므로 0 이다
+     */
+    public record CostParts(long fixed, long length, long stations, long tunnel, long road) {
         static CostParts of(long totalCost, int stationCount, CostStandard standard, Long tunnelCost) {
+            return of(totalCost, stationCount, standard, tunnelCost, null);
+        }
+
+        static CostParts of(long totalCost, int stationCount, CostStandard standard, Long tunnelCost, Long roadCost) {
             if (standard == null) {
                 return null;
             }
             long stations = standard.getCostPerStation() * stationCount;
             long tunnel = tunnelCost == null ? 0 : tunnelCost;
-            long length = totalCost - standard.getFixedCost() - stations - tunnel;
-            return length < 0 ? null : new CostParts(standard.getFixedCost(), length, stations, tunnel);
+            long road = roadCost == null ? 0 : roadCost;
+            long length = totalCost - standard.getFixedCost() - stations - tunnel - road;
+            return length < 0 ? null : new CostParts(standard.getFixedCost(), length, stations, tunnel, road);
+        }
+    }
+
+    /** 트램·BRT 가 따라간 노선 구간 — road(기존 도로) 또는 새 도로, 점은 {위도, 경도} */
+    public record RoutePiece(boolean road, List<double[]> points) {
+        static List<RoutePiece> of(String encoded) {
+            return com.railfeas.calc.RoadRoute.decode(encoded).stream()
+                    .map(p -> new RoutePiece(p.road(), p.points())).toList();
         }
     }
 
@@ -81,14 +96,15 @@ public class ScenarioDto {
                                  Integer estimatedRidership,
                                  Integer peakPphpd, BigDecimal travelTimeMin, Long benefitTotal,
                                  BigDecimal bcRatio, boolean feasible, String warning,
-                                 List<StationResponse> stations) {
+                                 List<StationResponse> stations, List<RoutePiece> routeLine) {
         static ResultResponse of(ScenarioResult r, Map<Long, CostStandard> standards) {
             return new ResultResponse(r.getModeType(), r.getStructureType(), r.getStationCount(),
-                    r.getTotalCost(), CostParts.of(r.getTotalCost(), r.getStationCount(), standards.get(r.getStandardId()), r.getTunnelCost()),
+                    r.getTotalCost(), CostParts.of(r.getTotalCost(), r.getStationCount(), standards.get(r.getStandardId()),
+                            r.getTunnelCost(), r.getRoadCost()),
                     r.getEstimatedRidership(), r.getPeakPphpd(),
                     r.getTravelTimeMin(), r.getBenefitTotal(), r.getBcRatio(),
                     Boolean.TRUE.equals(r.getFeasible()), r.getWarning(),
-                    r.getStations().stream().map(StationResponse::of).toList());
+                    r.getStations().stream().map(StationResponse::of).toList(), RoutePiece.of(r.getRouteLine()));
         }
     }
 

@@ -1,45 +1,61 @@
-"""큰길 중심선 — 역을 둘 수 없는 길(골목·단지 통로·자동차전용도로·교량·터널)을 거르는 규칙."""
+"""큰길 도로망 — 다닐 수 있는 길을 거르고, 교차점에서 잘라 간선으로 만드는 규칙."""
 
-from osm_roads import roads, usable
+from osm_roads import BRIDGE, LINK, MINOR, TUNNEL, flags, graph, quarters, routable, usable
 
 
-def way(i, tags, pts=((37.51, 126.93), (37.51, 126.95))):
-    return {'type': 'way', 'id': i, 'tags': tags,
+def way(i, tags, nodes, pts):
+    return {'type': 'way', 'id': i, 'tags': tags, 'nodes': nodes,
             'geometry': [{'lat': a, 'lon': b} for a, b in pts]}
 
 
-def test_큰길_등급만_받는다():
-    for cls in ('trunk', 'primary', 'secondary', 'tertiary'):
-        assert usable({'highway': cls})
-    # 단지 통로·골목은 역을 옮겨 봐야 또 단지 안이다. 고속도로에는 역을 둘 수 없다
-    for cls in ('residential', 'service', 'unclassified', 'motorway', 'trunk_link', 'footway'):
-        assert not usable({'highway': cls})
+def test_큰길과_진출입로만_다니고_자동차전용도로는_뺀다():
+    for cls in ('trunk', 'primary', 'secondary', 'tertiary', 'primary_link', 'trunk_link'):
+        assert routable({'highway': cls})
+    for cls in ('residential', 'service', 'unclassified', 'motorway', 'motorway_link', 'footway'):
+        assert not routable({'highway': cls})
+    assert not routable({'highway': 'trunk', 'motorroad': 'yes'})
+    assert routable({'highway': 'trunk', 'motorroad': 'no'})
 
 
-def test_자동차전용도로_교량_터널_토막은_뺀다():
-    assert not usable({'highway': 'trunk', 'motorroad': 'yes'})
+def test_다리_터널_진출입로는_표시하고_정차역은_그_위에_안_놓는다():
+    assert flags({'highway': 'primary', 'bridge': 'yes'}) == BRIDGE
+    assert flags({'highway': 'primary', 'bridge': 'viaduct', 'tunnel': 'yes'}) == BRIDGE | TUNNEL
+    assert flags({'highway': 'secondary_link'}) == LINK
+    assert flags({'highway': 'primary', 'bridge': 'no'}) == 0
+    # 집산도로는 표시만 달고 역 자리로는 쓴다 — 보조간선 이상이 0.3km 안에 없을 때(백엔드가 가른다)
+    assert flags({'highway': 'tertiary'}) == MINOR
+    assert flags({'highway': 'tertiary_link'}) == MINOR | LINK
+    assert usable({'highway': 'tertiary'})
+    assert usable({'highway': 'primary'})
     assert not usable({'highway': 'primary', 'bridge': 'yes'})
-    assert not usable({'highway': 'primary', 'bridge': 'viaduct'})
-    assert not usable({'highway': 'secondary', 'tunnel': 'yes'})
-    # 「아니다」 를 적은 것은 받는다
-    assert usable({'highway': 'primary', 'bridge': 'no', 'tunnel': 'no', 'motorroad': 'no'})
+    assert not usable({'highway': 'primary_link'})          # 다닐 수는 있지만 역 자리는 아니다
 
 
-def test_같은_way_는_한_번만_좌표는_위도_경도_소수_5자리():
-    els = [way(1, {'highway': 'primary'}), way(1, {'highway': 'primary'}),
-           way(2, {'highway': 'service'}), {'type': 'node', 'id': 3}]
-    out = roads(els, simplify_m=0)
-    assert out == [[(37.51, 126.93), (37.51, 126.95)]]
+def test_교차점에서_잘라_간선을_만든다_같은_way_는_한_번만():
+    # 동서 길(1-2-3) 가운데 2 에서 남북 다리(2-4)가 만난다
+    ew = way(10, {'highway': 'primary'}, [1, 2, 3], [(37.50, 126.90), (37.50, 126.91), (37.50, 126.92)])
+    ns = way(11, {'highway': 'primary', 'bridge': 'yes'}, [2, 4], [(37.50, 126.91), (37.49, 126.91)])
+    n, edges = graph([ew, ns, ew, {'type': 'node', 'id': 5}], simplify_m=0)
+    assert n == 4
+    assert [(len(c), f) for _, _, f, c in edges] == [(2, 0), (2, 0), (2, BRIDGE)]
+    # 동서 길의 두 간선은 가운데 교차점을 함께 쓴다 — 이어져 있다
+    (a1, b1, _, _), (a2, b2, _, _), (a3, b3, _, _) = edges
+    assert b1 == a2 == a3
+    assert edges[0][3] == [(37.5, 126.9), (37.5, 126.91)]
+
+
+def test_칸_밖으로_잘린_way_는_건너뛴다():
+    cut = {'type': 'way', 'id': 7, 'tags': {'highway': 'primary'}, 'nodes': [1, 2],
+           'geometry': [{'lat': 37.5, 'lon': 126.9}, None]}
+    assert graph([cut]) == (0, [])
 
 
 def test_곧은_길의_가운데_점은_줄이고_양끝은_남긴다():
-    pts = [(37.51, 126.93 + i * 0.001) for i in range(21)]     # 동서로 곧은 1.8km
-    out = roads([way(1, {'highway': 'primary'}, pts)])
-    assert len(out) == 1
-    assert out[0][0] == (37.51, 126.93) and out[0][-1] == (37.51, 126.95)
-    assert len(out[0]) == 2
+    pts = [(37.51, 126.93 + i * 0.001) for i in range(21)]     # 동서로 곧은 1.8km, 교차점 없음
+    _, edges = graph([way(1, {'highway': 'primary'}, list(range(100, 121)), pts)])
+    assert len(edges) == 1
+    assert edges[0][3] == [(37.51, 126.93), (37.51, 126.95)]
 
 
 def test_칸은_0_5도_넷으로_나눈다():
-    from osm_roads import quarters
     assert sorted(quarters(37, 126)) == [(37, 126), (37, 126.5), (37.5, 126), (37.5, 126.5)]

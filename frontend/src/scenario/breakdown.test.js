@@ -18,6 +18,9 @@ test('산 구간 터널비가 있으면 넷째 몫으로 — 없으면 막대를
   const s = costShares({ fixed: 1000, length: 7000, stations: 1000, tunnel: 1000 });
   assert.deepEqual(s.map((x) => x.key), ['fixed', 'length', 'stations', 'tunnel']);
   assert.deepEqual(s.map((x) => x.pct), ['10%', '70%', '10%', '10%']);
+  // 트램·BRT 새 도로의 다리값(11-12) — 있을 때만 막대
+  assert.deepEqual(costShares({ fixed: 1000, length: 6000, stations: 1000, tunnel: 1000, road: 1000 }).map((x) => x.key),
+    ['fixed', 'length', 'stations', 'tunnel', 'road']);
   assert.deepEqual(costShares({ fixed: 1000, length: 8000, stations: 1000, tunnel: 0 }).map((x) => x.key),
     ['fixed', 'length', 'stations']);
 });

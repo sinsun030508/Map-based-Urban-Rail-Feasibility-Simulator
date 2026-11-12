@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapStyle, INITIAL_VIEW } from './mapStyle';
-import { routeThroughStations } from '../geo/routeLine';
+import { routeFeatures } from '../geo/routeLine';
 import usePopulation3D from './usePopulation3D';
 import { visibleLabels } from './labelLayout';
 
@@ -35,7 +35,7 @@ function circleRing(lng, lat, radiusKm) {
 }
 
 export default function MapView({
-  points, zones, stations, existingOption, show3D, focus, waterPieces, mountainPieces, mountainPreview,
+  points, zones, stations, routeLine, existingOption, show3D, focus, waterPieces, mountainPieces, mountainPreview,
   onPick,
 }) {
   const containerRef = useRef(null);
@@ -70,13 +70,22 @@ export default function MapView({
     map.on('style.load', () => {
       map.addSource(ROUTE_SOURCE, {
         type: 'geojson',
-        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } },
+        data: { type: 'FeatureCollection', features: [] },
       });
       map.addLayer({
         id: 'route-line',
         type: 'line',
         source: ROUTE_SOURCE,
+        filter: ['!=', ['get', 'road'], false],
         paint: { 'line-color': '#e2483a', 'line-width': 4 },
+      });
+      // 트램·BRT·광역급행이 기존 도로로 못 가 새로 놓는 구간 — 같은 빨강의 점선(11-12). 이미 있는 길과 구별된다
+      map.addLayer({
+        id: 'route-line-new',
+        type: 'line',
+        source: ROUTE_SOURCE,
+        filter: ['==', ['get', 'road'], false],
+        paint: { 'line-color': '#e2483a', 'line-width': 4, 'line-dasharray': [1.5, 1] },
       });
 
       // 기존 노선(KTX) — 그린 노선과 **다른 색·점선**으로 둔다.
@@ -170,11 +179,12 @@ export default function MapView({
     // 그린 점만 잇지 않는다 — 역이 선 옆으로 비켜 서 있으면 선도 그리로 돈다.
     // 비용·편익은 이미 돌아간 길이로 계산하므로(CostCalculator 의 detourKm),
     // 지도만 직선이면 화면과 숫자가 서로 다른 노선을 말하게 된다
+    // 트램·BRT·광역급행은 서버가 기존 도로를 따라 만든 노선 모양(`routeLine`)을 그대로 그린다(11-12)
     map.getSource(ROUTE_SOURCE).setData({
-      type: 'Feature',
-      geometry: { type: 'LineString', coordinates: routeThroughStations(points, stations) },
+      type: 'FeatureCollection',
+      features: routeFeatures(points, stations, routeLine),
     });
-  }, [points, stations, mapReady]);
+  }, [points, stations, routeLine, mapReady]);
 
   // 마커는 DOM 이라 스타일을 기다릴 것 없다
   useEffect(() => {

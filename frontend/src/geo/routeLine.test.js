@@ -1,7 +1,7 @@
 // `npm test` (node --test). 화면 노선 — 그린 꼭짓점과 역을 선 위 거리 순으로 엮고, 양 끝은 종점역이다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { routeThroughStations } from './routeLine.js';
+import { roadSummary, routeFeatures, routeThroughStations } from './routeLine.js';
 
 const st = ([lng, lat]) => ({ longitude: lng, latitude: lat });
 
@@ -29,4 +29,35 @@ test('종점역이 찍은 점 그대로면 예전과 같다 — 길이 0 조각 
 test('역이 둘 미만이면 그린 선 그대로', () => {
   const points = [[126.94, 37.52], [126.94, 37.50]];
   assert.equal(routeThroughStations(points, []), points);
+});
+
+// 서버가 준 노선 — 트램·BRT·광역급행은 기존 도로를 따라간다(11-12). 구간은 {road, points: [[위도, 경도], …]}
+const PIECES = [
+  { road: true, points: [[37.50, 126.90], [37.53, 126.90], [37.53, 126.91]] },
+  { road: false, points: [[37.53, 126.91], [37.50, 126.91]] },
+];
+
+test('서버가 노선 모양을 주면 그대로 그린다 — 기존 도로는 실선, 새 도로는 점선 표시, 좌표는 [경도, 위도]', () => {
+  const f = routeFeatures([[126.90, 37.50], [126.91, 37.50]], [], PIECES);
+  assert.equal(f.length, 2);
+  assert.deepEqual(f.map((x) => x.properties.road), [true, false]);
+  assert.deepEqual(f[0].geometry.coordinates[0], [126.90, 37.50]);
+  assert.deepEqual(f[1].geometry.coordinates[1], [126.91, 37.50]);
+});
+
+test('노선 모양이 없으면(철도 행·계산 전) 예전처럼 그린 점과 역을 엮은 선 하나 — 실선', () => {
+  const points = [[126.94, 37.52], [126.94, 37.50]];
+  const f = routeFeatures(points, [], null);
+  assert.equal(f.length, 1);
+  assert.equal(f[0].properties.road, true);
+  assert.deepEqual(f[0].geometry.coordinates, points);
+  assert.equal(routeFeatures(points, [], []).length, 1);
+});
+
+test('기존 도로·새 도로 길이를 따로 잰다 — 노선 모양이 없으면 null', () => {
+  const s = roadSummary(PIECES);
+  assert.ok(Math.abs(s.roadKm - (3.336 + 0.880)) < 0.02, String(s.roadKm));
+  assert.ok(Math.abs(s.newKm - 3.336) < 0.01, String(s.newKm));
+  assert.equal(roadSummary(null), null);
+  assert.equal(roadSummary([]), null);
 });

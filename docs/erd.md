@@ -80,6 +80,8 @@ erDiagram
         int station_count
         bigint total_cost "억원, 명목"
         bigint tunnel_cost "그중 산 구간 터널비, NULL=모름"
+        bigint road_cost "그중 트램·BRT 새 도로 다리값, NULL=철도·도로망 없음"
+        mediumtext route_line "트램·BRT 가 따라간 노선(R 도로 / N 새 도로)"
         int estimated_ridership "일 승차+하차"
         int peak_pphpd "첨두 단면"
         decimal travel_time_min

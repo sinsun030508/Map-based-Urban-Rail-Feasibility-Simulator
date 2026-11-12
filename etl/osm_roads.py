@@ -1,28 +1,28 @@
 """
-큰길 중심선 — OpenStreetMap Overpass 에서 받는다. 정차역을 가장 가까운 큰길 위로 옮기는 데
-쓴다(`RoadSnap`, 11-12 사용자 요청).
+큰길 도로망 — OpenStreetMap Overpass 에서 받는다. 두 군데에 쓴다.
 
-왜 필요한가
-  정차역은 반경 500m 인구가 많은 쪽으로 끌려가다 보니 **아파트 단지 한가운데**(노량진2동 — 동 사이)에
-  놓였다. 실제 역은 큰길 밑(지하철)·위(고가)나 도로 위(BRT·트램)에 있다.
+  ① 정차역을 가장 가까운 큰길 위로 옮긴다(`RoadNetwork.snap`, 11-12 사용자 요청) — 역이 아파트 단지 한가운데(노량진2동)에 놓였다
+  ② 트램·BRT 는 이미 있는 도로·다리를 따라간다(`RoadNetwork.route`, 11-12 사용자 요청) — 그린 직선이 다리 없는 강을 건넜다
 
 무엇을 받나 (`CLASSES`)
-  trunk·primary·secondary·tertiary — 간선·보조간선·집산도로. **residential·service 는 뺀다** — 단지 안
-  통로와 골목이라 역을 옮겨 봐야 또 단지 안이다. **motorway 와 `motorroad=yes`(자동차전용도로)도 뺀다** —
-  역을 둘 수 없다. **교량·터널 토막도 뺀다**(`bridge`·`tunnel`) — 한강 다리 위나 산 터널 속으로 역이 가면 안 된다.
-  인도는 받지 않는다 — 한국은 OSM 에 인도(`sidewalk`·`footway=sidewalk`)가 거의 그려져 있지 않아,
-  중심선이 실제로 쓸 수 있는 가장 가까운 자리다.
+  trunk·primary·secondary·tertiary 와 그 진출입로(`*_link`) — 간선·보조간선·집산도로. **residential·service 는 뺀다**
+  (단지 통로·골목). **motorway 와 `motorroad=yes`(자동차전용도로)도 뺀다** — 트램·BRT 가 못 다니고 역을 둘 수 없다.
+  **다리·터널은 받는다** — 길 찾기에 한강 다리가 있어야 한다. 대신 표시(`flags`)를 달아 정차역은 그 위에 놓지 않는다.
+  인도는 받지 않는다 — 한국은 OSM 에 인도가 거의 없어 중심선이 가장 가까운 자리다.
+
+도로망 만들기 (`graph`)
+  way 를 **교차점**(두 way 이상이 쓰는 node, 그리고 양 끝)마다 잘라 「교차점 A – 교차점 B」 간선으로 만든다. 방향(일방통행)은
+  보지 않는다 — 트램·BRT 는 양방향 노선이다. 칸 경계를 넘는 way 는 두 칸에서 다 오므로 way 번호로 한 번만 쓴다.
 
 Overpass 에서 데인 것 (osm_water.py 와 같다)
   ① 본진만 쓴다 — 미러는 틀린 빈 답을 성공처럼 준다
-  ② 본진이 504 를 자주 낸다 — 칸마다 캐시하고, 기다렸다 다시 묻는다
+  ② 본진이 502·504 를 자주 낸다 — 칸마다 캐시하고, 기다렸다 다시 묻는다. 두 번 실패하면 칸을 넷으로 쪼갠다
   ③ User-Agent 가 없으면 406 이다
-  ④ **수도권 1°×1° 칸은 18MB 에서 끊겼다**(IncompleteRead) — 칸을 0.5° 로 4등분하고(`HALF`), 교량·터널·자동차전용도로는
-     Overpass 쪽에서 걸러 받는다(받은 뒤 `usable` 로 한 번 더 거른다)
+  ④ **수도권 1°×1° 칸은 18MB 에서 끊겼다**(IncompleteRead) — 칸을 0.5° 로 4등분한다(`HALF`)
 
 출력
-  data/build/roads.csv.gz   한 줄에 도로 토막 하나 — `위도,경도 위도,경도 …` (소수 5자리 ≈ 1m).
-                            UTM-K 에서 SIMPLIFY_M 오차로 줄인다
+  data/build/road_graph.csv.gz   한 줄에 간선 하나 — `A B 표시 위도,경도 위도,경도 …`. A·B 는 교차점 번호(0부터, 이 파일 안에서만),
+                                 표시는 1 다리 · 2 터널 · 4 진출입로 · 8 집산도로를 더한 값. 좌표는 소수 5자리(≈1m), UTM-K 에서 SIMPLIFY_M 오차로 줄인다
 
     python etl/osm_roads.py               # 받고 만든다
     python etl/osm_roads.py --from-cache  # 받은 칸만으로 만든다
@@ -44,44 +44,81 @@ from osm_water import TILES, UA, URL
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / 'data' / 'build'
-CACHE = ROOT / 'data' / 'cache' / 'osm' / 'roads'
-OUT = BUILD / 'roads.csv.gz'
+CACHE = ROOT / 'data' / 'cache' / 'osm' / 'road_graph'
+OUT = BUILD / 'road_graph.csv.gz'
 
 CLASSES = ('trunk', 'primary', 'secondary', 'tertiary')
-SIMPLIFY_M = 5          # 역을 옮길 자리라 몇 m 만 틀어져도 된다 — 줄이지 않으면 점이 몇 배다
+LINKS = tuple(c + '_link' for c in CLASSES)
+SIMPLIFY_M = 5          # 몇 m 만 틀어져도 된다 — 줄이지 않으면 점이 몇 배다
 NO = ('no', '')         # bridge·tunnel·motorroad 가 이 값이면 「아니다」
+BRIDGE, TUNNEL, LINK, MINOR = 1, 2, 4, 8
 
 _TO_M = Transformer.from_crs('EPSG:4326', 'EPSG:5179', always_xy=True).transform
 _TO_LL = Transformer.from_crs('EPSG:5179', 'EPSG:4326', always_xy=True).transform
 
 
+def routable(tags):
+    """트램·BRT 가 다닐 수 있는 길인가 — 큰길 등급과 그 진출입로, 자동차전용도로 아님."""
+    return tags.get('highway') in CLASSES + LINKS and tags.get('motorroad', 'no') in NO
+
+
+def flags(tags):
+    """다리 1 · 터널 2 · 진출입로 4 · 집산도로 8. 정차역은 다리·터널·진출입로가 아닌 간선에 놓고, 집산도로는 보조간선 이상이
+    0.3km 안에 없을 때만 쓴다(11-12 사용자 결정 — 집산도로엔 낮은 건물 사이 2차로 길이 섞여 있다)."""
+    f = 0
+    if tags.get('bridge', 'no') not in NO:
+        f |= BRIDGE
+    if tags.get('tunnel', 'no') not in NO:
+        f |= TUNNEL
+    if tags.get('highway', '').endswith('_link'):
+        f |= LINK
+    if tags.get('highway', '').startswith('tertiary'):
+        f |= MINOR
+    return f
+
+
 def usable(tags):
-    """역을 둘 수 있는 큰길인가 — 등급, 자동차전용도로, 교량·터널."""
-    if tags.get('highway') not in CLASSES:
-        return False
-    for key in ('motorroad', 'bridge', 'tunnel'):
-        if tags.get(key, 'no') not in NO:
-            return False
-    return True
+    """정차역을 둘 수 있는 큰길인가 — 진출입로·다리·터널·자동차전용도로가 아닌 큰길(집산도로 포함)."""
+    return routable(tags) and tags.get('highway') in CLASSES and flags(tags) & (BRIDGE | TUNNEL | LINK) == 0
 
 
-def roads(elements, simplify_m=SIMPLIFY_M):
-    """OSM 요소들 → [[(위도, 경도), …], …]. 같은 way 는 한 번만, 점이 둘 미만이면 뺀다."""
-    seen, out = set(), []
+def _simplify(coords, simplify_m):
+    """[(위도, 경도)] — 양 끝은 남긴다"""
+    if not simplify_m or len(coords) <= 2:
+        return [(round(a, 5), round(b, 5)) for a, b in coords]
+    line = transform(_TO_LL, transform(_TO_M, LineString([(b, a) for a, b in coords])).simplify(simplify_m))
+    return [(round(y, 5), round(x, 5)) for x, y in line.coords]
+
+
+def graph(elements, simplify_m=SIMPLIFY_M):
+    """OSM way 들 → (교차점 수, [(A, B, 표시, [(위도, 경도), …]), …]). 교차점·양 끝에서 자른다."""
+    ways, seen = [], set()
     for e in elements:
-        if e.get('type') != 'way' or e['id'] in seen or not usable(e.get('tags', {})):
+        if e.get('type') != 'way' or e['id'] in seen or not routable(e.get('tags', {})):
             continue
+        nodes, geom = e.get('nodes') or [], e.get('geometry') or []
+        if len(nodes) < 2 or len(nodes) != len(geom) or any(g is None for g in geom):
+            continue          # 칸 밖으로 잘린 점은 null 로 온다 — 그 way 는 옆 칸에서 온전히 온다
         seen.add(e['id'])
-        pts = [(p['lon'], p['lat']) for p in e.get('geometry', []) if p]
-        if len(pts) < 2:
-            continue
-        line = LineString(pts)
-        if simplify_m:
-            line = transform(_TO_LL, transform(_TO_M, line).simplify(simplify_m))
-        coords = [(round(y, 5), round(x, 5)) for x, y in line.coords]
-        if len(coords) >= 2:
-            out.append(coords)
-    return out
+        ways.append((nodes, [(g['lat'], g['lon']) for g in geom], flags(e['tags'])))
+    use = {}
+    for nodes, _, _ in ways:
+        for n in set(nodes):
+            use[n] = use.get(n, 0) + 1
+        use[nodes[0]] = use.get(nodes[0], 0) + 1      # 양 끝은 늘 교차점
+        use[nodes[-1]] = use.get(nodes[-1], 0) + 1
+    index, edges = {}, []
+    for nodes, coords, f in ways:
+        start = 0
+        for i in range(1, len(nodes)):
+            if use[nodes[i]] >= 2 or i == len(nodes) - 1:
+                a, b = nodes[start], nodes[i]
+                if a != b:
+                    ia = index.setdefault(a, len(index))
+                    ib = index.setdefault(b, len(index))
+                    edges.append((ia, ib, f, _simplify(coords[start:i + 1], simplify_m)))
+                start = i
+    return len(index), edges
 
 
 HALF = 0.5
@@ -112,8 +149,8 @@ def fetch_tile(lat, lng, size=HALF, retries=6):
     if path.exists():
         return json.loads(path.read_text(encoding='utf-8'))
     box = '%.3f,%.3f,%.3f,%.3f' % (lat, lng, lat + size, lng + size)
-    q = ('[out:json][timeout:170];way["highway"~"^(%s)$"]["bridge"!~"."]["tunnel"!~"."]'
-         '["motorroad"!="yes"](%s);out tags geom;' % ('|'.join(CLASSES), box))
+    q = ('[out:json][timeout:170];way["highway"~"^(%s)(_link)?$"]["motorroad"!="yes"](%s);out body geom;'
+         % ('|'.join(CLASSES), box))
     for attempt in range(retries):
         if attempt == SPLIT_AFTER and size / 2 >= MIN_SIZE:
             half = size / 2
@@ -141,26 +178,24 @@ def fetch_tile(lat, lng, size=HALF, retries=6):
 def main():
     sys.stdout.reconfigure(encoding='utf-8')
     from_cache = '--from-cache' in sys.argv
-    lines, missing = [], []
+    elements, missing = [], []
     for lat, lng in [q for t in TILES for q in quarters(*t)]:
         if from_cache and not tile_path(lat, lng).exists():
             missing.append('%.1f,%.1f' % (lat, lng))
             continue
         d = fetch_tile(lat, lng)
-        got = roads(d.get('elements', []))
-        lines += got
-        print('%.1f,%.1f  요소 %d → 토막 %d' % (lat, lng, len(d.get('elements', [])), len(got)), flush=True)
+        elements += d.get('elements', [])
+        print('%.1f,%.1f  요소 %d' % (lat, lng, len(d.get('elements', []))), flush=True)
     if missing:
-        print('**캐시에 없어 빠진 칸 %d개: %s — 이 지역은 역을 옮기지 않는다**' % (len(missing), ' '.join(missing)))
-    # 칸 경계를 넘는 way 는 두 칸에서 다 온다 — 같은 토막은 한 번만
-    unique = sorted({tuple(l) for l in lines})
+        print('**캐시에 없어 빠진 칸 %d개: %s — 이 지역은 도로망이 없다**' % (len(missing), ' '.join(missing)))
+    n, edges = graph(elements)
     BUILD.mkdir(parents=True, exist_ok=True)
     # mtime=0 — 같은 자료면 같은 파일이 나와야 커밋 차이가 안 생긴다
     with open(OUT, 'wb') as raw, gzip.GzipFile(fileobj=raw, mode='wb', mtime=0, filename='') as f:
-        for l in unique:
-            f.write((' '.join('%.5f,%.5f' % p for p in l) + '\n').encode('ascii'))
-    pts = sum(len(l) for l in unique)
-    print('-> %s  토막 %d · 점 %d · %.0fKB' % (OUT, len(unique), pts, OUT.stat().st_size / 1024))
+        for a, b, fl, coords in edges:
+            f.write(('%d %d %d ' % (a, b, fl) + ' '.join('%.5f,%.5f' % p for p in coords) + '\n').encode('ascii'))
+    pts = sum(len(e[3]) for e in edges)
+    print('-> %s  교차점 %d · 간선 %d · 점 %d · %.0fKB' % (OUT, n, len(edges), pts, OUT.stat().st_size / 1024))
 
 
 if __name__ == '__main__':

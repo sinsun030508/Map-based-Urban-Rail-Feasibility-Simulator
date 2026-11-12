@@ -43,11 +43,20 @@ public class CostCalculator {
     private static final double CORRIDOR_STEP_KM = 0.5;  // 반경보다 촘촘해야 선 둘레에 빈틈이 없다
     private static final int WARNING_MAX = 200;       // scenario_result.warning VARCHAR(200)
     private static final Set<ModeType> ROAD = Set.of(ModeType.BRT_HIGH, ModeType.BRT_LOW);
+    /**
+     * 기존 도로를 따라 노선을 만드는 수단(`RoadRoute`, 11-12 사용자 요청·결정) — 땅 위 도로를 쓰는 트램·BRT 와, 사용자가 함께 고른
+     * 광역급행(철도지만 도로 밑·위를 따라간다 — 아파트를 뚫고 지나는 직선이 싫다는 요청)
+     */
+    static final Set<ModeType> ON_ROAD = Set.of(ModeType.TRAM, ModeType.BRT_HIGH, ModeType.BRT_LOW, ModeType.EXPRESS_RAIL);
+    /** 도로 위를 달리는 수단 — 새 도로를 놓으면 그 다리값을 낸다. 광역급행은 자기 철도 다리로 건너 철도 규칙(교량 할증 없음)을 따른다 */
+    static final Set<ModeType> ROAD_VEHICLE = Set.of(ModeType.TRAM, ModeType.BRT_HIGH, ModeType.BRT_LOW);
     private final PopulationIndex population;
     private final BenefitCalculator benefits;
     private final StationPlanner planner;
     private final ExistingOptions existingOptions;
     private final TunnelKm tunnel;
+    private final RoadNetwork roads;
+    private final WaterBodies water;
 
     /** 지형을 보지 않는 계산기 — 터널비는 「모른다」(NULL)로 남는다 */
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
@@ -55,9 +64,18 @@ public class CostCalculator {
         this(population, benefits, planner, existingOptions, TunnelKm.NONE);
     }
 
-    @Autowired
+    /** 도로망 없이 — 트램·BRT 도 그린 직선으로 센다 */
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
                           StationPlanner planner, ExistingOptions existingOptions, TunnelKm tunnel) {
+        this(population, benefits, planner, existingOptions, tunnel, RoadNetwork.of(List.of()), null);
+    }
+
+    @Autowired
+    public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
+                          StationPlanner planner, ExistingOptions existingOptions, TunnelKm tunnel,
+                          RoadNetwork roads, WaterBodies water) {
+        this.roads = roads;
+        this.water = water;
         this.population = population;
         this.benefits = benefits;
         this.planner = planner;
@@ -88,6 +106,35 @@ public class CostCalculator {
             return new TunnelCost(null, String.format("산 구간 %.1fkm 터널비 모름(미포함)", km));
         }
         return new TunnelCost(Math.round(km * extra), null);
+    }
+
+    /**
+     * 트램·BRT 의 도로 노선 몫 — 선·길이, 새 도로 구간의 터널 km(기존 도로는 이미 뚫려 있다), 새 도로가 물을 건너는 다리값.
+     * note — 새 도로의 땅 위 공사비는 KDI 에 km 표준이 없어 빠진다(「모름」 을 0원으로 읽지 않게 적는다)
+     */
+    record RoadPart(List<double[]> line, double km, TunnelKm.Tunnels tunnels, Long bridgeCost, String note, String encoded) {
+    }
+
+    private RoadPart roadPart(RoadRoute.Plan plan, List<CostStandard> standards) {
+        double waterKm = 0;
+        double rail = 0, road = 0;
+        boolean railKnown = true, roadKnown = true;
+        for (RoadRoute.Piece p : plan.newPieces()) {
+            if (water != null) {
+                waterKm += water.onWater(p.points()).stream().mapToDouble(WaterBodies.Span::km).sum();
+            }
+            TunnelKm.Tunnels t = tunnel.on(p.points(), standards);
+            railKnown &= t.rail().isPresent();
+            roadKnown &= t.road().isPresent();
+            rail += t.rail().orElse(0);
+            road += t.road().orElse(0);
+        }
+        TunnelKm.Tunnels tunnels = new TunnelKm.Tunnels(railKnown ? OptionalDouble.of(rail) : OptionalDouble.empty(),
+                roadKnown ? OptionalDouble.of(road) : OptionalDouble.empty());
+        double land = plan.newKm() - waterKm;
+        String note = land > 0.05 ? String.format("새 도로 %.1fkm 땅 위 공사비 모름(미포함)", land) : null;
+        return new RoadPart(plan.line(), plan.km(), tunnels, Math.round(waterKm * RoadRoute.BRIDGE_PER_KM), note,
+                RoadRoute.encode(plan));
     }
 
     /** warning 칸(VARCHAR 200)에 맞춘다 — 넘치면 저장이 통째로 실패한다 */
@@ -148,23 +195,32 @@ public class CostCalculator {
         // 그린 선이 뚫어야 하는 터널 길이 — 구조와 무관해 한 번만 잰다(산 구간 캐시를 같이 쓴다)
         TunnelKm.Tunnels tunnelKm = tunnel.on(points, standards);
 
+        // 트램·BRT 는 기존 도로·다리를 따라간다(11-12) — 구간마다 기존 도로(1.5배 안) 또는 새 도로. 도로망이 없으면 null(그린 직선)
+        RoadRoute.Plan roadPlan = standards.stream().anyMatch(s -> ON_ROAD.contains(s.getModeType()))
+                ? RoadRoute.plan(points, roads) : null;
+        RoadPart road = roadPlan == null ? null : roadPart(roadPlan, standards);
+
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
         Map<ModeType, StationPlanner.Plan> plannedByMode = new HashMap<>();
         for (CostStandard std : standards) {
             ModeCapacity capacity = capacities.get(std.getModeType());
-            int stations = estimateStations(lengthKm, capacity);
+            boolean onRoad = road != null && ON_ROAD.contains(std.getModeType());
+            // 도로를 따라가면 노선 모양·길이가 도로 경로다 — 역도 그 위에 놓는다
+            List<double[]> line = onRoad ? road.line() : points;
+            double baseKm = onRoad ? road.km() : lengthKm;
+            int stations = estimateStations(baseKm, capacity);
             Integer dailyRiders = benefits.ridersFor(params, baseRiders, std.getModeType());
-            Integer peak = benefits.peakPphpd(params, dailyRiders, lengthKm);
+            Integer peak = benefits.peakPphpd(params, dailyRiders, baseKm);
 
             // 역을 **먼저** 놓는다. 역이 선에서 옆으로 비켜 서면 노선이 그만큼 길어지고,
             // 그 길이로 비용·편익을 내야 "인구만 더 담고 돈은 안 드는" 값이 안 나온다.
             StationPlanner.Plan plan = plannedByMode.computeIfAbsent(
                     std.getModeType(),
-                    mode -> planner.planWithDetour(points, stations, spacingOf(capacity)));
+                    mode -> planner.planWithDetour(line, stations, spacingOf(capacity), onRoad));
             List<StationPlanner.Placed> placed = plan.stations();
             // 역이 옆으로 비켜 선 만큼만 더한다. 선 위에만 있으면 그린 길이 그대로다
-            double routeKm = lengthKm + plan.detourKm();
+            double routeKm = baseKm + plan.detourKm();
 
             // **추정 역 수가 아니라 실제로 놓인 역 수로 값을 매긴다.** 물 위처럼 역을
             // 놓을 수 없는 구간에서는 `StationPlanner` 가 역을 빼므로 둘이 달라진다 —
@@ -172,11 +228,15 @@ public class CostCalculator {
             // 노선이 뭉개진 경우(길이 0)에는 빈 목록이 오므로 최소값으로 받친다.
             int stationCount = Math.max(MIN_STATIONS, placed.size());
 
-            TunnelCost tunnelPart = tunnelCost(tunnelKm, std);
+            // 기존 도로 구간은 이미 뚫려 있다 — 산 구간 터널비는 새 도로 구간에만 매긴다
+            TunnelCost tunnelPart = tunnelCost(onRoad ? road.tunnels() : tunnelKm, std);
+            boolean vehicle = onRoad && ROAD_VEHICLE.contains(std.getModeType());
+            Long roadCost = vehicle ? road.bridgeCost() : null;
             long cost = std.getFixedCost()
                     + Math.round(std.getCostPerKm() * routeKm)
                     + (long) std.getCostPerStation() * stationCount
-                    + (tunnelPart.cost() == null ? 0 : tunnelPart.cost());
+                    + (tunnelPart.cost() == null ? 0 : tunnelPart.cost())
+                    + (roadCost == null ? 0 : roadCost);
 
             Double speed = capacity == null || capacity.getSpeedKmh() == null
                     ? null : capacity.getSpeedKmh().doubleValue();
@@ -192,6 +252,8 @@ public class CostCalculator {
                     .stationCount(stationCount)
                     .totalCost(cost)
                     .tunnelCost(tunnelPart.cost())
+                    .roadCost(roadCost)
+                    .routeLine(onRoad ? road.encoded() : null)
                     .estimatedRidership(dailyRiders)
                     .peakPphpd(peak)
                     .travelTimeMin(travelTimeMin(routeKm, speed))
@@ -200,7 +262,7 @@ public class CostCalculator {
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
                     .warning(warning(routeKm, peak, capacity, zoneWarning, people,
-                            stations - stationCount, tunnelPart.note()))
+                            stations - stationCount, tunnelPart.note(), vehicle ? road.note() : null))
                     .build();
             attachStations(result, placed, dailyRiders);
             results.add(result);
@@ -302,7 +364,7 @@ public class CostCalculator {
 
     /** 경고는 계산을 막지 않는다. 판단 근거만 덧붙인다. */
     private String warning(double lengthKm, Integer peak, ModeCapacity capacity,
-                           String zoneWarning, long people, int dropped, String tunnelNote) {
+                           String zoneWarning, long people, int dropped, String tunnelNote, String roadNote) {
         List<String> notes = new ArrayList<>();
         if (dropped > 0) {
             // 왜 역이 적은지 말해 주지 않으면 "계산이 덜 됐나" 로 읽힌다. 33km 노선에
@@ -334,6 +396,9 @@ public class CostCalculator {
         }
         if (tunnelNote != null) {
             notes.add(tunnelNote);
+        }
+        if (roadNote != null) {
+            notes.add(roadNote);
         }
         return notes.isEmpty() ? null : fitWarning(String.join(" / ", notes));
     }

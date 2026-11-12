@@ -421,6 +421,7 @@ export default function App() {
           points={points}
           zones={zones}
           stations={shown?.stations}
+          routeLine={shown?.routeLine}
           existingOption={existingOption}
           show3D={show3D}
           focus={focus}

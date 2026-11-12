@@ -82,5 +82,9 @@ class CostPartsTest {
         assertThat(parts.fixed() + parts.length() + parts.stations() + parts.tunnel()).isEqualTo(7_600);
         // 모르는 터널비(NULL)는 합계에 들어 있지 않다 — 0 몫이다
         assertThat(ScenarioDto.CostParts.of(7_000, 5, standard(1_000, 500, 200), null).tunnel()).isZero();
+        // 트램·BRT 새 도로 다리값도 따로 뺀다(11-12) — 안 빼면 길이 몫에 섞여 「km단가」 가 부풀어 보인다
+        var road = ScenarioDto.CostParts.of(7_900, 5, standard(1_000, 500, 200), 600L, 300L);
+        assertThat(road.road()).isEqualTo(300);
+        assertThat(road.length()).isEqualTo(5_000);
     }
 }

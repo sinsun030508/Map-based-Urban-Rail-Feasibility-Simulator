@@ -96,6 +96,14 @@ public class StationPlanner {
     }
 
     public Plan planWithDetour(List<double[]> route, int count, double spacingKm) {
+        return planWithDetour(route, count, spacingKm, false);
+    }
+
+    /**
+     * @param onRoute 노선이 이미 기존 도로를 따라 만든 선이면(트램·BRT·광역급행, `RoadRoute`) true — <b>역을 선 위에 둔다</b>: 옆 인구 쪽으로
+     *                비키지 않고 다른 큰길로도 붙이지 않는다. 비키면 역이 도로 노선에서 최대 0.5km 떠 있었다(11-12 화면)
+     */
+    public Plan planWithDetour(List<double[]> route, int count, double spacingKm, boolean onRoute) {
         List<Double> cum = cumulative(route);
         double length = cum.get(cum.size() - 1);
         if (count < 2 || length <= 0) {
@@ -124,7 +132,7 @@ public class StationPlanner {
             boolean terminal = i == 0 || i == count - 1;
             double[] on = pointAt(route, cum, chosen);
             // 종점은 사용자가 찍은 자리라 옆으로 인구를 찾지 않는다. 다만 큰길로는 붙인다 — 건물 위일 수 있다
-            double[] at = roads.snap(terminal ? on : bestBeside(route, cum, chosen, on));
+            double[] at = onRoute ? on : roads.snap(terminal ? on : bestBeside(route, cum, chosen, on));
 
             // **반경 500m 안에 한 명도 없으면 역으로 세지 않는다.**
             // 강·호수·바다 위가 그렇다 — 집계구가 없어 이름도 못 짓고(`name` 이 null)

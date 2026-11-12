@@ -48,6 +48,17 @@ public class ScenarioResult {
     @Column(name = "tunnel_cost")
     private Long tunnelCost;
 
+    /**
+     * total_cost 중 트램·BRT 의 새 도로 공사비(억원) — 기존 도로로 못 가 새로 놓은 구간이 강·호수를 건너는 다리값(11-12). 땅 위 새 도로
+     * 공사비는 KDI 에 km 표준이 없어 빠진다(경고에 적는다). 0 = 새 다리 없음, NULL = 철도 수단이거나 도로망 자료 없음
+     */
+    @Column(name = "road_cost")
+    private Long roadCost;
+
+    /** 트램·BRT 가 따라간 노선 — `RoadRoute.encode`(도로 R / 새 도로 N 구간). 철도 수단·도로망 없음은 NULL */
+    @Column(name = "route_line", columnDefinition = "mediumtext")
+    private String routeLine;
+
     @Column(name = "estimated_ridership")
     private Integer estimatedRidership;
 
@@ -75,6 +86,7 @@ public class ScenarioResult {
     @Builder
     private ScenarioResult(Scenario scenario, ModeType modeType, StructureType structureType,
                            Long standardId, Integer stationCount, Long totalCost, Long tunnelCost,
+                           Long roadCost, String routeLine,
                            Integer estimatedRidership, Integer peakPphpd, BigDecimal travelTimeMin,
                            Long benefitTotal, BigDecimal bcRatio, Boolean feasible, String warning) {
         this.scenario = scenario;
@@ -84,6 +96,8 @@ public class ScenarioResult {
         this.stationCount = stationCount;
         this.totalCost = totalCost;
         this.tunnelCost = tunnelCost;
+        this.roadCost = roadCost;
+        this.routeLine = routeLine;
         this.estimatedRidership = estimatedRidership;
         this.peakPphpd = peakPphpd;
         this.travelTimeMin = travelTimeMin;

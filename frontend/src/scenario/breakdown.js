@@ -7,14 +7,16 @@ const PARTS = [
   ['length', '연장 비례'],
   ['stations', '역 수 비례'],
   ['tunnel', '산 구간 터널'],   // 산을 지날 때만 — 0 이면 막대를 붙이지 않는다(11-09)
+  ['road', '새 도로 다리'],     // 트램·BRT 가 기존 도로로 못 가 새로 놓은 도로의 다리값 — 있을 때만(11-12)
 ];
+const OPTIONAL = ['tunnel', 'road'];
 
 /** @returns 몫과 비율(셋, 산 구간 터널이 있으면 넷). 구성을 모르면 null — 0% 로 그리면 「공짜」 로 읽힌다 */
 export function costShares(parts) {
   if (!parts) return null;
-  const total = parts.fixed + parts.length + parts.stations + (parts.tunnel || 0);
+  const total = parts.fixed + parts.length + parts.stations + (parts.tunnel || 0) + (parts.road || 0);
   if (!(total > 0)) return null;
-  return PARTS.filter(([key]) => key !== 'tunnel' || parts.tunnel > 0).map(([key, label]) => {
+  return PARTS.filter(([key]) => !OPTIONAL.includes(key) || parts[key] > 0).map(([key, label]) => {
     const share = (parts[key] / total) * 100;
     const pct = share > 0 && share < 1 ? '<1%' : `${Math.round(share)}%`;
     return { key, label, value: parts[key], pct };

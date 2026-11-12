@@ -103,6 +103,8 @@ CREATE TABLE IF NOT EXISTS scenario_result (
     station_count      INT         NOT NULL,
     total_cost         BIGINT      NOT NULL COMMENT '억원',
     tunnel_cost        BIGINT               COMMENT 'total_cost 중 산 구간 터널비(억원). 0=더할 것 없음, NULL=모름(트램·BRT·지형 없음)',
+    road_cost          BIGINT               COMMENT 'total_cost 중 트램·BRT 새 도로의 다리값(억원). 0=새 다리 없음, NULL=철도 수단·도로망 없음',
+    route_line         MEDIUMTEXT           COMMENT '트램·BRT 가 따라간 노선 (R 도로 / N 새 도로 구간, 위도,경도)',
     estimated_ridership INT                 COMMENT '일 이용객',
     peak_pphpd         INT                  COMMENT '첨두시 한 방향 최대 이용객',
     travel_time_min    DECIMAL(6,1)         COMMENT '끝에서 끝까지 소요시간 (표정속도 기준)',

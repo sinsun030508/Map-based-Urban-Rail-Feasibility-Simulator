@@ -60,6 +60,9 @@ export default function RowBreakdown({ row }) {
             {shares.some((s) => s.key === 'tunnel') && (
               <> 산 구간 터널은 그린 노선이 산을 지나 뚫는 몫으로, KDI 예타 세부지침(2021)의 산악 터널 표준공사비에서 매겼습니다.</>
             )}
+            {shares.some((s) => s.key === 'road') && (
+              <> 새 도로 다리는 기존 도로로 못 가 새로 놓는 구간이 강·호수를 건너는 몫으로, KDI 세부지침의 일반국도 교량 표준공사비에서 매겼습니다(땅 위 새 도로 공사비는 빠져 있습니다).</>
+            )}
           </p>
         </figure>
       )}

@@ -247,6 +247,22 @@ class StationPlannerTest {
     }
 
     @Test
+    @DisplayName("도로를 따라가는 노선(트램·BRT·광역급행)은 역이 선 위에 남는다 — 옆 인구 봉우리로도, 다른 큰길로도 안 비킨다(11-12)")
+    void stationsStayOnAnExistingRoadRoute(@TempDir Path dir) throws IOException {
+        PopulationIndex index = new PopulationIndex(censusBesideLine(dir, STATION_LAT, 0.008).toString(), "없는파일.csv");
+        index.load();
+        // 선에서 0.7km 떨어진 인구 봉우리(역세권 밖이라 비킨다), 그 사이에 나란한 다른 큰길(동쪽 0.0036° ≈ 316m)
+        StationPlanner planner = new StationPlanner(index, roadEast(0.0036));
+
+        // 일반 노선 — 인구 쪽으로 비키고 큰길로 붙는다
+        assertThat(planner.planWithDetour(ROUTE, 6, 1.2).stations()).anyMatch(p -> p.lng() != LNG0);
+        // 도로 위 노선 — 역이 모두 선 위, 비킨 길이 0
+        StationPlanner.Plan onRoute = planner.planWithDetour(ROUTE, 6, 1.2, true);
+        assertThat(onRoute.stations()).allSatisfy(p -> assertThat(p.lng()).isEqualTo(LNG0));
+        assertThat(onRoute.detourKm()).isZero();
+    }
+
+    @Test
     @DisplayName("종점은 옆으로도 움직이지 않는다 — 인구를 찾아서는(큰길로 붙이는 것은 따로)")
     void terminalsNeverMoveSideways(@TempDir Path dir) throws IOException {
         // 기점 바로 옆에 봉우리를 둬도 종점은 사용자가 찍은 자리를 지킨다

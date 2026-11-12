@@ -18,7 +18,10 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
-     * 확인 필요 구역 경고를 찍은 점이 아니라 선분으로 보게 한 시각(`RestrictedZones.crossed`) — 양 끝이 구역 밖이어도 선이 지나면
+     * (15:37 — 도로 위 노선은 역도 그 선 위에 두고, 찍은 끝점·경유점을 가까운 큰길 위로 옮겨 시작하게 했다)
+     * 트램·BRT·광역급행이 기존 도로를 따라가게 한 시각(`RoadRoute`) — 그 행들의 연장·역·소요시간·건설비·B/C 가 도로 경로로 바뀌고,
+     * 정차역은 보조간선 이상을 먼저 찾아 붙는다(모든 수단의 역 자리가 조금 움직인다).
+     * 같은 날 11:21 — 확인 필요 구역 경고를 찍은 점이 아니라 선분으로 보게 했다(`RestrictedZones.crossed`) — 양 끝이 구역 밖이어도 선이 지나면
      * 결과의 경고에 「○○ 인근 — 확인 필요」 가 붙는다(경복궁 한가운데를 지나는 노선에 아무 말이 없었다).
      * 같은 날 11:02 — 정차역(종점 포함)을 0.3km 안의 가장 가까운 큰길 위로 옮겼다(`RoadNetwork`) — 역 자리와 역세권 인구, 옆으로 비킨 길이
      * (detourKm)가 조금씩 바뀌어 건설비·이용객 배분·B/C 가 움직인다.
@@ -46,7 +49,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 12, 11, 21);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 12, 15, 37);
 
     private CalculationRules() {
     }

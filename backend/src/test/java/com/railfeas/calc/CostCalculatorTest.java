@@ -62,6 +62,16 @@ class CostCalculatorTest {
     }
 
     private CostCalculator calculator(IntercityRailFinder intercity, TunnelKm tunnel) {
+        return calculator(intercity, tunnel, RoadNetwork.of(List.of()), new WaterBodies("없는파일.geojson"));
+    }
+
+    private CostCalculator calculator(RoadNetwork roads, WaterBodies water) {
+        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
+        intercity.load();
+        return calculator(intercity, TunnelKm.NONE, roads, water);
+    }
+
+    private CostCalculator calculator(IntercityRailFinder intercity, TunnelKm tunnel, RoadNetwork roads, WaterBodies water) {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
         index.load();
 
@@ -77,7 +87,7 @@ class CostCalculatorTest {
 
         return new CostCalculator(index, new BenefitCalculator(parameters),
                 new StationPlanner(index), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"),
-                        new UrbanLineSpeed("없는파일.csv")), tunnel);
+                        new UrbanLineSpeed("없는파일.csv")), tunnel, roads, water);
     }
 
     private static <T> T newInstance(Class<T> type, Object... nameValues) {
@@ -250,6 +260,65 @@ class CostCalculatorTest {
                 Map.of(ModeType.LIGHT_RAIL, capacity), List.of(beside, middle));
 
         assertThat(outcome.results().get(0).getWarning()).contains("가운데 보호구역").doesNotContain("옆 보호구역");
+    }
+
+    /** 그린 노선(남북 10km) 옆으로 동쪽 eastDeg° 를 돌아가는 기존 도로 — ㄷ자 */
+    private static RoadNetwork bracketRoad(double eastDeg) {
+        double[] a = ROUTE_POINTS.get(0), b = ROUTE_POINTS.get(1);
+        return RoadNetwork.ofEdges(List.of(
+                new RoadNetwork.Edge(0, 1, 0, new double[][]{a, {a[0], a[1] + eastDeg}}),
+                new RoadNetwork.Edge(1, 2, 0, new double[][]{{a[0], a[1] + eastDeg}, {b[0], b[1] + eastDeg}}),
+                new RoadNetwork.Edge(2, 3, 0, new double[][]{{b[0], b[1] + eastDeg}, b})));
+    }
+
+    @Test
+    @DisplayName("트램·BRT 는 기존 도로를 따라간다 — 1.5배 안이면 도로 길이로 세고 철도 행은 그린 직선 그대로(11-12)")
+    void roadModesFollowExistingRoads() {
+        // 동쪽 1.76km 를 돌아가는 도로 — 13.5km, 직선 10km 의 1.35배
+        CostCalculator calc = calculator(bracketRoad(0.02), new WaterBodies("없는파일.geojson"));
+        var outcome = calc.calculate(scenario(10.0),
+                List.of(standard(ModeType.TRAM, StructureType.AT_GRADE), standard(ModeType.HEAVY_METRO, StructureType.ELEVATED),
+                        standard(ModeType.EXPRESS_RAIL, StructureType.UNDERGROUND)),
+                Map.of(ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null),
+                        ModeType.HEAVY_METRO, capacity(ModeType.HEAVY_METRO, null, 80_000, 1.0, 20.0, null),
+                        ModeType.EXPRESS_RAIL, capacity(ModeType.EXPRESS_RAIL, null, 80_000, 5.0, 20.0, null)),
+                List.of());
+
+        // 광역급행도 도로를 따라간다(사용자 결정) — 철도라 새 도로 다리값 칸은 없다
+        ScenarioResult express = outcome.results().get(2);
+        assertThat(express.getRouteLine()).startsWith("R ");
+        assertThat(express.getRoadCost()).isNull();
+        assertThat(express.getTravelTimeMin().doubleValue()).isCloseTo(13.5 / 20 * 60, org.assertj.core.data.Offset.offset(1.0));
+
+        ScenarioResult tram = outcome.results().get(0), metro = outcome.results().get(1);
+        // 소요시간 = 길이 ÷ 20km/h — 트램은 도로 13.5km, 지하철은 직선 10km
+        assertThat(tram.getTravelTimeMin().doubleValue()).isCloseTo(13.5 / 20 * 60, org.assertj.core.data.Offset.offset(1.0));
+        assertThat(metro.getTravelTimeMin().doubleValue()).isCloseTo(10.0 / 20 * 60, org.assertj.core.data.Offset.offset(0.2));
+        assertThat(tram.getRouteLine()).startsWith("R ");
+        assertThat(tram.getRoadCost()).isZero();
+        assertThat(metro.getRouteLine()).isNull();
+        assertThat(metro.getRoadCost()).isNull();
+        // 역도 도로 위에 놓인다 — 가운데 역은 동쪽 길 위
+        assertThat(tram.getStations().get(tram.getStations().size() / 2).getLongitude().doubleValue())
+                .isCloseTo(126.998, org.assertj.core.data.Offset.offset(1e-4));
+    }
+
+    @Test
+    @DisplayName("기존 도로가 1.5배를 넘게 돌면 새 도로 — 강을 건너는 몫은 일반국도 교량 단가로 더하고, 땅 위 공사비는 모른다고 적는다")
+    void newRoadPaysForTheBridge() {
+        // 동쪽 5.3km 를 도는 도로 — 20.6km 로 1.5배를 넘는다. 노선 가운데 동서로 놓인 강(남북 0.5km 폭)
+        WaterBodies water = new WaterBodies("없는파일.geojson");
+        water.add("가운데강", WaterBodies.RIVER, List.<double[][]>of(new double[][]{
+                {37.5240, 126.95}, {37.5240, 127.00}, {37.5195, 127.00}, {37.5195, 126.95}, {37.5240, 126.95}}));
+        CostCalculator calc = calculator(bracketRoad(0.06), water);
+        var outcome = calc.calculate(scenario(10.0), List.of(standard(ModeType.TRAM, StructureType.AT_GRADE)),
+                Map.of(ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null)), List.of());
+
+        ScenarioResult tram = outcome.results().get(0);
+        assertThat(tram.getRouteLine()).startsWith("N ");
+        // 강 폭 0.5km × 451억/km(일반국도 PSC Box 386.01억/km × 1.1686)
+        assertThat(tram.getRoadCost()).isBetween(215L, 236L);
+        assertThat(tram.getWarning()).contains("땅 위 공사비 모름");
     }
 
     @Test

@@ -75,3 +75,41 @@ export function routeThroughStations(points, stations) {
   });
   return out;
 }
+
+/**
+ * 지도에 그릴 노선 조각들(GeoJSON Feature). **서버가 노선 모양(`routeLine`)을 주면 그대로 그린다** — 트램·BRT·광역급행은 기존
+ * 도로를 따라가고(11-12), 1.5배를 넘게 돌거나 길이 없는 구간만 새 도로다. `properties.road` 가 false 인 조각은 지도가 점선으로 그린다.
+ * 모양이 없으면(철도 행·계산 전) 예전처럼 그린 점과 역을 엮은 선 하나다. 서버 좌표는 [위도, 경도], 지도는 [경도, 위도]
+ */
+export function routeFeatures(points, stations, routeLine) {
+  if (routeLine?.length) {
+    return routeLine.map((p) => ({
+      type: 'Feature',
+      properties: { road: p.road },
+      geometry: { type: 'LineString', coordinates: p.points.map(([lat, lng]) => [lng, lat]) },
+    }));
+  }
+  return [{
+    type: 'Feature',
+    properties: { road: true },
+    geometry: { type: 'LineString', coordinates: routeThroughStations(points, stations) },
+  }];
+}
+
+/** 기존 도로·새 도로 길이(km) — 노선 모양이 없으면 null */
+export function roadSummary(routeLine) {
+  if (!routeLine?.length) return null;
+  let roadKm = 0;
+  let newKm = 0;
+  routeLine.forEach((p) => {
+    let km = 0;
+    for (let i = 1; i < p.points.length; i += 1) {
+      const [a1, b1] = p.points[i - 1];
+      const [a2, b2] = p.points[i];
+      km += distanceKm([b1, a1], [b2, a2]);
+    }
+    if (p.road) roadKm += km;
+    else newKm += km;
+  });
+  return { roadKm, newKm };
+}

@@ -2,6 +2,7 @@ import { totalLengthKm } from '../geo/haversine';
 import CostTable from './CostTable';
 import { mountainNote } from './mountainNote';
 import { zoneNote } from './zoneNote';
+import { roadSummary } from '../geo/routeLine';
 import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
 
 const rowLabel = (r) => `${modeLabel(r.modeType)} ${STRUCTURE_LABEL[r.structureType] || ''}`.trim();
@@ -110,6 +111,17 @@ export default function ScenarioPanel({
                 <button onClick={onApplyMountainDetour}>산을 돌아가는 선형으로 바꾸기</button>
               )}
             </div>
+          );
+        })()}
+        {/* 트램·BRT·광역급행은 기존 도로를 따라간다(11-12) — 지도의 실선이 기존 도로, 점선이 새로 놓는 구간 */}
+        {(() => {
+          const s = roadSummary(mountainRow?.routeLine);
+          if (!s) return null;
+          return (
+            <p className="water-span small muted">
+              <b>{rowLabel(mountainRow)}</b> 기존 도로 {s.roadKm.toFixed(1)}km
+              {s.newKm > 0.05 && ` · 새로 놓는 구간(점선) ${s.newKm.toFixed(1)}km`}
+            </p>
           );
         })()}
         {mismatch && (
