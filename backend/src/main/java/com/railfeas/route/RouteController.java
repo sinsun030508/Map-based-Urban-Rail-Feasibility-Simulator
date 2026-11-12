@@ -4,6 +4,7 @@ import com.railfeas.calc.MountainCost;
 import com.railfeas.calc.MountainDetour;
 import com.railfeas.calc.MountainPlans;
 import com.railfeas.calc.MountainTunnelKm;
+import com.railfeas.calc.RestrictedZones;
 import com.railfeas.calc.Terrain;
 import com.railfeas.calc.WaterBodies;
 import com.railfeas.calc.WaterDetour;
@@ -13,6 +14,7 @@ import com.railfeas.reference.CostStandard;
 import com.railfeas.reference.CostStandardRepository;
 import com.railfeas.reference.ModeCapacity;
 import com.railfeas.reference.ModeCapacityRepository;
+import com.railfeas.reference.RestrictedZoneRepository;
 import com.railfeas.scenario.ScenarioDto;
 import com.railfeas.scenario.ScenarioService;
 import jakarta.validation.Valid;
@@ -71,6 +73,13 @@ public class RouteController {
                                    List<MountainCost.Delta> deltas, Double roadTunnelKm, List<ModePlan> modePlans) {
     }
 
+    /**
+     * 지나는 확인 필요 구역(노선을 따라 닿는 순)과 피해 가는 선형. points 는 피할 수 있는 구역만 돌아간 선이다(못 피한 구역은 그대로).
+     * 구조와 상관없이 준다 — 문화재·상수원 구역은 지하 굴착이 문제다
+     */
+    public record ZoneResponse(List<Point> points, List<RestrictedZones.Zone> zones, List<WaterDetour.Crossing> crossings) {
+    }
+
     /** 한 수단만의 손익분기로 다시 따진 안 — 화면은 비교표에서 이 수단 행을 고르면 공통 안 대신 이것을 보인다 */
     public record ModePlan(ModeType mode, List<Point> points, List<MountainDetour.Mountain> mountains,
                            List<MountainCost.Delta> deltas) {
@@ -82,10 +91,12 @@ public class RouteController {
     private final CostStandardRepository standards;
     private final ModeCapacityRepository capacities;
     private final MountainPlans plans;
+    private final RestrictedZoneRepository restricted;
 
     public RouteController(WaterDetour detour, WaterBodies water, Terrain terrain,
                            CostStandardRepository standards, ModeCapacityRepository capacities,
-                           MountainPlans plans) {
+                           MountainPlans plans, RestrictedZoneRepository restricted) {
+        this.restricted = restricted;
         this.detour = detour;
         this.water = water;
         this.terrain = terrain;
@@ -137,6 +148,21 @@ public class RouteController {
         }
         return new MountainResponse(true, points(plan.points()), plan.mountains(),
                 MountainCost.deltas(plan, active, byMode, road), road, own);
+    }
+
+    /** 확인 필요 구역 — 선이 원을 지나면 알리고 피해 가는 선형을 제안한다(11-12 사용자 요청). 바꾸는 것은 사용자다 */
+    @PostMapping("/zones")
+    public ZoneResponse zones(@Valid @RequestBody DetourRequest request) {
+        ScenarioService.lengthOf(request.points());
+        List<double[]> route = coords(request);
+        List<RestrictedZones.Zone> all = RestrictedZones.of(restricted.findAll());
+        List<RestrictedZones.Zone> hit = RestrictedZones.crossed(route, all);
+        if (hit.isEmpty()) {
+            return new ZoneResponse(points(route), List.of(), List.of());
+        }
+        // 지나는 구역만이 아니라 둘레 구역도 막는다 — 돌아간 길이 옆 구역으로 들어가지 않게(호수와 같다)
+        WaterDetour.Plan plan = RestrictedZones.detour(all).plan(route);
+        return new ZoneResponse(points(plan.points()), hit, plan.crossings());
     }
 
     private static List<double[]> coords(DetourRequest request) {

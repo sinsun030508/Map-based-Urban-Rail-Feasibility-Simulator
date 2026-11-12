@@ -22,8 +22,12 @@ import org.springframework.stereotype.Component;
  * 인구는 **고정 반경 안의 합**으로 센다. 집계구는 크기가 제각각이라 집계구 인구를
  * 그대로 비교하면 넓은 시골 구역이 이기지만, 반경을 고정하면 밀도 비교가 된다.
  *
+ * 큰길로 붙인다 (11-12 사용자 요청)
+ *   인구 자리를 고른 뒤 {@link RoadNetwork#MAX_SNAP_KM}km 안의 가장 가까운 큰길 위로 옮긴다 — 아파트 단지 한가운데
+ *   (노량진2동, 동 사이)에 역이 놓였다. **종점도 옮긴다** — 찍은 점이 건물 위일 수 있다. 옮긴 몫도 detourKm 에 든다
+ *
  * 한계
- *   - 종점은 사용자가 찍은 점에 고정한다. 출발·도착은 설계 의도라 옮기지 않는다
+ *   - 종점은 사용자가 찍은 점을 기준으로 둔다 — 앞뒤·옆으로 인구를 찾지 않고 큰길로만 붙인다
  *   - 환승·지형·용지는 보지 않는다. 기존 노선 환승은 별도 기능이다
  *   - 인구 자료가 없는 지역(수집 범위 밖)은 균등 분할 결과가 그대로 남는다
  */
@@ -52,9 +56,17 @@ public class StationPlanner {
     private static final double COVERAGE_RADIUS_KM = 10.0;
 
     private final PopulationIndex population;
+    private final RoadNetwork roads;
 
+    /** 큰길 자료 없이 — 역을 인구 자리에 그대로 둔다(테스트) */
     public StationPlanner(PopulationIndex population) {
+        this(population, RoadNetwork.of(List.of()));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public StationPlanner(PopulationIndex population, RoadNetwork roads) {
         this.population = population;
+        this.roads = roads;
     }
 
     /** 배치된 역 하나. score 는 반경 안 인구로, 이용객 배분에 쓴다 */
@@ -111,8 +123,8 @@ public class StationPlanner {
 
             boolean terminal = i == 0 || i == count - 1;
             double[] on = pointAt(route, cum, chosen);
-            // 종점은 사용자가 찍은 자리라 옆으로도 옮기지 않는다
-            double[] at = terminal ? on : bestBeside(route, cum, chosen, on);
+            // 종점은 사용자가 찍은 자리라 옆으로 인구를 찾지 않는다. 다만 큰길로는 붙인다 — 건물 위일 수 있다
+            double[] at = roads.snap(terminal ? on : bestBeside(route, cum, chosen, on));
 
             // **반경 500m 안에 한 명도 없으면 역으로 세지 않는다.**
             // 강·호수·바다 위가 그렇다 — 집계구가 없어 이름도 못 짓고(`name` 이 null)

@@ -50,6 +50,8 @@ app:
   rail-speed-file: ${RAIL_SPEED_FILE:../data/seed/rail_speed.csv}
   # 호수·저수지 영역 — 노선이 물을 지나면 돌아가는 선형을 제안한다 (etl/osm_water.py)
   water-file: ${WATER_FILE:../data/build/water_bodies.geojson}
+  # 큰길 중심선 — 정차역을 가장 가까운 큰길 위로 옮긴다 (etl/osm_roads.py). 없으면 꺼진다
+  road-file: ${ROAD_FILE:../data/build/roads.csv.gz}
   # 땅 높이 타일 — 노선이 35‰ 보다 가파른 산을 지나면 터널·우회 안을 보인다 (etl/dem_tiles.py). 없으면 꺼진다
   dem-dir: ${DEM_DIR:../data/cache/dem}
   jwt:

@@ -92,6 +92,8 @@ export const api = {
     request('/route/detour', { method: 'POST', body: { points, structure } }),
   mountain: (points, structure) =>
     request('/route/mountain', { method: 'POST', body: { points, structure } }),
+  // 궁궐·상수원·군사 구역 — 선이 지나면 알리고 피해 가는 선형을 제안한다(구조와 무관)
+  zoneDetour: (points) => request('/route/zones', { method: 'POST', body: { points } }),
   // 관리자 기준값 — 서버가 ROLE_ADMIN 을 요구한다
   adminParameters: () => request('/admin/parameters'),
   updateParameter: (name, body) =>

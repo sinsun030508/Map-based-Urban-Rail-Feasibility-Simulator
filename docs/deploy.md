@@ -29,7 +29,7 @@ cd railfeas
 python3 etl/dem_tiles.py     # 지형 타일 36MB. 안 받으면 산 판정만 꺼진다
 ```
 
-`data/build` 의 CSV 는 저장소에 있다. `data/cache` 는 없다.
+`data/build` 의 CSV 와 큰길 중심선(`roads.csv.gz`)은 저장소에 있다. `data/cache` 는 없다. 큰길 파일이 없으면 정차역을 큰길로 옮기는 일만 꺼진다.
 
 ## 3. `.env`
 

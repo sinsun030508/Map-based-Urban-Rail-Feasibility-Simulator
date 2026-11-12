@@ -247,7 +247,7 @@ class StationPlannerTest {
     }
 
     @Test
-    @DisplayName("종점은 옆으로도 움직이지 않는다")
+    @DisplayName("종점은 옆으로도 움직이지 않는다 — 인구를 찾아서는(큰길로 붙이는 것은 따로)")
     void terminalsNeverMoveSideways(@TempDir Path dir) throws IOException {
         // 기점 바로 옆에 봉우리를 둬도 종점은 사용자가 찍은 자리를 지킨다
         StationPlanner planner = planner(censusBesideLine(dir, LAT0, 0.004));
@@ -256,6 +256,40 @@ class StationPlannerTest {
         assertThat(placed.get(0).lat()).isEqualTo(LAT0);
         assertThat(placed.get(0).lng()).isEqualTo(LNG0);
         assertThat(placed.get(placed.size() - 1).lng()).isEqualTo(LNG0);
+    }
+
+    /** 노선과 나란히 동쪽 {@code eastDeg}° 에 놓인 남북 큰길 하나 */
+    private static RoadNetwork roadEast(double eastDeg) {
+        return RoadNetwork.of(List.<double[][]>of(new double[][]{
+                {LAT0 + 0.01, LNG0 + eastDeg}, {LAT0 - 0.10, LNG0 + eastDeg}}));
+    }
+
+    @Test
+    @DisplayName("역을 가장 가까운 큰길 위로 옮긴다 — 종점도, 옮긴 몫은 돌아간 거리로(11-12)")
+    void snapsStationsOntoTheNearestRoad() {
+        PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
+        index.load();
+        // 동쪽 0.0012° ≈ 106m 에 큰길 — 단지 한가운데 놓인 역을 길 위로
+        StationPlanner.Plan plan = new StationPlanner(index, roadEast(0.0012)).planWithDetour(ROUTE, 6, 1.2);
+
+        assertThat(plan.stations()).hasSize(6);
+        assertThat(plan.stations()).allSatisfy(p -> assertThat(p.lng()).isCloseTo(LNG0 + 0.0012,
+                org.assertj.core.api.Assertions.within(1e-9)));
+        // 모두 똑같이 평행으로 옮겼으니 역 사이 길이는 그대로다
+        assertThat(plan.detourKm()).isCloseTo(0.0, org.assertj.core.api.Assertions.within(1e-6));
+
+        // 가운데 역 하나 옆에만 짧은 큰길 — 그 역만 옮겨 선이 꺾이고, 그 몫이 돌아간 거리로 나간다(공짜가 아니다)
+        RoadNetwork shortRoad = RoadNetwork.of(List.<double[][]>of(new double[][]{
+                {STATION_LAT + 0.002, LNG0 + 0.0012}, {STATION_LAT - 0.002, LNG0 + 0.0012}}));
+        StationPlanner.Plan one = new StationPlanner(index, shortRoad).planWithDetour(ROUTE, 6, 1.2);
+        assertThat(one.stations()).filteredOn(p -> p.lng() != LNG0).hasSize(1)
+                .first().satisfies(p -> assertThat(p.lat()).isCloseTo(STATION_LAT, org.assertj.core.api.Assertions.within(1e-9)));
+        assertThat(one.detourKm()).isPositive();
+
+        // 0.3km 밖(동쪽 0.004° ≈ 353m)이면 그대로다
+        StationPlanner.Plan far = new StationPlanner(index, roadEast(0.004)).planWithDetour(ROUTE, 6, 1.2);
+        assertThat(far.stations()).allMatch(p -> p.lng() == LNG0);
+        assertThat(far.detourKm()).isZero();
     }
 
     /**

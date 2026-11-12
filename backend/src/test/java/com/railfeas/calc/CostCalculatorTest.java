@@ -229,6 +229,30 @@ class CostCalculatorTest {
     }
 
     @Test
+    @DisplayName("찍은 점이 아니라 선이 구역을 지나면 안내한다 — 양 끝이 5km 밖이어도(11-12, 경복궁)")
+    void restrictedZoneOnTheLineNotJustAtThePoints() {
+        // 노선 10km 의 한가운데에 반경 1km 구역 — 양 끝은 5km 떨어져 있다
+        var middle = newInstance(com.railfeas.reference.RestrictedZone.class,
+                "name", "가운데 보호구역",
+                "centerLat", BigDecimal.valueOf(37.5215),
+                "centerLng", BigDecimal.valueOf(126.9780),
+                "radiusKm", BigDecimal.valueOf(1.0));
+        // 선에서 동쪽 1.5km — 반경 밖이라 말하지 않는다
+        var beside = newInstance(com.railfeas.reference.RestrictedZone.class,
+                "name", "옆 보호구역",
+                "centerLat", BigDecimal.valueOf(37.5215),
+                "centerLng", BigDecimal.valueOf(126.9950),
+                "radiusKm", BigDecimal.valueOf(1.0));
+        var capacity = capacity(ModeType.LIGHT_RAIL, null, 60_000, 2.0, 30.0, null);
+
+        var outcome = calculator().calculate(scenario(10.0),
+                List.of(standard(ModeType.LIGHT_RAIL, StructureType.ELEVATED)),
+                Map.of(ModeType.LIGHT_RAIL, capacity), List.of(beside, middle));
+
+        assertThat(outcome.results().get(0).getWarning()).contains("가운데 보호구역").doesNotContain("옆 보호구역");
+    }
+
+    @Test
     @DisplayName("정차역은 결과마다 붙고 종점 수를 포함한다")
     void stationsAreAttachedToEachResult() {
         var outcome = run(scenario(10.0),

@@ -1,4 +1,4 @@
-import { distanceKm } from './haversine';
+import { distanceKm } from './haversine.js';
 
 const KM_PER_DEG_LAT = 110.574;
 
@@ -45,6 +45,10 @@ export function alongKm(points, cum, point) {
  * (복선전철·급행처럼 역간격이 넓은 수단) 꺾임이 통째로 사라져 사용자가 그린 모양이
  * 없어진다. 그래서 그린 꼭짓점과 역을 **선 위 거리 순으로 엮는다.**
  *
+ * **양 끝은 종점역이다**(11-12). 종점역은 찍은 점에서 가장 가까운 큰길로 옮겨질 수 있다(`RoadNetwork`) — 찍은 점이
+ * 건물 위일 수 있어서다. 찍은 양 끝까지 그리면 선이 단지 안의 점에서 시작해 길 위의 역으로 꺾여 들어가므로, 찍은 양
+ * 끝 대신 첫 역·마지막 역으로 시작하고 끝낸다(서버는 종점을 빼지 않는다). 가운데 꼭짓점(꺾임)은 그대로 엮는다.
+ *
  * 역이 2개 미만이면(비교표에서 아무것도 안 고른 상태) 그린 선을 그대로 돌려준다.
  */
 export function routeThroughStations(points, stations) {
@@ -59,14 +63,13 @@ export function routeThroughStations(points, stations) {
     cum.push(cum[i - 1] + distanceKm(points[i - 1], points[i]));
   }
 
-  const nodes = points.map((p, i) => ({ at: cum[i], p }));
-  placed.forEach((c) => nodes.push({ at: alongKm(points, cum, c), p: c }));
+  const nodes = points.slice(1, -1).map((p, i) => ({ at: cum[i + 1], p }));
+  placed.slice(1, -1).forEach((c) => nodes.push({ at: alongKm(points, cum, c), p: c }));
   nodes.sort((a, b) => a.at - b.at);
 
-  // 겹치는 점을 지운다 — **종점은 사용자가 찍은 점에 고정**이라 그린 점과 역이 같은 자리다.
-  // 그대로 두면 길이 0 짜리 조각이 생겨 지도가 선 끝을 이상하게 그린다
+  // 겹치는 점을 지운다 — 역이 꼭짓점 자리에 놓이면 길이 0 짜리 조각이 생겨 지도가 선을 이상하게 그린다
   const out = [];
-  nodes.forEach(({ p }) => {
+  [{ p: placed[0] }, ...nodes, { p: placed[placed.length - 1] }].forEach(({ p }) => {
     const last = out[out.length - 1];
     if (!last || distanceKm(last, p) > 1e-6) out.push(p);
   });

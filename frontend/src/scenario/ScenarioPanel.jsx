@@ -1,6 +1,7 @@
 import { totalLengthKm } from '../geo/haversine';
 import CostTable from './CostTable';
 import { mountainNote } from './mountainNote';
+import { zoneNote } from './zoneNote';
 import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
 
 const rowLabel = (r) => `${modeLabel(r.modeType)} ${STRUCTURE_LABEL[r.structureType] || ''}`.trim();
@@ -14,7 +15,7 @@ const STRUCTURES = [
 export default function ScenarioPanel({
   points, title, structure, scenarios, scenariosLoaded, saving, error, savedLength,
   savedId, results, calculating, population, selectedResult, stale, editingId, existingOption,
-  overLength, water, onApplyDetour, mountain, mountainRow, onApplyMountainDetour,
+  overLength, water, onApplyDetour, mountain, mountainRow, onApplyMountainDetour, zone, onApplyZoneDetour,
   onTitle, onStructure, onUndo, onClear, onSave, onLoad, onDelete, onCalculate,
   onSelectResult,
 }) {
@@ -66,6 +67,23 @@ export default function ScenarioPanel({
             </p>
           </div>
         )}
+        {/* 확인 필요 구역(궁궐·상수원·군사) — 선이 원을 지나면 알리고 피해 가는 선형을 **제안만** 한다(11-12). 좌표가 근사치라
+            단정하지 않는다. 구조와 상관없다 — 문화재 구역은 지하 굴착이 문제다 */}
+        {(() => {
+          const note = zoneNote(zone);
+          if (!note) return null;
+          return (
+            <div className="water-note zone-note small">
+              {note.zones.map((t) => <p key={t}><strong>{t}</strong></p>)}
+              {note.detours.map((t) => <p key={t}>{t}</p>)}
+              {note.canApply && <button onClick={onApplyZoneDetour}>구역을 피해 가는 선형으로 바꾸기</button>}
+              <p className="muted">
+                지도의 노란 원(군사는 빨강)이 구역입니다. 좌표·반경은 대표 지점을 눈대중으로 찍은 근사치라 실제 경계가 아니고, 지나도 되는지는
+                심의·협의로 정해집니다 — 확인할 곳을 알려 드리는 안내입니다. 피해 가는 길이 1.5배를 넘으면 제안하지 않습니다(가정값).
+              </p>
+            </div>
+          );
+        })()}
         {/* 물 위 구간 — 교량 할증을 못 넣은 몫이 얼마나 되는지 드러낸다(강·호수 모두).
             50m 도 안 되게 물가를 스치는 조각은 잡음이라 뺀다. 이름 뒤에 조사를 붙이지 않는다.
             **지하는 물 밑으로 지난다** — 다리가 아니라 하저터널이고, 우회도 제안하지 않는다.

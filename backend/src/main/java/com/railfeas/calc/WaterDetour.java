@@ -41,10 +41,26 @@ public class WaterDetour {
     public record Plan(List<double[]> points, List<Crossing> crossings) {
     }
 
-    private final WaterBodies water;
+    /**
+     * 못 돌 때의 이유 문구. 확인 필요 구역도 같은 탐색을 쓴다(`RestrictedZones`, 11-12) — 구역을 두고 「물을 피해 갈 길」·「건너는
+     * 편이 낫다」 고 적으면 틀린 말이다
+     */
+    public record Wording(String noPath, String tooLong) {
+        static final Wording WATER = new Wording("물을 피해 갈 길을 찾지 못했습니다",
+                "돌아가면 %.1f배(%.1fkm 더)라 건너는 편이 낫습니다");
+    }
 
+    private final WaterBodies water;
+    private final Wording wording;
+
+    @org.springframework.beans.factory.annotation.Autowired
     public WaterDetour(WaterBodies water) {
-        this.water = water;
+        this(water, Wording.WATER);
+    }
+
+    public WaterDetour(WaterBodies obstacles, Wording wording) {
+        this.water = obstacles;
+        this.wording = wording;
     }
 
     public Plan plan(List<double[]> route) {
@@ -66,7 +82,7 @@ public class WaterDetour {
             double direct = km(List.of(a, b));
             List<double[]> via = route(a, b, hits);
             if (via == null) {
-                crossings.add(new Crossing(names, false, 0, "물을 피해 갈 길을 찾지 못했습니다"));
+                crossings.add(new Crossing(names, false, 0, wording.noPath()));
             } else {
                 List<double[]> line = new ArrayList<>();
                 line.add(a);
@@ -76,7 +92,7 @@ public class WaterDetour {
                 int remaining = route.size() - i - 1;
                 if (len > direct * MAX_RATIO) {
                     crossings.add(new Crossing(names, false, 0, String.format(
-                            "돌아가면 %.1f배(%.1fkm 더)라 건너는 편이 낫습니다", len / direct, len - direct)));
+                            wording.tooLong(), len / direct, len - direct)));
                 } else if (out.size() + via.size() + 1 + remaining > MAX_POINTS) {
                     crossings.add(new Crossing(names, false, 0,
                             "돌아가면 경유점이 " + MAX_POINTS + "개를 넘어 저장할 수 없습니다"));

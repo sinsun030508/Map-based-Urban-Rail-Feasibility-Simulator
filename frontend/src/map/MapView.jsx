@@ -23,6 +23,17 @@ const MOUNTAIN_PREVIEW_SOURCE = 'mountain-preview';
  *   0.1km 토막은 점 하나뿐이라 선이 안 그려진다 — 그런 토막은 갈색 동그라미로 찍는다.
  * mountainPreview — 산을 돌아가는 안의 선형([경도,위도] 목록). 바꾸기 전 미리보기라 점선이다.
  */
+/** 중심·반경(km)의 원을 64각형 고리로 — [경도, 위도] */
+function circleRing(lng, lat, radiusKm) {
+  const kmLng = 111.320 * Math.cos((lat * Math.PI) / 180);
+  const ring = [];
+  for (let k = 0; k <= 64; k += 1) {
+    const a = (2 * Math.PI * k) / 64;
+    ring.push([lng + (radiusKm * Math.cos(a)) / kmLng, lat + (radiusKm * Math.sin(a)) / 110.574]);
+  }
+  return ring;
+}
+
 export default function MapView({
   points, zones, stations, existingOption, show3D, focus, waterPieces, mountainPieces, mountainPreview,
   onPick,
@@ -315,11 +326,13 @@ export default function MapView({
     });
   }, [mountainPieces, mountainPreview, mapReady]);
 
-  // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다
+  // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다.
+  // **실제 반경(km)으로 그린다**(11-12). 전에는 화면 픽셀 크기(줌 14 에서 26px ≈ 170m)로 찍어 반경 1km 구역이 훨씬 작게 보였고,
+  // 경복궁 중심 0.4km 를 지나는 선이 원 사이로 비껴가는 것처럼 보였다. 서버의 판정(`RestrictedZones`)과 같은 원이어야 한다
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || !zones?.length) return;
-    if (map.getLayer('zone-circle')) return;
+    if (map.getLayer('zone-fill')) return;
 
     map.addSource('zones', {
       type: 'geojson',
@@ -328,27 +341,18 @@ export default function MapView({
         features: zones.map((z) => ({
           type: 'Feature',
           properties: { name: z.name, severity: z.severity, radiusKm: z.radiusKm },
-          geometry: { type: 'Point', coordinates: [Number(z.centerLng), Number(z.centerLat)] },
+          geometry: { type: 'Polygon', coordinates: [circleRing(Number(z.centerLng), Number(z.centerLat), Number(z.radiusKm))] },
         })),
       },
     });
+    const color = ['match', ['get', 'severity'], 'BLOCKED', '#b3261e', '#c88a00'];
+    // 노선 아래에 깐다 — 그린 선을 가리면 안 된다
+    const before = map.getLayer('route-line') ? 'route-line' : undefined;
+    map.addLayer({ id: 'zone-fill', type: 'fill', source: 'zones', paint: { 'fill-color': color, 'fill-opacity': 0.18 } }, before);
     map.addLayer({
-      id: 'zone-circle',
-      type: 'circle',
-      source: 'zones',
-      paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 4, 14, 26],
-        'circle-color': [
-          'match', ['get', 'severity'],
-          'BLOCKED', '#b3261e',
-          '#c88a00',
-        ],
-        'circle-opacity': 0.25,
-        'circle-stroke-width': 1,
-        'circle-stroke-color': '#7a5c00',
-      },
-    });
-    map.on('click', 'zone-circle', (e) => {
+      id: 'zone-line', type: 'line', source: 'zones', paint: { 'line-color': '#7a5c00', 'line-width': 1 },
+    }, before);
+    map.on('click', 'zone-fill', (e) => {
       const p = e.features[0].properties;
       new maplibregl.Popup()
         .setLngLat(e.lngLat)

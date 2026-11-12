@@ -63,3 +63,13 @@ test('토큰을 보내고 받은 401 은 세션 만료다', async () => {
   assert.deepEqual(events, [SESSION_EXPIRED]);
   assert.equal(localStorage.getItem('railfeas.token'), null, '끊긴 토큰은 지운다');
 });
+
+test('api 함수 이름이 겹치지 않는다 — 겹치면 뒤의 것이 오류 없이 앞의 것을 덮는다(11-12)', async () => {
+  // 구역 우회(`/route/zones`)를 `zones` 로 붙였더니 지도 원 목록(`/reference/zones`)을 덮어 원이 하나도 안 그려졌다
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('./client.js', import.meta.url), 'utf8');
+  const body = src.slice(src.indexOf('export const api = {'));
+  const keys = [...body.matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]);
+  assert.ok(keys.length > 10);
+  assert.deepEqual(keys.filter((k, i) => keys.indexOf(k) !== i), []);
+});

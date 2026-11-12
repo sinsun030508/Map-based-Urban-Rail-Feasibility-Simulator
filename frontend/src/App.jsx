@@ -48,6 +48,7 @@ export default function App() {
   // 그린 선이 호수·저수지를 지나는지. 점이 바뀌면 다시 묻고, 묻는 사이 점이 또 바뀌면 버린다
   const [water, setWater] = useState(null);
   const [mountain, setMountain] = useState(null);
+  const [zone, setZone] = useState(null);
   const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
@@ -155,22 +156,43 @@ export default function App() {
 
   /**
    * 산 구간(`/api/route/mountain`) — 호수와 같은 틀이다(0.6초 뒤, `key` 로 낡은 답을 버린다, 실패해도
-   * 그리기를 막지 않는다). 지하는 서버가 안내하지 않는다. 긴 노선은 몇 초 걸린다(서울~부산 3초).
-   * **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
+   * 그리기를 막지 않는다). 긴 노선은 몇 초 걸린다(서울~부산 3초). **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
+   *
+   * **구조 선택창과 상관없이 땅 위 기준으로 묻는다**(11-12). 선택창의 구조로 물었더니 지하를 고른 채 계산한 뒤 표에서 트램·고가
+   * 행을 골라도 산 안내가 안 떴다 — 그 행들의 건설비엔 터널비가 들어 있는데. 보일지는 지도에 그린 행의 구조로 정한다(아래 `mountainShown`)
    */
+  const pointsKey = JSON.stringify(points);
   useEffect(() => {
     if (points.length < 2) {
       setMountain(null);
       return undefined;
     }
-    const key = waterKey;
+    const key = pointsKey;
     const t = setTimeout(() => {
-      api.mountain(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), structure)
+      api.mountain(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), 'ELEVATED')
         .then((r) => setMountain({ key, ...r }))
         .catch(() => setMountain(null));
     }, 600);
     return () => clearTimeout(t);
-  }, [points, structure]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [points]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * 궁궐·상수원·군사 구역(`/api/route/zones`, 11-12 사용자 요청) — 선이 원을 지나면 알리고 피해 가는 선형을 제안한다. 호수와 같은 틀이고
+   * **구조와 상관없다**(문화재 구역은 지하 굴착이 문제다). **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
+   */
+  useEffect(() => {
+    if (points.length < 2) {
+      setZone(null);
+      return undefined;
+    }
+    const key = pointsKey;
+    const t = setTimeout(() => {
+      api.zoneDetour(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })))
+        .then((r) => setZone({ key, ...r }))
+        .catch(() => setZone(null));
+    }, 600);
+    return () => clearTimeout(t);
+  }, [points]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) {
     return (
@@ -265,13 +287,23 @@ export default function App() {
         .sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
     : null;
 
-  // 비교표에서 고른 행의 수단을 따로 따진 안이 있으면(트램) 그것을 쓴다 — 지도 토막·점선, 패널 문구, 「바꾸기」 가 같은 안을 본다
-  const mountainNow = mountainFor(mountain && mountain.key === waterKey ? mountain : null, shown);
+  // 비교표에서 고른 행의 수단을 따로 따진 안이 있으면(트램) 그것을 쓴다 — 지도 토막·점선, 패널 문구, 「바꾸기」 가 같은 안을 본다.
+  // **지하는 이미 땅속이라 산을 안내하지 않는다** — 계산 뒤엔 지도에 그린 행의 구조, 계산 전엔 선택창의 구조로 가른다
+  const mountainStructure = shown ? shown.structureType : structure;
+  const mountainNow = mountainStructure === 'UNDERGROUND' ? null
+    : mountainFor(mountain && mountain.key === pointsKey ? mountain : null, shown);
+  const zoneNow = zone && zone.key === pointsKey ? zone : null;
   // 터널 토막(갈색)과 돌아가는 안의 미리보기(점선) — 돌아갈 수 있는 구간이 있을 때만 미리보기를 그린다
   const mountainPieces = (mountainNow?.mountains || []).flatMap((m) => m.pieces || []);
   const mountainPreview = (mountainNow?.mountains || []).some((m) => m.detoured)
     ? mountainNow.points.map((p) => [Number(p.longitude), Number(p.latitude)])
     : null;
+
+  /** 구역을 피해 가는 선형으로 바꾼다 — 피할 수 있는 구역만 돌고 나머지는 그대로다 */
+  function applyZoneDetour() {
+    setPoints(zoneNow.points.map((p) => [Number(p.longitude), Number(p.latitude)]));
+    reset();
+  }
 
   /** 산을 돌아가는 선형으로 바꾼다 — 돌 수 있는 구간만 돌고 나머지는 그대로다 */
   function applyMountainDetour() {
@@ -419,6 +451,8 @@ export default function App() {
           water={waterNow}
           onApplyDetour={applyDetour}
           mountain={mountainNow}
+          zone={zoneNow}
+          onApplyZoneDetour={applyZoneDetour}
           mountainRow={shown}
           onApplyMountainDetour={applyMountainDetour}
           // 표의 강조는 지도에 실제로 그린 안을 따른다 — 둘이 다른 안을 가리키면 안 된다

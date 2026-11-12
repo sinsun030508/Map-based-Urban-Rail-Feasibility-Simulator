@@ -339,22 +339,18 @@ public class CostCalculator {
     }
 
     /**
-     * 규제 구역 근처를 지나는지 본다.
-     * 구역 좌표·반경이 근사치라 "통과"가 아니라 "확인 필요"로만 안내한다.
+     * 규제 구역을 지나는지 본다 — 찍은 점이 아니라 **선분**으로(`RestrictedZones.crossed`, 11-12. 점만 보다가 경복궁 한가운데를
+     * 지나는 노선에 아무 말이 없었다). 구역 좌표·반경이 근사치라 "통과"가 아니라 "확인 필요"로만 안내한다.
      */
     private String zoneWarning(List<RoutePoint> points, List<RestrictedZone> zones) {
-        for (RestrictedZone zone : zones) {
-            double radius = zone.getRadiusKm().doubleValue();
-            for (RoutePoint p : points) {
-                double d = Haversine.distanceKm(
-                        p.getLatitude().doubleValue(), p.getLongitude().doubleValue(),
-                        zone.getCenterLat().doubleValue(), zone.getCenterLng().doubleValue());
-                if (d <= radius) {
-                    return zone.getName() + " 인근 — 확인 필요";
-                }
-            }
+        List<double[]> route = points.stream()
+                .map(p -> new double[]{p.getLatitude().doubleValue(), p.getLongitude().doubleValue()})
+                .toList();
+        List<RestrictedZones.Zone> hit = RestrictedZones.crossed(route, RestrictedZones.of(zones));
+        if (hit.isEmpty()) {
+            return null;
         }
-        return null;
+        return hit.get(0).name() + (hit.size() > 1 ? " 외 " + (hit.size() - 1) + "곳" : "") + " 인근 — 확인 필요";
     }
 
     /** 계산 결과와 함께 시나리오에 기록할 값들 */

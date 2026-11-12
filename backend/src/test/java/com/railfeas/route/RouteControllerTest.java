@@ -15,6 +15,8 @@ import com.railfeas.common.StructureType;
 import com.railfeas.reference.CostStandard;
 import com.railfeas.reference.CostStandardRepository;
 import com.railfeas.reference.ModeCapacityRepository;
+import com.railfeas.reference.RestrictedZone;
+import com.railfeas.reference.RestrictedZoneRepository;
 import com.railfeas.scenario.ScenarioDto;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -67,7 +69,33 @@ class RouteControllerTest {
             }
         };
         return new RouteController(new WaterDetour(water), water, new Terrain(dem), standards, capacities,
-                new MountainPlans(empty, new com.fasterxml.jackson.databind.ObjectMapper()));
+                new MountainPlans(empty, new com.fasterxml.jackson.databind.ObjectMapper()), zones());
+    }
+
+    /** 경복궁·창덕궁 — S3 의 근사 좌표 */
+    private static RestrictedZoneRepository zones() {
+        RestrictedZoneRepository repo = Mockito.mock(RestrictedZoneRepository.class);
+        Mockito.when(repo.findAll()).thenReturn(List.of(
+                zone("경복궁 일대", 37.5790, 126.9770, 1.0), zone("창덕궁·종묘 일대", 37.5790, 126.9910, 1.0)));
+        return repo;
+    }
+
+    private static RestrictedZone zone(String name, double lat, double lng, double radiusKm) {
+        try {
+            Constructor<RestrictedZone> c = RestrictedZone.class.getDeclaredConstructor();
+            c.setAccessible(true);
+            RestrictedZone z = c.newInstance();
+            for (Object[] kv : new Object[][]{{"name", name}, {"centerLat", BigDecimal.valueOf(lat)},
+                    {"centerLng", BigDecimal.valueOf(lng)}, {"radiusKm", BigDecimal.valueOf(radiusKm)},
+                    {"severity", com.railfeas.common.Severity.REVIEW}}) {
+                Field f = RestrictedZone.class.getDeclaredField((String) kv[0]);
+                f.setAccessible(true);
+                f.set(z, kv[1]);
+            }
+            return z;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static CostStandard standard(ModeType mode, StructureType structure, long perKm) {
@@ -241,6 +269,28 @@ class RouteControllerTest {
         // 트램 단가가 없으면 따로 줄 것이 없다
         assertThat(controller().mountain(new RouteController.DetourRequest(
                 List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED)).modePlans()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("구역 — 선이 지나면 알리고 피해 가는 선을 준다, 위경도 순서도 그대로(11-12)")
+    void 구역을_지나면_알린다() {
+        // 사용자 화면 — 서대문구청 쪽에서 한성대입구 쪽으로, 지하. 양 끝은 두 궁 밖이다
+        var res = controller().zones(new RouteController.DetourRequest(
+                List.of(p(37.5736461, 126.9372454), p(37.5892438, 127.0073508)), StructureType.UNDERGROUND));
+
+        assertThat(res.zones()).extracting(com.railfeas.calc.RestrictedZones.Zone::name)
+                .containsExactly("경복궁 일대", "창덕궁·종묘 일대");
+        assertThat(res.crossings()).isNotEmpty();
+        assertThat(res.points().get(0).latitude()).isEqualByComparingTo("37.5736461");
+        for (var pt : res.points()) {
+            assertThat(pt.latitude().doubleValue()).isBetween(37.5, 37.7);
+            assertThat(pt.longitude().doubleValue()).isBetween(126.9, 127.1);
+        }
+
+        // 지나지 않으면 빈 답 — 점은 그대로
+        var none = controller().zones(new RouteController.DetourRequest(SINGAL, StructureType.ELEVATED));
+        assertThat(none.zones()).isEmpty();
+        assertThat(none.points()).hasSize(2);
     }
 
     @Test
