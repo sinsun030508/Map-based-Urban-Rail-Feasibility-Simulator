@@ -60,11 +60,6 @@ export default function ScenarioPanel({
             {water.crossings.some((c) => c.detoured) && (
               <button onClick={onApplyDetour}>돌아가는 선형으로 바꾸기</button>
             )}
-            <p className="muted">
-              호수·저수지만 봅니다 — 강은 건너야 해서 빼었으니 돌아간 길이 강을 건널 수
-              있습니다. 돌아가는 길이 1.5배를 넘으면 건너는 편으로
-              둡니다 — 교량 단가 자료가 없어 정한 가정값입니다.
-            </p>
           </div>
         )}
         {/* 확인 필요 구역(궁궐·상수원·군사) — 선이 원을 지나면 알리고 피해 가는 선형을 **제안만** 한다(11-12). 좌표가 근사치라
