@@ -112,20 +112,22 @@ class MountainCostTest {
     }
 
     @Test
-    @DisplayName("손익분기는 km당 추가분 ÷ 그 행 km단가의 중앙값이다 — BRT·지하는 빠진다")
+    @DisplayName("손익분기는 km당 추가분 ÷ 그 행 km단가의 중앙값이다 — BRT·지하·따로 따지는 트램은 빠진다")
     void 손익분기() {
         double f = MountainCost.DEFLATOR_2019;
-        double heavy = (319 - 317) * f / 550, light = (265.6 - 190.8) * f / 400, tram = (265.6 - 13.4) * f / 273;
-        // 정렬: 복선전철 0, 지하철, 경전철, 트램 → 가운데 둘의 평균
-        assertThat(MountainCost.breakEven(List.of(
+        double heavy = (319 - 317) * f / 550, tram = (265.6 - 13.4) * f / 273;
+        List<CostStandard> rows = List.of(
                 std(ModeType.HEAVY_METRO, StructureType.UNDERGROUND, 875),
                 std(ModeType.HEAVY_METRO, StructureType.ELEVATED, 550),
                 std(ModeType.LIGHT_RAIL, StructureType.ELEVATED, 400),
                 std(ModeType.DOUBLE_ELEC, StructureType.ELEVATED, 400),
                 std(ModeType.TRAM, StructureType.AT_GRADE, 273),
-                std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24))))
-                .isCloseTo((heavy + light) / 2, org.assertj.core.data.Offset.offset(1e-9));
-        assertThat(tram).isGreaterThan(light);
+                std(ModeType.BRT_HIGH, StructureType.AT_GRADE, 24));
+        // 정렬: 복선전철 0, 지하철, 경전철 → 가운데. 트램이 끼면 지하철·경전철의 평균으로 올라간다
+        assertThat(MountainCost.breakEven(rows)).isCloseTo(heavy, org.assertj.core.data.Offset.offset(1e-9));
+        // 트램은 제 행만으로 — 약 1.08
+        assertThat(MountainCost.breakEven(rows, ModeType.TRAM)).isCloseTo(tram, org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(tram).isBetween(1.0, 1.2);
     }
 
     @Test

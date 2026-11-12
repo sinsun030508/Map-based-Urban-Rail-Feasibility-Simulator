@@ -31,6 +31,17 @@ export function mountainNote(res, row) {
   return { lengths, cost: row ? costLine(res, row, detoured.length > 0) : null, canApply: detoured.length > 0 };
 }
 
+/**
+ * 그 행의 수단을 따로 따진 안(`modePlans` — 지금은 트램)이 있으면 공통 안 대신 그것을 쓴다. 지도의 갈색 토막·점선,
+ * 문구, 「바꾸기」 버튼이 모두 이 결과를 본다 — 하나만 공통 안을 보면 점선과 바뀌는 선이 다르다.
+ * 트램은 터널 추가분이 km단가보다 커(손익분기 약 1.08) 철도가 뚫는 산도 돌아가는 편이 싸다(11-12)
+ */
+export function mountainFor(res, row) {
+  if (!res || !row) return res;
+  const own = (res.modePlans || []).find((p) => p.mode === row.modeType);
+  return own ? { ...res, points: own.points, mountains: own.mountains, deltas: own.deltas } : res;
+}
+
 function costLine(res, row, anyDetour) {
   if (row.modeType === 'BRT_HIGH' || row.modeType === 'BRT_LOW') {
     // 도로는 철도(35‰)보다 가파르게 오른다 — 도로 기울기(규칙 제25조, 7%)로 따로 잰 터널을 쓴다(11-09)

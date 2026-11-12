@@ -20,6 +20,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -62,9 +63,17 @@ public class RouteController {
                                  List<WaterBodies.Span> waterKm) {
     }
 
-    /** available — 지형 자료가 있나. points — 돌아갈 수 있는 구간을 돌아간 선. roadTunnelKm — 도로(BRT) 기울기로 잰 터널 km */
+    /**
+     * available — 지형 자료가 있나. points — 돌아갈 수 있는 구간을 돌아간 선. roadTunnelKm — 도로(BRT) 기울기로 잰 터널 km.
+     * modePlans — 손익분기가 철도 공통값과 크게 달라 따로 따진 수단의 안({@link MountainCost#OWN_PLAN}, 지금은 트램)
+     */
     public record MountainResponse(boolean available, List<Point> points, List<MountainDetour.Mountain> mountains,
-                                   List<MountainCost.Delta> deltas, Double roadTunnelKm) {
+                                   List<MountainCost.Delta> deltas, Double roadTunnelKm, List<ModePlan> modePlans) {
+    }
+
+    /** 한 수단만의 손익분기로 다시 따진 안 — 화면은 비교표에서 이 수단 행을 고르면 공통 안 대신 이것을 보인다 */
+    public record ModePlan(ModeType mode, List<Point> points, List<MountainDetour.Mountain> mountains,
+                           List<MountainCost.Delta> deltas) {
     }
 
     private final WaterDetour detour;
@@ -100,10 +109,10 @@ public class RouteController {
         ScenarioService.lengthOf(request.points());
         List<double[]> route = coords(request);
         if (!terrain.available()) {
-            return new MountainResponse(false, points(route), List.of(), List.of(), null);
+            return new MountainResponse(false, points(route), List.of(), List.of(), null, List.of());
         }
         if (request.structure() == StructureType.UNDERGROUND) {
-            return new MountainResponse(true, points(route), List.of(), List.of(), null);
+            return new MountainResponse(true, points(route), List.of(), List.of(), null, List.of());
         }
         List<CostStandard> active = standards.findByActiveTrue();
         MountainDetour.Plan plan = plans.plan(route, terrain, MountainCost.breakEven(active));
@@ -111,9 +120,23 @@ public class RouteController {
                 .collect(Collectors.toMap(ModeCapacity::getModeType, Function.identity()));
         // 도로는 철도보다 가파르게 오르므로 철도 산 구간이 없으면 도로도 없다
         Double road = plan.mountains().isEmpty() ? 0.0 : MountainTunnelKm.roadKm(route, terrain);
+        if (plan.mountains().isEmpty()) {
+            return new MountainResponse(true, points(plan.points()), List.of(), List.of(), road, List.of());
+        }
+        // 트램은 땅 위 단가가 싸 터널 추가분이 km단가를 넘는다(손익분기 약 1.08 — 철도 공통값 약 0.004) — 공통 안은
+        // 거의 돌지 않아 트램에 이득인 우회가 묻혔다(11-12 사용자 요청). 표 건설비는 그린 노선 그대로라 바뀌지 않는다
+        List<ModePlan> own = new ArrayList<>();
+        for (ModeType mode : MountainCost.OWN_PLAN) {
+            Double breakEven = MountainCost.breakEven(active, mode);
+            if (breakEven == null) {
+                continue;
+            }
+            MountainDetour.Plan p = plans.plan(route, terrain, breakEven);
+            List<CostStandard> rows = active.stream().filter(s -> s.getModeType() == mode).toList();
+            own.add(new ModePlan(mode, points(p.points()), p.mountains(), MountainCost.deltas(p, rows, byMode, road)));
+        }
         return new MountainResponse(true, points(plan.points()), plan.mountains(),
-                plan.mountains().isEmpty() ? List.of()
-                        : MountainCost.deltas(plan, active, byMode, road), road);
+                MountainCost.deltas(plan, active, byMode, road), road, own);
     }
 
     private static List<double[]> coords(DetourRequest request) {

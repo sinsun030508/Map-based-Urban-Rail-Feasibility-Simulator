@@ -141,6 +141,7 @@ class RouteControllerTest {
         assertThat(res.available()).isFalse();
         assertThat(res.mountains()).isEmpty();
         assertThat(res.deltas()).isEmpty();
+        assertThat(res.modePlans()).isEmpty();
         assertThat(res.points()).hasSize(2);
     }
 
@@ -187,15 +188,15 @@ class RouteControllerTest {
     }
 
     @Test
-    @DisplayName("단가로 손익을 따진다 — 손해인 곳은 뚫고 이득인 곳은 돈다(손익분기 약 0.59)")
+    @DisplayName("단가로 손익을 따진다 — 손해인 곳은 뚫고 이득인 곳은 돈다(트램 손익분기 약 1.08)")
     void 손해인_우회는_빠진다() {
-        // 손익분기는 단가에서 나온다 — 트램(터널 추가분 ÷ km단가 약 1.08)으로 보면 아래 두 경우가 갈린다
+        // 트램(터널 추가분 ÷ km단가 약 1.08)의 따로 안으로 보면 아래 두 경우가 갈린다
         RouteController c = controller(Path.of("src/test/resources/dem"),
                 List.of(standard(ModeType.TRAM, StructureType.AT_GRADE, 273)));
 
         // 터널 0.3km 를 피하려 1.06km 를 돈다(비율 3.5) — 뚫는다. 점은 그대로다
         var lossy = c.mountain(new RouteController.DetourRequest(
-                List.of(p(36.14, 128.04), p(36.14, 128.09)), StructureType.ELEVATED));
+                List.of(p(36.14, 128.04), p(36.14, 128.09)), StructureType.ELEVATED)).modePlans().get(0);
         assertThat(lossy.mountains()).hasSize(1);
         assertThat(lossy.mountains().get(0).costlier()).isTrue();
         assertThat(lossy.mountains().get(0).detoured()).isFalse();
@@ -203,7 +204,7 @@ class RouteControllerTest {
 
         // 터널 0.6km 를 0.15km 만 돌면 된다(비율 0.26) — 돈다
         var worth = c.mountain(new RouteController.DetourRequest(
-                List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED));
+                List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED)).modePlans().get(0);
         assertThat(worth.mountains()).hasSize(1);
         assertThat(worth.mountains().get(0).detoured()).isTrue();
         assertThat(worth.points().size()).isGreaterThan(2);
@@ -213,6 +214,33 @@ class RouteControllerTest {
                 List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED));
         assertThat(metro.mountains().get(0).detoured()).isFalse();
         assertThat(metro.mountains().get(0).costlier()).isTrue();
+    }
+
+    @Test
+    @DisplayName("트램은 따로 따진다 — 철도가 뚫는 곳도 트램은 돌아가는 안을 받는다(11-12)")
+    void 트램은_따로_돈다() {
+        // 공통 안은 철도 행(지하철 고가 — 추가분 약 2억/km)만으로 정한다 — 트램(약 1.08)이 끼면 중앙값이 0.54 로 올라
+        // 지하철까지 돌았다. 트램은 같은 산을 돌아야 싸다
+        RouteController c = controller(Path.of("src/test/resources/dem"), List.of(
+                standard(ModeType.HEAVY_METRO, StructureType.ELEVATED, 550),
+                standard(ModeType.TRAM, StructureType.AT_GRADE, 273)));
+        var res = c.mountain(new RouteController.DetourRequest(
+                List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED));
+
+        assertThat(res.mountains().get(0).detoured()).isFalse();
+        assertThat(res.modePlans()).extracting(RouteController.ModePlan::mode).containsExactly(ModeType.TRAM);
+        var tram = res.modePlans().get(0);
+        assertThat(tram.mountains().get(0).detoured()).isTrue();
+        assertThat(tram.points().size()).isGreaterThan(2);
+        // 트램 행의 두 안 — 뚫는 비용(표에 든 값)은 같은 산이라 공통 안과 같고, 돌아가는 비용이 생긴다
+        var d = tram.deltas().stream().filter(x -> x.mode() == ModeType.TRAM).findFirst().orElseThrow();
+        var shared = res.deltas().stream().filter(x -> x.mode() == ModeType.TRAM).findFirst().orElseThrow();
+        assertThat(d.tunnelExtraCost()).isEqualTo(shared.tunnelExtraCost()).isPositive();
+        assertThat(d.detourExtraCost()).isNotNull().isLessThan(d.tunnelExtraCost());
+
+        // 트램 단가가 없으면 따로 줄 것이 없다
+        assertThat(controller().mountain(new RouteController.DetourRequest(
+                List.of(p(36.14, 128.03), p(36.14, 128.05)), StructureType.ELEVATED)).modePlans()).isEmpty();
     }
 
     @Test

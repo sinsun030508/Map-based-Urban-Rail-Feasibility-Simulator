@@ -73,10 +73,27 @@ public final class MountainCost {
     }
 
     /**
+     * 공통 손익분기 말고 그 수단 행만의 손익분기로 우회를 따로 제안하는 수단. 트램은 땅 위 단가(273억/km)가 싸 산악 터널 추가분
+     * (295억/km)이 km단가를 넘는다 — 손익분기 약 1.08 로 철도 중앙값(약 0.004)과 수백 배 다르다(11-12 사용자 요청).
+     * 경전철 고가(약 0.25)는 사용자가 정하지 않아 넣지 않았다
+     */
+    public static final List<ModeType> OWN_PLAN = List.of(ModeType.TRAM);
+
+    /**
      * 돌아가는 편이 터널보다 싼 경계 — 늘어난 km × km단가 = 터널 km × km당 추가분 에서 늘어난 km ÷ 터널 km = 추가분 ÷ km단가.
-     * 수단을 고르기 전에 선형을 하나로 정하려고 철도 행(BRT·지하 빼고)의 중앙값을 쓴다. 견줄 행이 없으면 null
+     * 수단을 고르기 전에 선형을 하나로 정하려고 철도 행(BRT·지하·{@link #OWN_PLAN} 빼고)의 중앙값을 쓴다 — 따로 따지는
+     * 트램이 끼면 중앙값을 끌어올려 다른 철도까지 손해인 우회를 받는다. 견줄 행이 없으면 null
      */
     public static Double breakEven(List<CostStandard> standards) {
+        return median(standards.stream().filter(s -> !OWN_PLAN.contains(s.getModeType())).toList());
+    }
+
+    /** 한 수단 행만의 손익분기({@link #OWN_PLAN} 의 따로 안). 견줄 행이 없으면 null */
+    public static Double breakEven(List<CostStandard> standards, ModeType mode) {
+        return median(standards.stream().filter(s -> s.getModeType() == mode).toList());
+    }
+
+    private static Double median(List<CostStandard> standards) {
         List<Double> ratios = new ArrayList<>();
         for (CostStandard s : standards) {
             if (ROAD.contains(s.getModeType()) || s.getStructureType() == StructureType.UNDERGROUND) {

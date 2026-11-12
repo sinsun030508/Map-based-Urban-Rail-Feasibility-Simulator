@@ -1,7 +1,7 @@
 // `npm test` (node --test). 산 구간 안내 문구 — 「산 없음」 과 「지형 자료 없음」, 「0원」 과 「모름」 을 섞지 않는다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mountainNote } from './mountainNote.js';
+import { mountainFor, mountainNote } from './mountainNote.js';
 
 const RES = {
   available: true,
@@ -94,4 +94,36 @@ test('철도 고가처럼 터널 추가분이 0 이면 「0억이 들어 있다�
   const n = mountainNote(res, { modeType: 'EXPRESS_RAIL', structureType: 'ELEVATED' });
   assert.match(n.cost, /산악 터널이 고가와 km당 공사비가 비슷해 더할 비용이 없습니다/);
   assert.doesNotMatch(n.cost, /0억/);
+});
+
+test('트램 행을 고르면 트램만의 안(modePlans)을 쓴다 — 철도가 뚫는 산도 트램은 돌 수 있다(11-12)', () => {
+  const tramPlan = {
+    mode: 'TRAM',
+    points: [{ latitude: 36.14, longitude: 128.03 }, { latitude: 36.15, longitude: 128.04 }, { latitude: 36.14, longitude: 128.05 }],
+    mountains: [{ index: 1, tunnelKm: 0.6, detoured: true, costlier: false, addedKm: 0.15, reason: null, pieces: [] }],
+    deltas: [{ mode: 'TRAM', structure: 'AT_GRADE', tunnelExtraCost: 177, detourExtraCost: 41, detourExtraMin: 0.4 }],
+  };
+  const res = {
+    available: true,
+    points: [{ latitude: 36.14, longitude: 128.03 }, { latitude: 36.14, longitude: 128.05 }],
+    mountains: [{ index: 1, tunnelKm: 0.6, detoured: false, costlier: true, addedKm: 0, reason: '비쌉니다', pieces: [] }],
+    deltas: [{ mode: 'TRAM', structure: 'AT_GRADE', tunnelExtraCost: 177, detourExtraCost: null, detourExtraMin: null }],
+    modePlans: [tramPlan],
+  };
+  const tram = { modeType: 'TRAM', structureType: 'AT_GRADE' };
+  const view = mountainFor(res, tram);
+  assert.equal(view.points, tramPlan.points);
+  assert.equal(view.mountains, tramPlan.mountains);
+  assert.equal(view.available, true);
+  const n = mountainNote(view, tram);
+  assert.equal(n.canApply, true);
+  assert.match(n.cost, /돌아가면 건설비 −136억/);   // 41 − 177
+
+  // 다른 수단·계산 전은 공통 안 그대로
+  assert.equal(mountainFor(res, { modeType: 'HEAVY_METRO', structureType: 'ELEVATED' }), res);
+  assert.equal(mountainFor(res, null), res);
+  assert.equal(mountainFor(null, tram), null);
+  // 따로 안이 없는 예전 응답도 그대로
+  const old = { ...res, modePlans: undefined };
+  assert.equal(mountainFor(old, tram), old);
 });

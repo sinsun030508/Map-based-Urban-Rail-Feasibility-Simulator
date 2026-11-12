@@ -7,6 +7,7 @@ import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
 import ComparePage from './scenario/ComparePage';
 import { gainsNothing } from './scenario/gainsNothing';
+import { mountainFor } from './scenario/mountainNote';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
 import { resultKey } from './scenario/resultKey';
@@ -242,19 +243,6 @@ export default function App() {
     reset();
   }
 
-  const mountainNow = mountain && mountain.key === waterKey ? mountain : null;
-  // 터널 토막(갈색)과 돌아가는 안의 미리보기(점선) — 돌아갈 수 있는 구간이 있을 때만 미리보기를 그린다
-  const mountainPieces = (mountainNow?.mountains || []).flatMap((m) => m.pieces || []);
-  const mountainPreview = (mountainNow?.mountains || []).some((m) => m.detoured)
-    ? mountainNow.points.map((p) => [Number(p.longitude), Number(p.latitude)])
-    : null;
-
-  /** 산을 돌아가는 선형으로 바꾼다 — 돌 수 있는 구간만 돌고 나머지는 그대로다 */
-  function applyMountainDetour() {
-    setPoints(mountainNow.points.map((p) => [Number(p.longitude), Number(p.latitude)]));
-    reset();
-  }
-
   /** 그린 노선이 그 수단의 권장 연장을 넘는가 */
   const overLength = (r) => {
     const limit = modes.find((m) => m.modeType === r.modeType)?.maxLengthKm;
@@ -276,6 +264,20 @@ export default function App() {
       || [...results].filter((r) => !overLength(r) && !gainsNothing(r))
         .sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
     : null;
+
+  // 비교표에서 고른 행의 수단을 따로 따진 안이 있으면(트램) 그것을 쓴다 — 지도 토막·점선, 패널 문구, 「바꾸기」 가 같은 안을 본다
+  const mountainNow = mountainFor(mountain && mountain.key === waterKey ? mountain : null, shown);
+  // 터널 토막(갈색)과 돌아가는 안의 미리보기(점선) — 돌아갈 수 있는 구간이 있을 때만 미리보기를 그린다
+  const mountainPieces = (mountainNow?.mountains || []).flatMap((m) => m.pieces || []);
+  const mountainPreview = (mountainNow?.mountains || []).some((m) => m.detoured)
+    ? mountainNow.points.map((p) => [Number(p.longitude), Number(p.latitude)])
+    : null;
+
+  /** 산을 돌아가는 선형으로 바꾼다 — 돌 수 있는 구간만 돌고 나머지는 그대로다 */
+  function applyMountainDetour() {
+    setPoints(mountainNow.points.map((p) => [Number(p.longitude), Number(p.latitude)]));
+    reset();
+  }
 
   /** @param asNew true 면 고치던 시나리오와 별개로 하나 더 만든다 */
   async function save(asNew = false) {
