@@ -8,6 +8,7 @@ import { usingVWorld } from './map/mapStyle';
 import ComparePage from './scenario/ComparePage';
 import { gainsNothing } from './scenario/gainsNothing';
 import { followsRoad, mergeRoadMountain, mountainFor, newPieces, roadMountainView } from './scenario/mountainNote';
+import { mergeRoadWater } from './scenario/roadWater';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
 import { resultKey } from './scenario/resultKey';
@@ -50,6 +51,7 @@ export default function App() {
   const [mountain, setMountain] = useState(null);
   const [zone, setZone] = useState(null);
   const [roadMountain, setRoadMountain] = useState(null);
+  const [roadWater, setRoadWater] = useState(null);
   const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
@@ -201,8 +203,8 @@ export default function App() {
     : null;
 
   /**
-   * 도로를 따라가는 행(트램·BRT·광역급행)의 산 — **새로 놓는 구간만** 묻는다(11-12). 기존 도로는 이미 뚫려 있고, 그린 직선으로 판정하면
-   * 갈색 토막이 빨간 도로 선과 어긋나고 「뚫는 비용」 이 표 건설비와 달랐다. 새 구간은 두 점짜리 직선이라 같은 `/mountain` 으로 묻고 합친다.
+   * 도로를 따라가는 행(트램·BRT·광역급행)의 산·물 — **새로 놓는 구간만** 묻는다(11-12). 기존 도로·다리는 이미 있고, 그린 직선으로 판정하면
+   * 갈색·파란 토막이 빨간 도로 선과 어긋나고 「뚫는 비용」 이 표 건설비와 달랐다. 새 구간은 두 점짜리 직선이라 같은 `/mountain`·`/detour` 로 묻고 합친다.
    * **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
    */
   const roadNew = newPieces(shown);
@@ -210,12 +212,18 @@ export default function App() {
   useEffect(() => {
     if (!roadKey) {
       setRoadMountain(null);
+      setRoadWater(null);
       return undefined;
     }
     let alive = true;
-    Promise.all(roadNew.map((p) => api.mountain(p.points.map(([lat, lng]) => ({ latitude: lat, longitude: lng })), 'ELEVATED')))
+    const asPoints = (p) => p.points.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+    Promise.all(roadNew.map((p) => api.mountain(asPoints(p), 'ELEVATED')))
       .then((rs) => alive && setRoadMountain({ key: roadKey, ...mergeRoadMountain(rs) }))
       .catch(() => alive && setRoadMountain(null));
+    // 물은 그 행의 구조로 묻는다 — 지하(광역급행)는 물 밑이라 「물 아래 구간」 으로 적힌다
+    Promise.all(roadNew.map((p) => api.detour(asPoints(p), shown.structureType)))
+      .then((rs) => alive && setRoadWater({ key: roadKey, ...mergeRoadWater(rs) }))
+      .catch(() => alive && setRoadWater(null));
     return () => { alive = false; };
   }, [roadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -296,7 +304,10 @@ export default function App() {
     reset();
   }
 
-  const waterNow = water && water.key === waterKey ? water : null;
+  // **도로를 따라가는 행은 새로 놓는 구간의 물만 본다**(11-12) — 기존 도로·다리는 이미 있다. 새 구간이 없으면 물 안내도 없다
+  const waterNow = followsRoad(shown)
+    ? (roadWater && roadWater.key === roadKey ? roadWater : null)
+    : (water && water.key === waterKey ? water : null);
   // 지도에 덧그릴 물 위 토막 — 패널과 같은 기준(50m 이상)으로 거른다
   const waterPieces = (waterNow?.waterKm || [])
     .filter((w) => w.km >= 0.05)

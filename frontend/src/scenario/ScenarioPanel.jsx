@@ -2,6 +2,7 @@ import { totalLengthKm } from '../geo/haversine';
 import CostTable from './CostTable';
 import { followsRoad, mountainNote, roadMountainNote } from './mountainNote';
 import { zoneNote } from './zoneNote';
+import { bridgeCostIncluded } from './roadWater';
 import { roadSummary } from '../geo/routeLine';
 import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
 
@@ -82,14 +83,18 @@ export default function ScenarioPanel({
             그 이유를 같은 줄에 적는다(안 적으면 지하에서 왜 제안이 사라졌는지 모른다) */}
         {(() => {
           const spans = (water?.waterKm || []).filter((w) => w.km >= 0.05);
-          const under = structure === 'UNDERGROUND';
+          // 도로를 따라가는 행은 지도에 그린 행의 구조·새로 놓는 구간 기준이다(11-12) — 선택창의 구조가 아니다
+          const roadRow = followsRoad(mountainRow);
+          const under = (roadRow ? mountainRow.structureType : structure) === 'UNDERGROUND';
           return spans.length > 0 && (
             <p className="water-span small muted">
-              <b>{under ? '물 아래 구간' : '물 위 구간'}</b>(지도의 파란 토막){' '}
+              <b>{roadRow ? (under ? '새로 놓는 구간의 물 아래' : '새로 놓는 구간의 물 위') : (under ? '물 아래 구간' : '물 위 구간')}</b>(지도의 파란 토막){' '}
               {spans.map((w) => `${w.name} ${w.km.toFixed(1)}km`).join(' · ')} —{' '}
-              {under && spans.some((w) => w.kind === 'lake') &&
+              {!roadRow && under && spans.some((w) => w.kind === 'lake') &&
                 '지하라 물 밑으로 지나므로 우회를 제안하지 않습니다. '}
-              {under ? '하저터널' : '교량'} 할증은 넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다
+              {roadRow && bridgeCostIncluded(mountainRow)
+                ? '새 도로 다리값이 비교표 건설비에 들어 있습니다'
+                : `${under ? '하저터널' : '교량'} 할증은 넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다`}
             </p>
           );
         })()}
