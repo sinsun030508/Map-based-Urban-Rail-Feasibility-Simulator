@@ -77,10 +77,6 @@ export default function ScenarioPanel({
               {note.zones.map((t) => <p key={t}><strong>{t}</strong></p>)}
               {note.detours.map((t) => <p key={t}>{t}</p>)}
               {note.canApply && <button onClick={onApplyZoneDetour}>구역을 피해 가는 선형으로 바꾸기</button>}
-              <p className="muted">
-                지도의 노란 원(군사는 빨강)이 구역입니다. 좌표·반경은 대표 지점을 눈대중으로 찍은 근사치라 실제 경계가 아니고, 지나도 되는지는
-                심의·협의로 정해집니다 — 확인할 곳을 알려 드리는 안내입니다. 피해 가는 길이 1.5배를 넘으면 제안하지 않습니다(가정값).
-              </p>
             </div>
           );
         })()}
@@ -118,15 +114,6 @@ export default function ScenarioPanel({
               {note.canApply && (
                 <button onClick={onApplyMountainDetour}>산을 돌아가는 선형으로 바꾸기</button>
               )}
-              <p className="muted">
-                지도의 갈색 토막이 터널, 갈색 점선이 돌아가는 안입니다. 법정 최대 기울기 35‰(도시철도건설규칙
-                제15조)로 보고(BRT 는 도로 7%), 지면이 선로보다 20m 넘게 높으면 터널로 셉니다(가정값). 터널비는
-                KDI 예타 세부지침(2021)의 산악 NATM 터널 표준공사비에서 그 구조로 지을 때를 뺀 값입니다 — 철도는 교량(고가)과
-                km당 비슷해 거의 더해지지 않고, 토목만이라 환기·방재 설비는 빠집니다. 「돌아가기」 는 터널보다 쌀 때만 돌고
-                나머지는 뚫은 값입니다. 트램은 땅 위 단가가 싸 터널이 상대적으로 비싸므로 따로 따집니다 — 비교표에서 트램 행을
-                고르면 철도가 뚫는 산도 돌아가는 안이 나올 수 있습니다.
-                {!note.cost && ' 계산하면 수단별 건설비·소요시간 차이가 나옵니다.'}
-              </p>
             </div>
           );
         })()}
