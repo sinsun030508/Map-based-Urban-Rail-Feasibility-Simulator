@@ -1,6 +1,6 @@
 import { totalLengthKm } from '../geo/haversine';
 import CostTable from './CostTable';
-import { mountainNote } from './mountainNote';
+import { followsRoad, mountainNote, roadMountainNote } from './mountainNote';
 import { zoneNote } from './zoneNote';
 import { roadSummary } from '../geo/routeLine';
 import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
@@ -96,7 +96,8 @@ export default function ScenarioPanel({
         {/* 산 구간 — 호수처럼 **제안만** 한다. 계산 전엔 길이만, 계산 후엔 지도에 그린 안(비교표에서 고른 행)의
             단가로 두 안을 적는다. 단가는 도심 지하 표본에서 온 외삽이라 그렇게 적는다 */}
         {(() => {
-          const note = mountainNote(mountain, mountainRow);
+          // 도로를 따라가는 행은 새로 놓는 구간만 본다(11-12) — 그린 직선 기준 안내는 도로 노선과 안 맞는다
+          const note = followsRoad(mountainRow) ? roadMountainNote(mountain, mountainRow) : mountainNote(mountain, mountainRow);
           if (!note) return null;
           if (!mountain.available) return <p className="mountain-note small muted">{note.lengths}</p>;
           return (

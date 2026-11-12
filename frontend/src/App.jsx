@@ -7,7 +7,7 @@ import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
 import ComparePage from './scenario/ComparePage';
 import { gainsNothing } from './scenario/gainsNothing';
-import { mountainFor } from './scenario/mountainNote';
+import { followsRoad, mergeRoadMountain, mountainFor, newPieces, roadMountainView } from './scenario/mountainNote';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
 import { resultKey } from './scenario/resultKey';
@@ -49,6 +49,7 @@ export default function App() {
   const [water, setWater] = useState(null);
   const [mountain, setMountain] = useState(null);
   const [zone, setZone] = useState(null);
+  const [roadMountain, setRoadMountain] = useState(null);
   const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
@@ -176,6 +177,48 @@ export default function App() {
     return () => clearTimeout(t);
   }, [points]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 아래 `shown`(지도에 그린 행)이 새 구간의 산을 묻는 훅에 필요하다 — 순수 계산이라 훅 위에 둔다(훅은 이른 `return` 위여야 한다)
+  /** 그린 노선이 그 수단의 권장 연장을 넘는가 */
+  const overLength = (r) => {
+    const limit = modes.find((m) => m.modeType === r.modeType)?.maxLengthKm;
+    return limit != null && savedLength != null && savedLength > Number(limit);
+  };
+
+  /**
+   * 비교표에서 고른 안의 정차역. 안 골랐으면 **권장 연장 안에 드는** 안 중 B/C 최고안이다.
+   *
+   * 그냥 B/C 최고안을 그렸더니 인천~세종(120km)에서 권장 연장 30km 인 BRT 가 뽑혀
+   * 역 60개가 지도를 덮었다. 표에는 그대로 남기고(선택을 막지 않는다) 행을 누르면
+   * 그린다 — 기본 그림으로 내세우지만 않는다. 맞는 안이 없으면 선만 그린다.
+   *
+   * B/C 0 인 안(절감 시간 없음)도 내세우지 않는다 — 비교표의 굵은 행·백엔드 추천과 같은
+   * 규칙이다. 기존 KTX 보다 느린 서울~부산 신설안이 전부 0 이면 선만 그린다.
+   */
+  const shown = results.length
+    ? results.find((r) => resultKey(r) === selectedResult)
+      || [...results].filter((r) => !overLength(r) && !gainsNothing(r))
+        .sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
+    : null;
+
+  /**
+   * 도로를 따라가는 행(트램·BRT·광역급행)의 산 — **새로 놓는 구간만** 묻는다(11-12). 기존 도로는 이미 뚫려 있고, 그린 직선으로 판정하면
+   * 갈색 토막이 빨간 도로 선과 어긋나고 「뚫는 비용」 이 표 건설비와 달랐다. 새 구간은 두 점짜리 직선이라 같은 `/mountain` 으로 묻고 합친다.
+   * **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
+   */
+  const roadNew = newPieces(shown);
+  const roadKey = roadNew.length ? JSON.stringify(roadNew.map((p) => p.points)) : '';
+  useEffect(() => {
+    if (!roadKey) {
+      setRoadMountain(null);
+      return undefined;
+    }
+    let alive = true;
+    Promise.all(roadNew.map((p) => api.mountain(p.points.map(([lat, lng]) => ({ latitude: lat, longitude: lng })), 'ELEVATED')))
+      .then((rs) => alive && setRoadMountain({ key: roadKey, ...mergeRoadMountain(rs) }))
+      .catch(() => alive && setRoadMountain(null));
+    return () => { alive = false; };
+  }, [roadKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /**
    * 궁궐·상수원·군사 구역(`/api/route/zones`, 11-12 사용자 요청) — 선이 원을 지나면 알리고 피해 가는 선형을 제안한다. 호수와 같은 틀이고
    * **구조와 상관없다**(문화재 구역은 지하 굴착이 문제다). **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
@@ -265,33 +308,14 @@ export default function App() {
     reset();
   }
 
-  /** 그린 노선이 그 수단의 권장 연장을 넘는가 */
-  const overLength = (r) => {
-    const limit = modes.find((m) => m.modeType === r.modeType)?.maxLengthKm;
-    return limit != null && savedLength != null && savedLength > Number(limit);
-  };
-
-  /**
-   * 비교표에서 고른 안의 정차역. 안 골랐으면 **권장 연장 안에 드는** 안 중 B/C 최고안이다.
-   *
-   * 그냥 B/C 최고안을 그렸더니 인천~세종(120km)에서 권장 연장 30km 인 BRT 가 뽑혀
-   * 역 60개가 지도를 덮었다. 표에는 그대로 남기고(선택을 막지 않는다) 행을 누르면
-   * 그린다 — 기본 그림으로 내세우지만 않는다. 맞는 안이 없으면 선만 그린다.
-   *
-   * B/C 0 인 안(절감 시간 없음)도 내세우지 않는다 — 비교표의 굵은 행·백엔드 추천과 같은
-   * 규칙이다. 기존 KTX 보다 느린 서울~부산 신설안이 전부 0 이면 선만 그린다.
-   */
-  const shown = results.length
-    ? results.find((r) => resultKey(r) === selectedResult)
-      || [...results].filter((r) => !overLength(r) && !gainsNothing(r))
-        .sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
-    : null;
-
   // 비교표에서 고른 행의 수단을 따로 따진 안이 있으면(트램) 그것을 쓴다 — 지도 토막·점선, 패널 문구, 「바꾸기」 가 같은 안을 본다.
   // **지하는 이미 땅속이라 산을 안내하지 않는다** — 계산 뒤엔 지도에 그린 행의 구조, 계산 전엔 선택창의 구조로 가른다
+  // **도로를 따라가는 행은 새로 놓는 구간만 본다**(11-12) — 기존 도로만이면 안내가 없다
   const mountainStructure = shown ? shown.structureType : structure;
   const mountainNow = mountainStructure === 'UNDERGROUND' ? null
-    : mountainFor(mountain && mountain.key === pointsKey ? mountain : null, shown);
+    : followsRoad(shown)
+      ? roadMountainView(roadMountain && roadMountain.key === roadKey ? roadMountain : null, shown)
+      : mountainFor(mountain && mountain.key === pointsKey ? mountain : null, shown);
   const zoneNow = zone && zone.key === pointsKey ? zone : null;
   // 터널 토막(갈색)과 돌아가는 안의 미리보기(점선) — 돌아갈 수 있는 구간이 있을 때만 미리보기를 그린다
   const mountainPieces = (mountainNow?.mountains || []).flatMap((m) => m.pieces || []);

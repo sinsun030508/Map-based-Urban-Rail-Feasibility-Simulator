@@ -1,7 +1,7 @@
 // `npm test` (node --test). 산 구간 안내 문구 — 「산 없음」 과 「지형 자료 없음」, 「0원」 과 「모름」 을 섞지 않는다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mountainFor, mountainNote } from './mountainNote.js';
+import { followsRoad, mergeRoadMountain, mountainFor, mountainNote, newPieces, roadMountainNote, roadMountainView } from './mountainNote.js';
 
 const RES = {
   available: true,
@@ -126,4 +126,57 @@ test('트램 행을 고르면 트램만의 안(modePlans)을 쓴다 — 철도�
   // 따로 안이 없는 예전 응답도 그대로
   const old = { ...res, modePlans: undefined };
   assert.equal(mountainFor(old, tram), old);
+});
+
+// 트램·BRT·광역급행은 기존 도로를 따라간다(11-12) — 산 안내는 새로 놓는 구간만 본다. 기존 도로는 이미 뚫려 있다
+const ROAD_ONLY = { modeType: 'TRAM', structureType: 'AT_GRADE', routeLine: [{ road: true, points: [[37.5, 126.9], [37.6, 126.9]] }], costParts: { tunnel: 0 } };
+const WITH_NEW = {
+  modeType: 'TRAM',
+  structureType: 'AT_GRADE',
+  routeLine: [{ road: true, points: [[37.5, 126.9], [37.6, 126.9]] }, { road: false, points: [[37.6, 126.9], [37.62, 126.95]] }],
+  costParts: { tunnel: 530 },
+};
+const MTN = { available: true, mountains: [{ index: 1, tunnelKm: 0.8, detoured: true, costlier: false, addedKm: 0.3, pieces: [] }], roadTunnelKm: 0.4 };
+
+test('도로를 따라가는 행인가 — 노선 모양이 있으면, 새로 놓는 구간만 골라낸다', () => {
+  assert.equal(followsRoad(ROAD_ONLY), true);
+  assert.equal(followsRoad({ modeType: 'HEAVY_METRO', structureType: 'ELEVATED' }), false);
+  assert.equal(followsRoad(null), false);
+  assert.deepEqual(newPieces(ROAD_ONLY), []);
+  assert.equal(newPieces(WITH_NEW).length, 1);
+});
+
+test('기존 도로만 따라가면 산 안내를 숨긴다 — 이미 뚫려 있고, 직선 기준 갈색 토막이 빨간 도로 선과 어긋나 보이지 않게', () => {
+  assert.equal(roadMountainView(MTN, WITH_NEW) !== null, true);
+  // 새 구간이 없으면 서버 응답이 있어도 안 보인다 — App 이 새 구간이 없을 때 묻지 않아 roadMountain 이 비는 것과 같은 결과
+  assert.equal(roadMountainView(null, ROAD_ONLY), null);
+  assert.equal(roadMountainView({ available: true, mountains: [] }, WITH_NEW), null);
+  assert.equal(roadMountainView({ available: false, mountains: [] }, WITH_NEW), null);
+});
+
+test('새로 놓는 구간의 산 — 돌아가기 버튼 없이(돌아가는 안은 직선 기준이라 도로 노선과 안 맞는다), 비용은 표의 터널비 그대로', () => {
+  const view = roadMountainView(MTN, WITH_NEW);
+  assert.equal(view.mountains[0].detoured, false);
+  const n = roadMountainNote(view, WITH_NEW);
+  assert.match(n.lengths, /새로 놓는 구간/);
+  assert.match(n.lengths, /터널 0\.8km/);
+  assert.match(n.cost, /뚫는 비용 530억 — 비교표 건설비에 들어 있습니다/);
+  assert.equal(n.canApply, false);
+  // 터널비가 0 이면 「0억이 들어 있다」 고 적지 않는다
+  const zero = roadMountainNote(view, { ...WITH_NEW, costParts: { tunnel: 0 } });
+  assert.match(zero.cost, /더할 비용이 없습니다/);
+});
+
+test('BRT 는 도로 기울기로 잰 터널 km 를 적고, 0 이면 숨긴다', () => {
+  const brt = { ...WITH_NEW, modeType: 'BRT_LOW' };
+  assert.match(roadMountainNote(roadMountainView(MTN, brt), brt).lengths, /터널 0\.4km/);
+  assert.equal(roadMountainView({ ...MTN, roadTunnelKm: 0 }, brt), null);
+});
+
+test('새 구간이 여럿이면 묶어 센다 — 구간 번호는 다시 매기고, 하나라도 모르면 도로 터널 km 도 모른다', () => {
+  const merged = mergeRoadMountain([MTN, { ...MTN, mountains: [{ ...MTN.mountains[0], tunnelKm: 0.5 }], roadTunnelKm: 0.1 }]);
+  assert.deepEqual(merged.mountains.map((m) => m.index), [1, 2]);
+  assert.ok(Math.abs(merged.roadTunnelKm - 0.5) < 1e-9);
+  assert.equal(mergeRoadMountain([MTN, { ...MTN, roadTunnelKm: null }]).roadTunnelKm, null);
+  assert.equal(mergeRoadMountain([]), null);
 });

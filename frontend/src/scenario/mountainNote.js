@@ -72,3 +72,51 @@ function costLine(res, row, anyDetour) {
   const sign = diff < 0 ? '−' : '+';
   return `${tunnel} / 돌아가면 건설비 ${sign}${money(Math.abs(diff))}${min}`;
 }
+
+/**
+ * 트램·BRT·광역급행은 기존 도로를 따라간다(11-12) — 서버가 준 노선 모양(`routeLine`)이 있는 행. 이 행들의 산 안내는 **그린 직선이 아니라
+ * 따라가는 도로 노선** 기준이다: 기존 도로는 이미 뚫려 있어 안내가 없고, **새로 놓는 구간**(`road: false`)만 판정한다
+ * (그린 직선으로 판정하면 갈색 토막이 빨간 도로 선과 어긋나고 「뚫는 비용」 이 표 건설비와도 달랐다).
+ */
+export const followsRoad = (row) => (row?.routeLine?.length || 0) > 0;
+
+/** 새로 놓는 구간들 — 기존 도로를 따라가는 구간은 뺀다 */
+export const newPieces = (row) => (row?.routeLine || []).filter((p) => !p.road);
+
+const isBrt = (row) => row?.modeType === 'BRT_HIGH' || row?.modeType === 'BRT_LOW';
+
+/** 새 구간마다 물은 `/api/route/mountain` 응답을 하나로 — 구간 번호를 다시 매기고, 하나라도 도로 터널 km 를 모르면 모른다(null) */
+export function mergeRoadMountain(responses) {
+  if (!responses?.length) return null;
+  return {
+    available: responses.every((r) => r.available),
+    mountains: responses.flatMap((r) => r.mountains || []).map((m, i) => ({ ...m, index: i + 1 })),
+    roadTunnelKm: responses.every((r) => r.roadTunnelKm != null) ? responses.reduce((s, r) => s + r.roadTunnelKm, 0) : null,
+  };
+}
+
+/**
+ * 도로를 따라가는 행에 보일 산 구간(지도 토막·패널). **돌아가는 안은 없다**(`detoured: false`) — 돌아가는 안은 그린 직선 기준이라 도로 노선과
+ * 안 맞는다. 보일 것이 없으면 null: 응답이 없음·지형 자료 없음·산 없음, BRT 는 도로 기울기(7%)로 보면 터널이 필요 없을 때
+ */
+export function roadMountainView(res, row) {
+  if (!res?.available || !(res.mountains || []).length) return null;
+  if (isBrt(row) && res.roadTunnelKm === 0) return null;
+  return { ...res, mountains: res.mountains.map((m) => ({ ...m, detoured: false, costlier: false })) };
+}
+
+/**
+ * 패널 한 칸 — 새로 놓는 구간의 터널 km 와, **비교표 건설비에 든 터널비 그대로**(`row.costParts.tunnel` — 서버가 새 구간에만 매긴 값).
+ * BRT 는 도로 기울기로 잰 터널 km. 0 이면 「0억이 들어 있다」 고 적지 않는다
+ */
+export function roadMountainNote(res, row) {
+  if (!res?.mountains?.length) return null;
+  const km = isBrt(row) && res.roadTunnelKm != null ? res.roadTunnelKm : res.mountains.reduce((s, m) => s + m.tunnelKm, 0);
+  const lengths = `새로 놓는 구간에 산 구간 ${res.mountains.length}곳 — 35‰ 보다 가파릅니다. 뚫으면 터널 ${km.toFixed(1)}km`
+    + (isBrt(row) ? '(도로 기울기 7%)' : '');
+  const tunnel = row?.costParts?.tunnel;
+  const cost = tunnel == null ? null : tunnel > 0
+    ? `뚫는 비용 ${money(tunnel)} — 비교표 건설비에 들어 있습니다`
+    : '산악 터널이 고가와 km당 공사비가 비슷해 더할 비용이 없습니다';
+  return { lengths, cost, canApply: false };
+}
