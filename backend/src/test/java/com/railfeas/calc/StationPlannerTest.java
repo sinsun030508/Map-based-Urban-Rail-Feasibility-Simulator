@@ -302,8 +302,8 @@ class StationPlannerTest {
                 .first().satisfies(p -> assertThat(p.lat()).isCloseTo(STATION_LAT, org.assertj.core.api.Assertions.within(1e-9)));
         assertThat(one.detourKm()).isPositive();
 
-        // 0.3km 밖(동쪽 0.004° ≈ 353m)이면 그대로다
-        StationPlanner.Plan far = new StationPlanner(index, roadEast(0.004)).planWithDetour(ROUTE, 6, 1.2);
+        // 먼 한도(0.6km) 밖(동쪽 0.008° ≈ 705m)이면 그대로다
+        StationPlanner.Plan far = new StationPlanner(index, roadEast(0.008)).planWithDetour(ROUTE, 6, 1.2);
         assertThat(far.stations()).allMatch(p -> p.lng() == LNG0);
         assertThat(far.detourKm()).isZero();
     }

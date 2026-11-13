@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * 큰길 도로망 — ① 정차역을 가장 가까운 큰길 「선분 위」 점으로 옮기고(0.3km 밖·다리·터널·진출입로는 아니다),
+ * 큰길 도로망 — ① 정차역을 가장 가까운 큰길 「선분 위」 점으로 옮기고(다리·터널·진출입로는 아니다, 0.3km 안에 없으면 0.6km 까지 넓힌다),
  * ② 트램·BRT 가 기존 도로를 따라가는 가장 짧은 길을 찾는다(11-12)
  */
 class RoadNetworkTest {
@@ -39,13 +39,34 @@ class RoadNetworkTest {
     }
 
     @Test
-    @DisplayName("0.3km 밖의 큰길로는 옮기지 않는다 — 자리가 그대로다")
-    void 먼_길은_그대로() {
+    @DisplayName("0.3km 안에 길이 없으면 0.6km 까지 넓혀 붙인다 — 빽빽한 주택가에서 역이 건물 블록에 남지 않게(11-13), 0.6km 밖이면 그대로")
+    void 먼_길은_넓혀서_붙인다() {
         RoadNetwork r = RoadNetwork.of(List.<double[][]>of(EAST_WEST));
-        double[] far = {37.5140, 126.9400};                       // 약 440m
+        // 약 440m — 예전 한도(0.3km)로는 그대로 건물 안에 남았다(고강본동역 474m)
+        double[] mid = {37.5140, 126.9400};
+        assertThat(r.snap(mid)[0]).isCloseTo(37.5100, within(1e-6));
+        assertThat(r.nearest(37.5124, 126.9400, RoadNetwork.MAX_SNAP_KM)).isPresent();   // 약 265m 는 가까운 한도 안
+        assertThat(r.nearest(37.5140, 126.9400, RoadNetwork.MAX_SNAP_KM)).isEmpty();      // 440m 는 가까운 한도 밖
 
+        // 약 730m — 먼 한도(0.6km)도 넘는다. 자리가 그대로다(산·논밭)
+        double[] far = {37.5165, 126.9400};
         assertThat(r.snap(far)).isSameAs(far);
-        assertThat(r.nearest(37.5124, 126.9400, RoadNetwork.MAX_SNAP_KM)).isPresent();   // 약 265m 는 옮긴다
+    }
+
+    @Test
+    @DisplayName("먼 한도에서도 큰길과 집산도로 중 가까운 쪽 — 큰길 우선은 가까운 한도(0.3km) 안에서만")
+    void 먼_한도는_가까운_쪽() {
+        double[][] minor = {{37.5125, 126.9300}, {37.5125, 126.9500}};          // 집산도로 약 280m
+        double[][] major = {{37.5170, 126.9300}, {37.5170, 126.9500}};          // 큰길 약 780m
+        RoadNetwork both = RoadNetwork.ofEdges(List.of(
+                new RoadNetwork.Edge(0, 1, RoadNetwork.MINOR, minor), new RoadNetwork.Edge(2, 3, 0, major)));
+        // 집산도로가 0.3km 안 → 큰길이 없어도 집산도로
+        assertThat(both.snap(new double[]{37.5100, 126.9400})[0]).isCloseTo(37.5125, within(1e-6));
+        // 큰길 460m·집산도로 530m — 둘 다 0.3km 밖이라 먼 한도에서 가까운 쪽(큰길)
+        RoadNetwork wide = RoadNetwork.ofEdges(List.of(
+                new RoadNetwork.Edge(0, 1, RoadNetwork.MINOR, new double[][]{{37.5148, 126.9300}, {37.5148, 126.9500}}),
+                new RoadNetwork.Edge(2, 3, 0, new double[][]{{37.5042, 126.9300}, {37.5042, 126.9500}})));
+        assertThat(wide.snap(new double[]{37.5100, 126.9400})[0]).isCloseTo(37.5148, within(1e-6));
     }
 
     @Test

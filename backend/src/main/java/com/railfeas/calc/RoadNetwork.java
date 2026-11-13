@@ -25,9 +25,10 @@ import org.springframework.stereotype.Component;
  * 큰길 도로망 — `etl/osm_roads.py` 가 OSM 에서 받아 `data/build/road_graph.csv.gz` 에 적은 간선·보조간선·집산도로와 그 진출입로·다리·터널
  * (골목·단지 통로·자동차전용도로는 뺐다). 두 가지에 쓴다(둘 다 11-12 사용자 요청).
  *
- * <p><b>① 정차역을 큰길 위로</b>({@link #snap}) — 역이 아파트 단지 한가운데(노량진2동, 동 사이)에 놓였다. {@value #MAX_SNAP_KM}km 안의 가장
- * 가까운 큰길 「선분 위」 점으로 옮긴다(판단값). <b>다리·터널·진출입로 위로는 옮기지 않는다</b> — 한강 다리 위·산 터널 속에 역이 갈 수 없다.
- * 한국 OSM 엔 인도가 거의 없어 중심선에 붙인다.
+ * <p><b>① 정차역을 큰길 위로</b>({@link #snap}) — 역이 아파트 단지 한가운데(노량진2동, 동 사이)에 놓였다. 가장 가까운 큰길 「선분 위」 점으로
+ * 옮긴다 — **보조간선 이상이 {@value #MAX_SNAP_KM}km 안에 있으면 그쪽, 없으면 집산도로, 둘 다 없으면 {@value #FAR_SNAP_KM}km 까지 넓혀 가까운 쪽**
+ * (판단값, 11-13). 처음엔 0.3km 뿐이라 빽빽한 주택가(부천 고강본동 — 가장 가까운 집산도로 474m)에서 역이 건물 블록 안에 그대로 남았다.
+ * <b>다리·터널·진출입로 위로는 옮기지 않는다</b> — 한강 다리 위·산 터널 속에 역이 갈 수 없다. 한국 OSM 엔 인도가 거의 없어 중심선에 붙인다.
  *
  * <p><b>② 기존 도로로 가는 길</b>({@link #route}) — 트램·BRT 는 이미 있는 도로·다리를 따라간다. 양 끝에서 {@value #ENTRY_KM}km 안의 가장 가까운
  * 교차점끼리 A*(거리 = 도로 중심선 길이, 어림 = 직선 거리)로 잇는다. 방향(일방통행)·회전은 보지 않는다.
@@ -39,8 +40,13 @@ public class RoadNetwork {
 
     private static final Logger log = LoggerFactory.getLogger(RoadNetwork.class);
 
-    /** 이보다 먼 큰길로는 역을 옮기지 않는다 — 판단값 */
+    /** 보조간선 이상 → 집산도로 순으로 찾는 가까운 한도 — 판단값 */
     public static final double MAX_SNAP_KM = 0.3;
+    /**
+     * 가까운 한도 안에 길이 없을 때만 넓히는 먼 한도 — 판단값(역세권 반경 0.5km 에 여유를 더했다). 이보다 멀면 옮기지 않는다 — 산·논밭이라
+     * 도로가 없는 것이 맞다(건물 블록이 아니다)
+     */
+    public static final double FAR_SNAP_KM = 0.6;
     /** 그린 점에서 이보다 먼 교차점으로는 들어가지 않는다 — 판단값(도로가 없는 곳을 「길 있음」 으로 치지 않게) */
     public static final double ENTRY_KM = 1.0;
     /** 다리 · 터널 · 진출입로 · 집산도로 표시(`osm_roads.py` 와 같다) */
@@ -266,9 +272,25 @@ public class RoadNetwork {
         return Optional.ofNullable(found);
     }
 
-    /** 큰길 위로 옮긴 자리 — {@value #MAX_SNAP_KM}km 안에 없거나 자료가 없으면 그대로 */
+    /** 큰길 위로 옮긴 자리 — 가까운 한도({@value #MAX_SNAP_KM}km) 안에 없으면 먼 한도({@value #FAR_SNAP_KM}km)까지, 거기도 없거나 자료가 없으면 그대로 */
     public double[] snap(double[] point) {
-        return nearest(point[0], point[1], MAX_SNAP_KM).orElse(point);
+        return nearest(point[0], point[1], MAX_SNAP_KM)
+                .or(() -> nearestAny(point[0], point[1], FAR_SNAP_KM))
+                .orElse(point);
+    }
+
+    /** 큰길·집산도로를 가리지 않고 가장 가까운 점 — 먼 한도에서만 쓴다(큰길 우선은 가까운 한도 안에서의 규칙이다) */
+    private Optional<double[]> nearestAny(double lat, double lng, double maxKm) {
+        Optional<double[]> major = nearestIn(segGrid, lat, lng, maxKm);
+        Optional<double[]> minor = nearestIn(minorGrid, lat, lng, maxKm);
+        if (major.isEmpty() || minor.isEmpty()) {
+            return major.isPresent() ? major : minor;
+        }
+        return distKm(lat, lng, major.get()) <= distKm(lat, lng, minor.get()) ? major : minor;
+    }
+
+    private static double distKm(double lat, double lng, double[] p) {
+        return Haversine.distanceKm(lat, lng, p[0], p[1]);
     }
 
     /** {@value #ENTRY_KM}km 안의 가장 가까운 교차점. 없으면 -1 */
