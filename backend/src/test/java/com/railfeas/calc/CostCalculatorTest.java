@@ -239,6 +239,31 @@ class CostCalculatorTest {
     }
 
     @Test
+    @DisplayName("도로를 따라가는 행의 구역 경고는 새로 놓는 구간만 본다 — 기존 도로가 비껴가면 직선이 지나도 경고가 없다(11-14)")
+    void roadRowsWarnAboutNewRoadOnly() {
+        // 노선 10km 한가운데의 반경 1km 구역 — 직선은 지나고, 동쪽 1.76km 를 도는 기존 도로(1.35배)는 비껴간다
+        var middle = newInstance(com.railfeas.reference.RestrictedZone.class,
+                "name", "가운데 보호구역",
+                "centerLat", BigDecimal.valueOf(37.5215),
+                "centerLng", BigDecimal.valueOf(126.9780),
+                "radiusKm", BigDecimal.valueOf(1.0));
+        var capacities = Map.of(
+                ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null),
+                ModeType.HEAVY_METRO, capacity(ModeType.HEAVY_METRO, null, 80_000, 1.0, 20.0, null));
+        var standards = List.of(standard(ModeType.TRAM, StructureType.AT_GRADE), standard(ModeType.HEAVY_METRO, StructureType.ELEVATED));
+
+        var around = calculator(bracketRoad(0.02), new WaterBodies("없는파일.geojson"))
+                .calculate(scenario(10.0), standards, capacities, List.of(middle));
+        assertThat(String.valueOf(around.results().get(0).getWarning())).as("트램 — 기존 도로가 구역을 비껴간다").doesNotContain("가운데 보호구역");
+        assertThat(around.results().get(1).getWarning()).as("지하철 — 그린 직선은 구역을 지난다").contains("가운데 보호구역");
+
+        // 기존 도로가 1.5배를 넘어 새 도로로 두면(동쪽 5.3km) 그 직선 구간은 구역을 지난다 — 경고가 붙는다
+        var through = calculator(bracketRoad(0.06), new WaterBodies("없는파일.geojson"))
+                .calculate(scenario(10.0), standards, capacities, List.of(middle));
+        assertThat(through.results().get(0).getWarning()).as("트램 — 새 도로가 구역을 지난다").contains("가운데 보호구역");
+    }
+
+    @Test
     @DisplayName("찍은 점이 아니라 선이 구역을 지나면 안내한다 — 양 끝이 5km 밖이어도(11-12, 경복궁)")
     void restrictedZoneOnTheLineNotJustAtThePoints() {
         // 노선 10km 의 한가운데에 반경 1km 구역 — 양 끝은 5km 떨어져 있다

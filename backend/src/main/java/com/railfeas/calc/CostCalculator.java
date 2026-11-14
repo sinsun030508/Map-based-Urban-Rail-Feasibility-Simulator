@@ -173,7 +173,8 @@ public class CostCalculator {
                         p.getLongitude().doubleValue()})
                 .toList();
 
-        String zoneWarning = zoneWarning(scenario.getPoints(), zones);
+        String zoneWarning = zoneWarning(List.of(scenario.getPoints().stream()
+                .map(p -> new double[]{p.getLatitude().doubleValue(), p.getLongitude().doubleValue()}).toList()), zones);
         BenefitCalculator.Params params = benefits.load();
 
         // 찍은 점이 아니라 **선 전체**를 잰다 — 점만 세면 선의 1/2~1/8 만 잡히고 경유점을 찍을수록 수요가 늘어난다.
@@ -199,6 +200,9 @@ public class CostCalculator {
         RoadRoute.Plan roadPlan = standards.stream().anyMatch(s -> ON_ROAD.contains(s.getModeType()))
                 ? RoadRoute.plan(points, roads) : null;
         RoadPart road = roadPlan == null ? null : roadPart(roadPlan, standards);
+        // 도로를 따라가는 행의 구역 경고는 **새로 놓는 구간만** 본다(11-14) — 기존 도로는 이미 있다. 그린 직선 기준 경고는 도로가 구역을 비껴가도 붙었다
+        String roadZoneWarning = roadPlan == null ? null
+                : zoneWarning(roadPlan.newPieces().stream().map(RoadRoute.Piece::points).toList(), zones);
 
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
@@ -261,7 +265,7 @@ public class CostCalculator {
                     // B/C 는 양쪽 다 현재가치로 본다. total_cost 에는 명목 총액을 남긴다
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
-                    .warning(warning(routeKm, peak, capacity, zoneWarning, people,
+                    .warning(warning(routeKm, peak, capacity, onRoad ? roadZoneWarning : zoneWarning, people,
                             stations - stationCount, tunnelPart.note(), vehicle ? road.note() : null))
                     .build();
             attachStations(result, placed, dailyRiders);
@@ -407,15 +411,18 @@ public class CostCalculator {
      * 규제 구역을 지나는지 본다 — 찍은 점이 아니라 **선분**으로(`RestrictedZones.crossed`, 11-12. 점만 보다가 경복궁 한가운데를
      * 지나는 노선에 아무 말이 없었다). 구역 좌표·반경이 근사치라 "통과"가 아니라 "확인 필요"로만 안내한다.
      */
-    private String zoneWarning(List<RoutePoint> points, List<RestrictedZone> zones) {
-        List<double[]> route = points.stream()
-                .map(p -> new double[]{p.getLatitude().doubleValue(), p.getLongitude().doubleValue()})
-                .toList();
-        List<RestrictedZones.Zone> hit = RestrictedZones.crossed(route, RestrictedZones.of(zones));
+    private String zoneWarning(List<List<double[]>> lines, List<RestrictedZone> zones) {
+        // 선이 여럿이면(새 도로 구간들) 구역을 이름으로 한 번씩만 센다
+        java.util.LinkedHashMap<String, RestrictedZones.Zone> hit = new java.util.LinkedHashMap<>();
+        for (List<double[]> line : lines) {
+            for (RestrictedZones.Zone z : RestrictedZones.crossed(line, RestrictedZones.of(zones))) {
+                hit.putIfAbsent(z.name(), z);
+            }
+        }
         if (hit.isEmpty()) {
             return null;
         }
-        return hit.get(0).name() + (hit.size() > 1 ? " 외 " + (hit.size() - 1) + "곳" : "") + " 인근 — 확인 필요";
+        return hit.keySet().iterator().next() + (hit.size() > 1 ? " 외 " + (hit.size() - 1) + "곳" : "") + " 인근 — 확인 필요";
     }
 
     /** 계산 결과와 함께 시나리오에 기록할 값들 */

@@ -9,6 +9,7 @@ import ComparePage from './scenario/ComparePage';
 import { gainsNothing } from './scenario/gainsNothing';
 import { followsRoad, mergeRoadMountain, mountainFor, newPieces, roadMountainView } from './scenario/mountainNote';
 import { mergeRoadWater } from './scenario/roadWater';
+import { mergeRoadZones } from './scenario/roadZone';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
 import { resultKey } from './scenario/resultKey';
@@ -52,6 +53,7 @@ export default function App() {
   const [zone, setZone] = useState(null);
   const [roadMountain, setRoadMountain] = useState(null);
   const [roadWater, setRoadWater] = useState(null);
+  const [roadZone, setRoadZone] = useState(null);
   const [existingOption, setExistingOption] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
@@ -213,6 +215,7 @@ export default function App() {
     if (!roadKey) {
       setRoadMountain(null);
       setRoadWater(null);
+      setRoadZone(null);
       return undefined;
     }
     let alive = true;
@@ -224,6 +227,10 @@ export default function App() {
     Promise.all(roadNew.map((p) => api.detour(asPoints(p), shown.structureType)))
       .then((rs) => alive && setRoadWater({ key: roadKey, ...mergeRoadWater(rs) }))
       .catch(() => alive && setRoadWater(null));
+    // 확인 필요 구역도 새 구간만 — 기존 도로가 궁궐 구역을 지나도 이미 있는 길이다(11-14)
+    Promise.all(roadNew.map((p) => api.zoneDetour(asPoints(p))))
+      .then((rs) => alive && setRoadZone({ key: roadKey, ...mergeRoadZones(rs) }))
+      .catch(() => alive && setRoadZone(null));
     return () => { alive = false; };
   }, [roadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -327,7 +334,10 @@ export default function App() {
     : followsRoad(shown)
       ? roadMountainView(roadMountain && roadMountain.key === roadKey ? roadMountain : null, shown)
       : mountainFor(mountain && mountain.key === pointsKey ? mountain : null, shown);
-  const zoneNow = zone && zone.key === pointsKey ? zone : null;
+  // **도로를 따라가는 행은 새로 놓는 구간의 구역만 본다**(11-14) — 지도의 원은 구역 위치라 그대로 그린다
+  const zoneNow = followsRoad(shown)
+    ? (roadZone && roadZone.key === roadKey ? roadZone : null)
+    : (zone && zone.key === pointsKey ? zone : null);
   // 터널 토막(갈색)과 돌아가는 안의 미리보기(점선) — 돌아갈 수 있는 구간이 있을 때만 미리보기를 그린다
   const mountainPieces = (mountainNow?.mountains || []).flatMap((m) => m.pieces || []);
   const mountainPreview = (mountainNow?.mountains || []).some((m) => m.detoured)

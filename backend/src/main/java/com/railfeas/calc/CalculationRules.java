@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
+     * 도로를 따라가는 행(트램·BRT·광역급행)의 확인 필요 구역 경고를 그린 직선이 아니라 새로 놓는 구간만 보게 한 시각(11-14) — 기존 도로가 구역을
+     * 비껴가는 행에서 「○○ 인근 — 확인 필요」 가 사라진다.
      * 정차역을 큰길로 붙이는 한도를 두 단계로 넓힌 시각(`RoadNetwork.FAR_SNAP_KM` — 가까운 0.3km 안에 길이 없으면 0.6km 까지, 11-13 12:36) —
      * 빽빽한 주택가에서 건물 블록에 남던 역이 가까운 큰길·집산도로 위로 옮겨져 역 자리·이름·역세권 인구·비킨 길이가 바뀐다.
      * (15:37 — 도로 위 노선은 역도 그 선 위에 두고, 찍은 끝점·경유점을 가까운 큰길 위로 옮겨 시작하게 했다)
@@ -51,7 +53,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 13, 12, 36);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 14, 23, 50);
 
     private CalculationRules() {
     }
