@@ -100,7 +100,7 @@ docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨
 ```bash
 cd etl && python -m pytest      # 315개 — 원자료 파서·측정 규칙·문서 일치·비밀값
 cd backend && ./mvnw test       # 260개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
-cd frontend && npm test         # 78개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백·산 구간 문구·터널 몫·종점역 선·구역 안내·api 이름 중복·도로 노선 그리기·회원 관리 규칙·지도 준비 기준·비용 구성·역별 이용객·경전철 이용객 표기 (node --test, 의존성 없음)
+cd frontend && npm test         # 80개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백·산 구간 문구·터널 몫·종점역 선·구역 안내·api 이름 중복·도로 노선 그리기·회원 관리 규칙·지도 준비 기준·비용 구성·역별 이용객·경전철 이용객 표기 (node --test, 의존성 없음)
 ```
 
 - **GitHub Actions**(`.github/workflows/ci.yml`)가 푸시·PR 마다 세 묶음을 깨끗한 환경에서 돌린다 — 저장소에 없는

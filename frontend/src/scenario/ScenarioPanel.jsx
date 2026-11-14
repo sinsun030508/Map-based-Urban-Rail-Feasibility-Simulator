@@ -3,6 +3,7 @@ import CostTable from './CostTable';
 import { followsRoad, mountainNote, roadMountainNote } from './mountainNote';
 import { zoneNote } from './zoneNote';
 import { bridgeCostIncluded } from './roadWater';
+import { drawnStructure } from './drawnStructure';
 import { roadSummary } from '../geo/routeLine';
 import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
 
@@ -85,7 +86,7 @@ export default function ScenarioPanel({
           const spans = (water?.waterKm || []).filter((w) => w.km >= 0.05);
           // 도로를 따라가는 행은 지도에 그린 행의 구조·새로 놓는 구간 기준이다(11-12) — 선택창의 구조가 아니다
           const roadRow = followsRoad(mountainRow);
-          const under = (roadRow ? mountainRow.structureType : structure) === 'UNDERGROUND';
+          const under = drawnStructure(mountainRow, structure) === 'UNDERGROUND';
           return spans.length > 0 && (
             <p className="water-span small muted">
               <b>{roadRow ? (under ? '새로 놓는 구간의 물 아래' : '새로 놓는 구간의 물 위') : (under ? '물 아래 구간' : '물 위 구간')}</b>(지도의 파란 토막){' '}
