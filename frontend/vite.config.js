@@ -12,10 +12,16 @@ export default defineConfig(({ mode }) => {
   // 예약 범위 확인: netsh int ipv4 show excludedportrange protocol=tcp
   const apiTarget = env.VITE_API_TARGET || 'http://localhost:8080';
 
+  // 프론트 포트. 기본 3000 — 5173 은 윈도우가 5094~5193 을 예약한 PC 에서 `EACCES` 로 못 연다(11-14).
+  // 다시 예약돼도 `VITE_PORT` 로 옮기고 백엔드 `CORS_ORIGINS`·`OAUTH2_REDIRECT_URI` 를 같은 포트로 맞춘다.
+  // **`strictPort`: 포트가 막히면 다른 포트로 조용히 넘어가지 않고 멈춘다** — 넘어가면 CORS·소셜 로그인 주소가 어긋난다
+  const port = Number(env.VITE_PORT) || 3000;
+
   return {
     plugins: [react()],
     server: {
-      port: 5173,
+      port,
+      strictPort: true,
       proxy: {
         // 백엔드. 같은 출처로 보이게 해서 CORS 설정을 피한다
         '/api': { target: apiTarget, changeOrigin: true },

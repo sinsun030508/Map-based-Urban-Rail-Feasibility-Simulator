@@ -28,7 +28,7 @@ python etl/osm_roads.py                          # 큰길 도로망 — 정차�
 docker compose up -d                             # DB·Redis (시드를 고쳤으면 down -v 먼저)
 set -a && . ./.env && set +a                     # DB 접속·API 키
 cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
-cd frontend && npm run dev                       # 5173
+cd frontend && npm run dev                       # 3000 (`VITE_PORT`)
 ```
 
 배포는 `docs/deploy.md` — `docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build`.
@@ -44,6 +44,9 @@ cd frontend && npm run dev                       # 5173
   jar 와 보고서의 **시각까지** 볼 것. 받아 둔 maven 은 `~/.m2/wrapper/dists/*/*/bin/mvn -o`
 - **SQL 첫 줄에 `SET NAMES utf8mb4;`** / **`JWT_SECRET` 은 기본값이 없다**(32바이트 이상,
   바꾸면 토큰 전부 무효) / **MapLibre 에는 `ResizeObserver`** (없으면 클릭 좌표가 어긋난다)
+- **프론트 포트는 3000 이다**(11-14) — 윈도우가 5094~5193 을 예약한 PC 에서 5173 이 `EACCES` 로 안 열렸다(Docker·Hyper-V 를 껐다 켜도 안 풀렸다).
+  `netsh int ipv4 show excludedportrange protocol=tcp` 로 보고, 막히면 `frontend/.env` 의 `VITE_PORT` 와 백엔드 `CORS_ORIGINS`·`OAUTH2_REDIRECT_URI` 를
+  **같은 포트로** 맞춘다(`strictPort` 라 막히면 멈춘다 — 조용히 다른 포트로 넘어가면 CORS·소셜 로그인이 어긋난다)
 - **`/api/*` 의 500 은 백엔드가 죽었다는 뜻일 수 있다.** Vite 프록시는 못 닿으면 502 가 아니라 **500** 을 만들고 **백엔드 로그엔 아무것도 안 남는다.** 먼저 9090 이 듣는지 본다
 - **비밀값은 `.env` 에만.** `.env.example` 은 저장소에 올라간다 — 자리표시자만. 서울 열린데이터광장 키를 올린 적이 있고
   (기록에서 지웠지만 복제·캐시는 못 지운다 — **키 재발급**이 진짜 해법), DB 비밀번호가 프로젝트 이름과 같아 세 파일에
@@ -167,7 +170,7 @@ cd frontend && npm run dev                       # 5173
 ## 테스트
 
 `cd etl && python -m pytest` (315개 — 파서·측정 규칙·문서 일치·비밀값) /
-`cd backend && ./mvnw test` (257개 — 계산 로직과 판정 규칙) /
+`cd backend && ./mvnw test` (260개 — 계산 로직과 판정 규칙) /
 `cd frontend && npm test` (78개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백·산 구간 문구·터널 몫·종점역 선·구역 안내·api 이름 중복·도로 노선 그리기·회원 관리 규칙·지도 준비 기준·비용 구성·역별 이용객·이름표 겹침·경전철 이용객 표기, `node --test` 라 의존성 없음).
 `test_docs_match_code.py` 는 **이 파일의 숫자가 코드·자료와 맞는지** 본다. 깨지면 둘 중
 하나다 — ① 값이 바뀌었는데 문서를 안 고쳤다(문서를 고친다) ② 문장을 다듬어 정규식이

@@ -66,7 +66,7 @@ Docker 배포 묶음(`docs/deploy.md`)
 cp .env.example .env            # 키는 .env 에만 넣는다 (저장소에 올리지 말 것)
 docker compose up -d            # MySQL(호스트 3307) + Redis, 첫 기동에 스키마·시드 자동 적재
 cd backend && ./mvnw package && java -jar target/railfeas-0.1.0.jar
-cd frontend && npm install && npm run dev      # http://localhost:5173
+cd frontend && npm install && npm run dev      # http://localhost:3000 (포트가 막히면 VITE_PORT — CLAUDE.md 「실행」)
 ```
 
 `DB_PASSWORD` 는 **직접 정해 `.env` 에만** 넣는다 — compose 와 백엔드가 함께 읽고, 기본값이 없어 비어 있으면 둘 다 멈춘다.
@@ -99,7 +99,7 @@ docker compose down -v && docker compose up -d   # 시드를 바꿨으면 볼륨
 
 ```bash
 cd etl && python -m pytest      # 315개 — 원자료 파서·측정 규칙·문서 일치·비밀값
-cd backend && ./mvnw test       # 257개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
+cd backend && ./mvnw test       # 260개 — 계산 로직과 판정 규칙 (실행 중인 백엔드는 끄고 돌릴 것)
 cd frontend && npm test         # 78개 — 뜻이 갈리는 화면 표기·훅 순서·401 처리·소셜 콜백·산 구간 문구·터널 몫·종점역 선·구역 안내·api 이름 중복·도로 노선 그리기·회원 관리 규칙·지도 준비 기준·비용 구성·역별 이용객·경전철 이용객 표기 (node --test, 의존성 없음)
 ```
 

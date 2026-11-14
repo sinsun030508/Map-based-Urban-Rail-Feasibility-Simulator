@@ -50,6 +50,8 @@ app:
   rail-speed-file: ${RAIL_SPEED_FILE:../data/seed/rail_speed.csv}
   # 호수·저수지 영역 — 노선이 물을 지나면 돌아가는 선형을 제안한다 (etl/osm_water.py)
   water-file: ${WATER_FILE:../data/build/water_bodies.geojson}
+  # 프론트 개발 서버 주소(쉼표로 여럿) — CORS 허용 출처. 윈도우가 포트를 예약해 프론트를 옮겼으면 여기도 맞춘다(`VITE_PORT` 와 같은 포트)
+  cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:5173}
   # 큰길 도로망 — 정차역을 큰길 위로 옮기고 트램·BRT 가 기존 도로를 따라간다 (etl/osm_roads.py). 없으면 꺼진다
   road-file: ${ROAD_FILE:../data/build/road_graph.csv.gz}
   # 땅 높이 타일 — 노선이 35‰ 보다 가파른 산을 지나면 터널·우회 안을 보인다 (etl/dem_tiles.py). 없으면 꺼진다
@@ -62,7 +64,7 @@ app:
     expiry-minutes: ${JWT_EXPIRY_MINUTES:720}
   oauth2:
     # 소셜 로그인 성공 후 토큰을 붙여 보낼 프론트엔드 주소
-    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth/callback}
+    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
 
 logging:
   level:

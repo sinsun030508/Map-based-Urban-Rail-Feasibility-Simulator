@@ -32,6 +32,21 @@ public class SecurityConfig {
     @Value("${springdoc.api-docs.enabled:false}")
     private boolean docsEnabled;
 
+    /**
+     * 프론트 개발 서버 주소(쉼표로 여럿) — **설정으로 정한다**(`CORS_ORIGINS`, 11-14). 5173 을 박아 두었더니 윈도우가 그 포트(5094~5193)를
+     * 예약한 PC 에서 프론트를 다른 포트로 띄우자 모든 POST 가 「Invalid CORS request」 로 막혔다
+     */
+    @Value("${app.cors-origins:http://localhost:3000,http://localhost:5173}")
+    private String corsOrigins;
+
+    /** 쉼표로 나눠 적은 출처를 목록으로 — 앞뒤 공백·빈 칸은 버린다. 비면 아무 출처도 허용하지 않는다 */
+    static List<String> corsOrigins(String csv) {
+        if (csv == null) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+    }
+
     /** 켰을 때만 문서 경로를 연다 — 꺼져 있는데 열어 두면 나중에 켜는 순간 조용히 공개된다 */
     static String[] publicDocs(boolean enabled) {
         return enabled ? new String[]{"/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html"} : new String[0];
@@ -68,7 +83,7 @@ public class SecurityConfig {
         }
         http
             .csrf(csrf -> csrf.disable())          // JWT 라 세션 쿠키를 쓰지 않는다
-            .cors(cors -> cors.configurationSource(corsSource()))
+            .cors(cors -> cors.configurationSource(corsSource(corsOrigins(this.corsOrigins))))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 // /error 를 막으면 400·500 이 전부 403 으로 바뀌어 원인을 알 수 없게 된다
@@ -95,9 +110,9 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    private CorsConfigurationSource corsSource() {
+    static CorsConfigurationSource corsSource(List<String> origins) {
         var config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));   // React 개발 서버
+        config.setAllowedOrigins(origins);   // React 개발 서버 — 와일드카드는 쓰지 않는다
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         var source = new UrlBasedCorsConfigurationSource();
