@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import BcChart from './BcChart';
 import CostChart from './CostChart';
 import RowBreakdown from './RowBreakdown';
+import FloatingWindow from './FloatingWindow';
 import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
@@ -14,6 +16,14 @@ export default function CostTable({
   results, structure, population, selected, stale, existingOption, pointCount,
   overLength, onSelect,
 }) {
+  // **훅은 이른 `return` 위에 둔다**(`App.hooks.test.js`). 상세 창(그래프·비교표)은 버튼으로 열고,
+  // 위치는 여기서 들고 있어 닫았다 열어도 끌어 둔 자리에 다시 뜬다
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const hasResults = results.length > 0;
+  // 결과가 사라지면(시나리오를 비우거나 다른 것을 열면) 창도 닫는다 — 안 닫으면 다음 결과가 오자마자 저절로 떠 있다
+  useEffect(() => { if (!hasResults) setOpen(false); }, [hasResults]);
+
   if (!results.length) return null;
 
   const hasDemand = results.some((r) => r.bcRatio != null);
@@ -58,12 +68,28 @@ export default function CostTable({
     (r) => r.modeType === pair.modeType && r.structureType === 'ELEVATED'
   );
 
-  return (
-    <section>
-      <h2>수단별 비교</h2>
-      {stale && <p className="error">{STALE_MESSAGE}</p>}
+  const pickLabel = (r) => `${MODE_LABEL[r.modeType] || r.modeType} ${STRUCTURE_LABEL[r.structureType]}`;
+  // B/C 0 의 이유는 **표 위 한 줄**로 말하고 행에는 꼬리표를 달지 않는다(숫자만 흐리게).
+  // 2호선을 따라 그리면 11행 중 7행이 0 인데, 꼬리표가 48px B/C 칸에서 숫자 밑으로
+  // 내려가 **짧은 「절감 없음」 조차 7행을 두 줄로** 늘렸다.
+  // 추천이 없을 때(`noGain`)는 패널과 창 둘 다 이 문장을 쓴다 — 추천 자리에 「추천 없음」 이 와야 한다
+  const zeroNote = noGain ? (
+    <p className="small warn">
+      모든 신설안이 {slowerThan}보다 느리거나 이용객이 너무 적어 아끼는 시간이 (거의)
+      없습니다 — <strong>추천할 신설안이 없습니다.</strong>
+    </p>
+  ) : hasDemand && zeroCount > 0 && (
+    <p className="small note">
+      B/C 0.00 인 {zeroCount}개 안은 {slowerThan}보다 느리거나 이용객이 너무 적어
+      아끼는 시간이 (거의) 없습니다 — 계산 실패가 아닙니다.
+    </p>
+  );
+
+  // 창에 들어가는 것 — 그래프·비교표·근거. 행을 누르면 뒤의 지도가 바뀐다(창은 지도를 막지 않는다)
+  const detail = (
+    <>
       <p className="muted small">
-        행을 누르면 그 수단의 정차역이 지도에 표시됩니다.
+        행을 누르면 그 수단의 정차역이 뒤의 지도에 표시됩니다.
         역수는 수단별 표준 역간격으로 추정했습니다.
         {hasDemand
           ? ' B/C가 높은 순입니다.'
@@ -83,20 +109,7 @@ export default function CostTable({
         </div>
       )}
 
-      {/* B/C 0 의 이유는 **표 위 한 줄**로 말하고 행에는 꼬리표를 달지 않는다(숫자만 흐리게).
-          2호선을 따라 그리면 11행 중 7행이 0 인데, 꼬리표가 48px B/C 칸에서 숫자 밑으로
-          내려가 **짧은 「절감 없음」 조차 7행을 두 줄로** 늘렸다 */}
-      {noGain ? (
-        <p className="small warn">
-          모든 신설안이 {slowerThan}보다 느리거나 이용객이 너무 적어 아끼는 시간이 (거의)
-          없습니다 — <strong>추천할 신설안이 없습니다.</strong>
-        </p>
-      ) : hasDemand && zeroCount > 0 && (
-        <p className="small note">
-          B/C 0.00 인 {zeroCount}개 안은 {slowerThan}보다 느리거나 이용객이 너무 적어
-          아끼는 시간이 (거의) 없습니다 — 계산 실패가 아닙니다.
-        </p>
-      )}
+      {zeroNote}
 
       <BcChart results={sorted} selected={selected} onSelect={onSelect} />
       <CostChart results={sorted} existingOption={existingOption}
@@ -192,22 +205,6 @@ export default function CostTable({
         </p>
       )}
 
-      {/* 수단마다 온 경고를 조각 단위로 합친다 — 전에는 숫자만 다른 같은 말이 여섯 줄
-          쌓였다(`warnings.js`). 정확한 값은 행의 `title` 에 그대로 있다 */}
-      {mergeWarnings(results.map((r) => r.warning)).map((w) => (
-        <p key={w} className="small warn" title="수단별 정확한 값은 표의 행에 마우스를 올리면 나옵니다">
-          ⚠ {w}
-        </p>
-      ))}
-
-      {/* 이 줄은 접지 않는다 — 읽고 **할 일이 있는** 안내다(경유점 추가) */}
-      {pointCount === 2 && (
-        <p className="small note">
-          두 점만 찍어 <strong>직선으로 계산</strong>했습니다 — 지도를 눌러 경유점을
-          더하면 실제 선형에 가까워집니다.
-        </p>
-      )}
-
       {/* **지우지 않고 접는다.** 근거와 한계를 화면에서 없애면 다음 사람이 이 숫자를
           공표값으로 읽는다. 대신 가장 중요한 한 줄을 `summary` 에 올려 접힌 채로도
           읽히게 한다 — 펴야 보이는 경고는 없는 경고다 */}
@@ -258,6 +255,60 @@ export default function CostTable({
           </>
         )}
       </details>
+    </>
+  );
+
+  return (
+    <section>
+      <h2>수단별 비교</h2>
+      {stale && <p className="error">{STALE_MESSAGE}</p>}
+
+      {/* 패널에는 **한 줄 요약과 경고만** 둔다 — 그래프·비교표는 「상세 비교 보기」 창으로 옮겼다.
+          경고(낡은 결과·수단별 경고)는 창에 가려지면 안 되어 패널에 남는다 */}
+      {noGain ? zeroNote : best && (
+        <p className="result-pick">
+          <span className="muted small">{hasDemand ? '추천 수단' : '건설비가 가장 싼 안'}</span>
+          <strong>{pickLabel(best)}</strong>
+          <span className="small">
+            건설비 {money(best.totalCost)}
+            {best.bcRatio != null && <> · B/C {bc(best.bcRatio)}</>}
+            {best.travelTimeMin ? <> · {Math.round(best.travelTimeMin)}분</> : null}
+          </span>
+        </p>
+      )}
+      <p className="muted small">
+        {sorted.length}개 안을 {hasDemand ? 'B/C가 높은 순' : '건설비 순'}으로 비교했습니다.
+      </p>
+      <button
+        type="button"
+        className="calc detail-open"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? '상세 비교 닫기' : '상세 비교 보기 — 그래프·비교표'}
+      </button>
+
+      {/* 수단마다 온 경고를 조각 단위로 합친다 — 전에는 숫자만 다른 같은 말이 여섯 줄
+          쌓였다(`warnings.js`). 정확한 값은 행의 `title` 에 그대로 있다 */}
+      {mergeWarnings(results.map((r) => r.warning)).map((w) => (
+        <p key={w} className="small warn" title="수단별 정확한 값은 표의 행에 마우스를 올리면 나옵니다">
+          ⚠ {w}
+        </p>
+      ))}
+
+      {/* 이 줄은 접지 않는다 — 읽고 **할 일이 있는** 안내다(경유점 추가) */}
+      {pointCount === 2 && (
+        <p className="small note">
+          두 점만 찍어 <strong>직선으로 계산</strong>했습니다 — 지도를 눌러 경유점을
+          더하면 실제 선형에 가까워집니다.
+        </p>
+      )}
+
+      {open && (
+        <FloatingWindow title="수단별 상세 비교" pos={pos} onMove={setPos} onClose={() => setOpen(false)}>
+          {detail}
+        </FloatingWindow>
+      )}
     </section>
   );
 }

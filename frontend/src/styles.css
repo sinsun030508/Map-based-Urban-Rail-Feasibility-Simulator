@@ -260,3 +260,31 @@ td.stat-bar-cell { width: 100%; }
 .stat-bar { display: block; height: 10px; min-width: 2px; background: #1a56db; border-radius: 0 4px 4px 0; }
 .cost-history { margin-top: 16px; font-size: 13px; }
 .cost-history summary { cursor: pointer; color: var(--muted); margin-bottom: 6px; }
+
+/* 패널의 한 줄 요약 — 그래프·비교표는 「상세 비교 보기」 창에 있다 */
+.result-pick { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 8px; padding: 8px 10px;
+  background: #f5f8fd; border-left: 3px solid #1a56db; border-radius: 4px; }
+.result-pick strong { font-size: 15px; }
+button.detail-open { margin-top: 4px; margin-bottom: 8px; background: #fff; color: #1a56db; border: 1px solid #1a56db; }
+button.detail-open:hover { background: #f5f8fd; }
+
+/* 지도 위에 띄우는 상세 창 — 모달이 아니다(뒤를 어둡게 하지 않고, 창 밖은 그대로 지도다).
+   `resize: both` 로 오른쪽 아래 모서리를 끌어 크기를 바꾼다. 위치·처음 크기는 style 로 받는다 */
+.float-win {
+  position: fixed; z-index: 30; display: flex; flex-direction: column;
+  min-width: 320px; min-height: 120px; max-width: calc(100vw - 24px); max-height: calc(100vh - 64px);
+  background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .22); overflow: hidden; resize: both;
+}
+.float-win.collapsed { height: auto !important; min-height: 0; resize: none; }
+.float-win-bar {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; flex: none;
+  background: #eef2f7; border-bottom: 1px solid var(--line); cursor: grab; touch-action: none; user-select: none;
+}
+.float-win-bar:active { cursor: grabbing; }
+.float-win.collapsed .float-win-bar { border-bottom: none; }
+.float-win-bar strong { font-size: 14px; }
+.float-win-hint { flex: 1; font-size: 11px; color: var(--muted); }
+.float-win-btn { padding: 3px 9px; font-size: 12px; background: #fff; color: inherit; border: 1px solid var(--line); border-radius: 5px; cursor: pointer; }
+.float-win-btn:hover { background: #f5f8fd; }
+.float-win-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px 16px; }
