@@ -71,7 +71,18 @@ class CostCalculatorTest {
         return calculator(intercity, TunnelKm.NONE, roads, water);
     }
 
+    /** 해안선까지 받는다 — 열차 찾기는 없는 파일로(KTX 는 이 테스트의 관심이 아니다) */
+    private CostCalculator calculator(RoadNetwork roads, WaterBodies water, Coastline coast) {
+        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
+        intercity.load();
+        return calculator(intercity, TunnelKm.NONE, roads, water, coast);
+    }
+
     private CostCalculator calculator(IntercityRailFinder intercity, TunnelKm tunnel, RoadNetwork roads, WaterBodies water) {
+        return calculator(intercity, tunnel, roads, water, null);
+    }
+
+    private CostCalculator calculator(IntercityRailFinder intercity, TunnelKm tunnel, RoadNetwork roads, WaterBodies water, Coastline coast) {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
         index.load();
 
@@ -87,7 +98,7 @@ class CostCalculatorTest {
 
         return new CostCalculator(index, new BenefitCalculator(parameters),
                 new StationPlanner(index), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"),
-                        new UrbanLineSpeed("없는파일.csv")), tunnel, roads, water);
+                        new UrbanLineSpeed("없는파일.csv")), tunnel, roads, water, coast);
     }
 
     private static <T> T newInstance(Class<T> type, Object... nameValues) {
@@ -344,6 +355,50 @@ class CostCalculatorTest {
         // 강 폭 0.5km × 451억/km(일반국도 PSC Box 386.01억/km × 1.1686)
         assertThat(tram.getRoadCost()).isBetween(215L, 236L);
         assertThat(tram.getWarning()).contains("땅 위 공사비 모름");
+    }
+
+    /** 큰 육지(위도 36~39, 경도 125~129) 안에 바다 만 하나 — 만은 위 강 테스트와 같은 자리(동서로 놓인 남북 0.5km 폭)다 */
+    private static Coastline landWithBay() {
+        double[][] continent = {{36.0, 125.0}, {36.0, 129.0}, {39.0, 129.0}, {39.0, 125.0}, {36.0, 125.0}};
+        double[][] bay = {{37.5240, 126.95}, {37.5240, 127.00}, {37.5195, 127.00}, {37.5195, 126.95}, {37.5240, 126.95}};
+        return Coastline.of(java.util.Arrays.asList(continent, bay));
+    }
+
+    @Test
+    @DisplayName("새 도로가 바다를 건너면 다리값을 매긴다 — 바다 폭 0.5km × 451억/km, 하한이다(11-18)")
+    void newRoadOverTheSeaPaysForTheBridge() {
+        CostCalculator calc = calculator(bracketRoad(0.06), new WaterBodies("없는파일.geojson"), landWithBay());
+        var outcome = calc.calculate(scenario(10.0), List.of(standard(ModeType.TRAM, StructureType.AT_GRADE)),
+                Map.of(ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null)), List.of());
+
+        ScenarioResult tram = outcome.results().get(0);
+        assertThat(tram.getRouteLine()).startsWith("N ");
+        assertThat(tram.getRoadCost()).isBetween(215L, 236L);
+        // 바다 위 몫은 땅 위 공사비 「모름」 길이에서 빠진다 — 안 빼면 바다를 땅으로 세어 경고가 틀린다
+        assertThat(tram.getWarning()).contains("땅 위 공사비 모름");
+    }
+
+    @Test
+    @DisplayName("강과 바다가 같은 자리에서 겹쳐도 다리값은 한 번만 — 하구에서 이중으로 세면 두 배가 된다")
+    void riverAndSeaOverTheSameStretchAreCountedOnce() {
+        WaterBodies water = new WaterBodies("없는파일.geojson");
+        water.add("가운데강", WaterBodies.RIVER, List.<double[][]>of(new double[][]{
+                {37.5240, 126.95}, {37.5240, 127.00}, {37.5195, 127.00}, {37.5195, 126.95}, {37.5240, 126.95}}));
+        CostCalculator calc = calculator(bracketRoad(0.06), water, landWithBay());
+        var outcome = calc.calculate(scenario(10.0), List.of(standard(ModeType.TRAM, StructureType.AT_GRADE)),
+                Map.of(ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null)), List.of());
+
+        assertThat(outcome.results().get(0).getRoadCost()).as("215~236 — 두 배(450 안팎)면 이중 계산이다").isBetween(215L, 236L);
+    }
+
+    @Test
+    @DisplayName("해안선 자료가 없으면 바다 위 다리값은 0 — 이전과 같다(꺼진 기능이 값을 바꾸지 않는다)")
+    void withoutCoastlineThereIsNoSeaBridgeCost() {
+        CostCalculator calc = calculator(bracketRoad(0.06), new WaterBodies("없는파일.geojson"), null);
+        var outcome = calc.calculate(scenario(10.0), List.of(standard(ModeType.TRAM, StructureType.AT_GRADE)),
+                Map.of(ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null)), List.of());
+
+        assertThat(outcome.results().get(0).getRoadCost()).isZero();
     }
 
     @Test

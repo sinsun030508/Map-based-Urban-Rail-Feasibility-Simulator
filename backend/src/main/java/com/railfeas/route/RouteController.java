@@ -1,5 +1,6 @@
 package com.railfeas.route;
 
+import com.railfeas.calc.Coastline;
 import com.railfeas.calc.MountainCost;
 import com.railfeas.calc.MountainDetour;
 import com.railfeas.calc.MountainPlans;
@@ -87,18 +88,28 @@ public class RouteController {
 
     private final WaterDetour detour;
     private final WaterBodies water;
+    private final Coastline coast;
     private final Terrain terrain;
     private final CostStandardRepository standards;
     private final ModeCapacityRepository capacities;
     private final MountainPlans plans;
     private final RestrictedZoneRepository restricted;
 
+    /** 해안선 없이 — 물 위 구간에 바다가 안 든다 */
     public RouteController(WaterDetour detour, WaterBodies water, Terrain terrain,
+                           CostStandardRepository standards, ModeCapacityRepository capacities,
+                           MountainPlans plans, RestrictedZoneRepository restricted) {
+        this(detour, water, null, terrain, standards, capacities, plans, restricted);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public RouteController(WaterDetour detour, WaterBodies water, Coastline coast, Terrain terrain,
                            CostStandardRepository standards, ModeCapacityRepository capacities,
                            MountainPlans plans, RestrictedZoneRepository restricted) {
         this.restricted = restricted;
         this.detour = detour;
         this.water = water;
+        this.coast = coast;
         this.terrain = terrain;
         this.standards = standards;
         this.capacities = capacities;
@@ -112,7 +123,17 @@ public class RouteController {
         WaterDetour.Plan plan = request.structure() == StructureType.UNDERGROUND
                 ? new WaterDetour.Plan(route, List.of())
                 : detour.plan(route);
-        return new DetourResponse(points(plan.points()), plan.crossings(), water.onWater(route));
+        return new DetourResponse(points(plan.points()), plan.crossings(), waterSpans(route));
+    }
+
+    /** 호수·강에 바다(해안선 자료가 있으면)를 더해 긴 순서로 — 강 하구에서 겹치는 토막은 강으로만 센다 */
+    private List<WaterBodies.Span> waterSpans(List<double[]> route) {
+        List<WaterBodies.Span> spans = new java.util.ArrayList<>(water.onWater(route));
+        if (coast != null) {
+            coast.seaSpan(route, water::contains).ifPresent(spans::add);
+            spans.sort((a, b) -> Double.compare(b.km(), a.km()));
+        }
+        return spans;
     }
 
     @PostMapping("/mountain")

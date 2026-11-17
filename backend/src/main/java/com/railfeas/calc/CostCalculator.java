@@ -57,6 +57,7 @@ public class CostCalculator {
     private final TunnelKm tunnel;
     private final RoadNetwork roads;
     private final WaterBodies water;
+    private final Coastline coast;
 
     /** 지형을 보지 않는 계산기 — 터널비는 「모른다」(NULL)로 남는다 */
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
@@ -70,12 +71,20 @@ public class CostCalculator {
         this(population, benefits, planner, existingOptions, tunnel, RoadNetwork.of(List.of()), null);
     }
 
-    @Autowired
+    /** 해안선 없이 — 바다 위 새 도로의 다리값은 매기지 않는다 */
     public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
                           StationPlanner planner, ExistingOptions existingOptions, TunnelKm tunnel,
                           RoadNetwork roads, WaterBodies water) {
+        this(population, benefits, planner, existingOptions, tunnel, roads, water, null);
+    }
+
+    @Autowired
+    public CostCalculator(PopulationIndex population, BenefitCalculator benefits,
+                          StationPlanner planner, ExistingOptions existingOptions, TunnelKm tunnel,
+                          RoadNetwork roads, WaterBodies water, Coastline coast) {
         this.roads = roads;
         this.water = water;
+        this.coast = coast;
         this.population = population;
         this.benefits = benefits;
         this.planner = planner;
@@ -122,6 +131,10 @@ public class CostCalculator {
         for (RoadRoute.Piece p : plan.newPieces()) {
             if (water != null) {
                 waterKm += water.onWater(p.points()).stream().mapToDouble(WaterBodies.Span::km).sum();
+            }
+            // 바다도 다리다(11-18) — 강 하구에서 물 파일과 겹치는 몫은 한 번만 센다. 단가는 일반국도 교량(하한 — 지침은 바다 다리가 더 든다고 한다)
+            if (coast != null) {
+                waterKm += coast.seaSpan(p.points(), water == null ? null : water::contains).map(WaterBodies.Span::km).orElse(0.0);
             }
             TunnelKm.Tunnels t = tunnel.on(p.points(), standards);
             railKnown &= t.rail().isPresent();

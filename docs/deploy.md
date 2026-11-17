@@ -29,7 +29,7 @@ cd railfeas
 python3 etl/dem_tiles.py     # 지형 타일 36MB. 안 받으면 산 판정만 꺼진다
 ```
 
-`data/build` 의 CSV 와 큰길 도로망(`road_graph.csv.gz`, 8.2MB)은 저장소에 있다. `data/cache` 는 없다. 도로망 파일이 없으면 정차역을 큰길로 옮기는 일과 트램·BRT·광역급행의 도로 따라가기가 꺼진다(그린 직선으로 센다).
+`data/build` 의 CSV 와 큰길 도로망(`road_graph.csv.gz`, 8.2MB)은 저장소에 있다. 해안선(`coastline.csv.gz`, 바다 위 새 도로의 다리값)은 `python etl/osm_coast.py` 로 받아 두면 같은 폴더에서 읽고(`COAST_FILE`), 없으면 그 기능만 꺼진다. `data/cache` 는 없다. 도로망 파일이 없으면 정차역을 큰길로 옮기는 일과 트램·BRT·광역급행의 도로 따라가기가 꺼진다(그린 직선으로 센다).
 
 ## 3. `.env`
 

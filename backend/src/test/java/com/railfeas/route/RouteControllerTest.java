@@ -53,6 +53,11 @@ class RouteControllerTest {
     private static RouteController controller(Path dem, List<CostStandard> active) {
         WaterBodies water = new WaterBodies("../data/build/water_bodies.geojson");
         org.springframework.test.util.ReflectionTestUtils.invokeMethod(water, "load");
+        return controller(dem, active, water, null);
+    }
+
+    private static RouteController controller(Path dem, List<CostStandard> active, WaterBodies water,
+                                              com.railfeas.calc.Coastline coast) {
         CostStandardRepository standards = Mockito.mock(CostStandardRepository.class);
         Mockito.when(standards.findByActiveTrue()).thenReturn(active);
         ModeCapacityRepository capacities = Mockito.mock(ModeCapacityRepository.class);
@@ -68,7 +73,7 @@ class RouteControllerTest {
             public void put(String key, String value, java.time.Duration ttl) {
             }
         };
-        return new RouteController(new WaterDetour(water), water, new Terrain(dem), standards, capacities,
+        return new RouteController(new WaterDetour(water), water, coast, new Terrain(dem), standards, capacities,
                 new MountainPlans(empty, new com.fasterxml.jackson.databind.ObjectMapper()), zones());
     }
 
@@ -119,6 +124,29 @@ class RouteControllerTest {
 
     /** 신갈저수지를 동서로 가로지른다 */
     private static final List<ScenarioDto.PointRequest> SINGAL = List.of(p(37.2391, 127.06), p(37.2391, 127.14));
+
+    @Test
+    @DisplayName("/detour 의 물 위 구간에 바다가 호수·강과 같은 목록으로 들어간다 — 이름 「바다」, 종류 sea(11-18)")
+    void detourListsTheSeaAmongTheWaterSpans() {
+        double[][] island = {{37.00, 126.00}, {37.00, 126.20}, {37.20, 126.20}, {37.20, 126.00}, {37.00, 126.00}};
+        var coast = com.railfeas.calc.Coastline.of(java.util.Arrays.asList(new double[][][]{island}));
+        var c = controller(Path.of("src/test/resources/dem"), List.of(), new WaterBodies("없는파일.geojson"), coast);
+
+        var res = c.detour(new RouteController.DetourRequest(List.of(p(37.10, 125.90), p(37.10, 126.30)), StructureType.ELEVATED));
+
+        assertThat(res.waterKm()).hasSize(1);
+        assertThat(res.waterKm().get(0).name()).isEqualTo("바다");
+        assertThat(res.waterKm().get(0).kind()).isEqualTo("sea");
+        assertThat(res.waterKm().get(0).km()).isGreaterThan(15.0);      // 섬 양쪽 0.1° 씩, 한 토막 약 8.9km
+    }
+
+    @Test
+    @DisplayName("해안선이 없으면 /detour 에 바다가 없다 — 꺼진 기능은 응답을 바꾸지 않는다")
+    void detourWithoutCoastlineHasNoSea() {
+        var c = controller(Path.of("src/test/resources/dem"), List.of(), new WaterBodies("없는파일.geojson"), null);
+        var res = c.detour(new RouteController.DetourRequest(List.of(p(37.10, 125.90), p(37.10, 126.30)), StructureType.ELEVATED));
+        assertThat(res.waterKm()).isEmpty();
+    }
 
     @Test
     @DisplayName("응답의 위도·경도는 요청과 같은 자리에 있다 — 우회점도 노선 둘레다")

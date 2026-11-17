@@ -156,6 +156,17 @@ public class WaterBodies {
      * 상자와 겹치는 **호수들** — 우회 길을 찾을 때 그 둘레의 물을 막는 데 쓴다. 강까지 막으면
      * 강으로 이어진 호수(의암호 위쪽이 소양강이다)는 돌아갈 길이 아예 없어진다.
      */
+    /** 이 점이 호수·강 안인가 — 바다 길이에서 강 하구와 겹치는 몫을 빼 한 번만 세려고 쓴다(`Coastline.seaSpan`) */
+    public boolean contains(double lat, double lng) {
+        // `within` 은 호수 우회용이라 호수만 준다 — 강 하구에서 겹치는 것을 빼려면 강도 봐야 한다(이걸 썼다가 하구의 다리값이 두 배가 됐다)
+        for (Body w : bodies) {
+            if (w.overlaps(lat, lat, lng, lng) && w.contains(lat, lng)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public List<Body> within(double minLat, double maxLat, double minLng, double maxLng) {
         return bodies.stream()
                 .filter(w -> LAKE.equals(w.kind()) && w.overlaps(minLat, maxLat, minLng, maxLng))

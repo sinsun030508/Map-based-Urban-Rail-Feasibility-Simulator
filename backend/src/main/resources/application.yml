@@ -54,6 +54,8 @@ app:
   cors-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:5173}
   # 큰길 도로망 — 정차역을 큰길 위로 옮기고 트램·BRT 가 기존 도로를 따라간다 (etl/osm_roads.py). 없으면 꺼진다
   road-file: ${ROAD_FILE:../data/build/road_graph.csv.gz}
+  # 해안선 — 새 도로가 바다를 건너는 길이를 재 다리값을 매긴다 (etl/osm_coast.py). 없으면 꺼진다(바다 위 다리값은 매기지 않는다)
+  coast-file: ${COAST_FILE:../data/build/coastline.csv.gz}
   # 땅 높이 타일 — 노선이 35‰ 보다 가파른 산을 지나면 터널·우회 안을 보인다 (etl/dem_tiles.py). 없으면 꺼진다
   dem-dir: ${DEM_DIR:../data/cache/dem}
   jwt:
