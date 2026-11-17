@@ -4,6 +4,7 @@ import CostChart from './CostChart';
 import RowBreakdown from './RowBreakdown';
 import FloatingWindow from './FloatingWindow';
 import { gainsNothing } from './gainsNothing';
+import { belowBreakEven } from './breakEven';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
 import { MODE_LABEL, STRUCTURE_LABEL } from '../modeLabels';
@@ -274,6 +275,13 @@ export default function CostTable({
             {best.bcRatio != null && <> · B/C {bc(best.bcRatio)}</>}
             {best.travelTimeMin ? <> · {Math.round(best.travelTimeMin)}분</> : null}
           </span>
+        </p>
+      )}
+      {/* 추천은 「이 중 1등」 이지 「지을 만하다」 가 아니다 — B/C 가 0 보다 크기만 하면 1등이 나오므로, 1.0 미만이면 그렇다고 적는다(`breakEven.js`).
+          추천 규칙은 그대로이고 말만 더한다. 0 은 위의 「추천 없음」 문장이 따로 말한다 */}
+      {!noGain && belowBreakEven(best) && (
+        <p className="small warn">
+          ⚠ 추천안도 <strong>B/C {bc(best.bcRatio)}</strong> 로 1.0 미만입니다 — 순위는 1등이지만 편익이 비용을 덮지 못합니다.
         </p>
       )}
       <p className="muted small">
