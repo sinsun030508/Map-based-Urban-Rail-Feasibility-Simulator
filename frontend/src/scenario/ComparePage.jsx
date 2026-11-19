@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { belowBreakEven } from './breakEven';
 import { baseRow } from './demandNote';
 import { gainsNothing } from './gainsNothing';
 import { resultKey } from './resultKey';
@@ -196,6 +197,8 @@ export default function ComparePage({ onClose }) {
                         {b ? (
                           <>
                             <strong>{bc(b.bcRatio)}</strong>
+                            {/* 1.0 미만이면 ⚠ 한 글자만 — 칸이 좁아 꼬리표(block)를 달면 줄이 늘어난다. 설명은 표 아래 한 줄 */}
+                            {belowBreakEven(b) && <span className="warn" title="B/C 1.0 미만 — 편익이 비용을 덮지 못합니다"> ⚠</span>}
                             <span className="muted small">
                               {' '}{MODE_LABEL[b.modeType]} {STRUCTURE_LABEL[b.structureType]}
                             </span>
@@ -220,6 +223,12 @@ export default function ComparePage({ onClose }) {
                 </tr>
               </tbody>
             </table>
+            {/* 추천은 「이 중 1등」 이지 「지을 만하다」 가 아니다 — 시나리오 패널(`CostTable`)과 같은 말을 같은 판정(`belowBreakEven`)으로 한다 */}
+            {chosen.some((d) => belowBreakEven(bestOf(d))) && (
+              <p className="small warn">
+                ⚠ 표시된 노선은 추천안도 <strong>B/C 1.0 미만</strong>입니다 — 노선끼리 견준 순위는 있어도 편익이 비용을 덮지 못합니다.
+              </p>
+            )}
           </section>
 
           {modeRows.length > 0 && (
