@@ -357,6 +357,42 @@ class CostCalculatorTest {
         assertThat(tram.getWarning()).contains("땅 위 공사비 모름");
     }
 
+    /** 그린 노선(남북 10km) 가운데 강·만(위도 37.5195~37.5240) 양쪽 둑까지만 닿는 도로 둘 — 서로는 이어져 있지 않아 도로로는 갈 수 없다 */
+    private static RoadNetwork banksOnly() {
+        double[] a = ROUTE_POINTS.get(0), b = ROUTE_POINTS.get(1);
+        return RoadNetwork.ofEdges(List.of(
+                new RoadNetwork.Edge(0, 1, 0, new double[][]{a, {37.5240, a[1]}}),
+                new RoadNetwork.Edge(2, 3, 0, new double[][]{{37.5195, a[1]}, b})));
+    }
+
+    @Test
+    @DisplayName("강 양쪽 둑까지 도로가 닿으면 육지는 도로를 따라가고 강 위만 새 다리다 — 다리값은 강 폭만큼, 땅 위 공사비 「모름」 은 없다(11-19)")
+    void newBridgeOnlyOverTheRiverWhenRoadsReachBothBanks() {
+        WaterBodies water = new WaterBodies("없는파일.geojson");
+        water.add("가운데강", WaterBodies.RIVER, List.<double[][]>of(new double[][]{
+                {37.5240, 126.95}, {37.5240, 127.00}, {37.5195, 127.00}, {37.5195, 126.95}, {37.5240, 126.95}}));
+        CostCalculator calc = calculator(banksOnly(), water);
+        var outcome = calc.calculate(scenario(10.0), List.of(standard(ModeType.TRAM, StructureType.AT_GRADE)),
+                Map.of(ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null)), List.of());
+
+        ScenarioResult tram = outcome.results().get(0);
+        assertThat(tram.getRouteLine()).as("도로 · 새 다리 · 도로").startsWith("R ").contains("|N ").contains("|R ");
+        assertThat(tram.getRoadCost()).as("강 폭 0.5km × 451억/km").isBetween(215L, 236L);
+        assertThat(String.valueOf(tram.getWarning())).as("새 도로는 강 위뿐이라 땅 위 공사비 「모름」 이 없다").doesNotContain("땅 위 공사비 모름");
+    }
+
+    @Test
+    @DisplayName("바다(만)도 같다 — 해안선을 건너는 몫만 새 다리, 양쪽 육지는 도로(11-19)")
+    void newBridgeOnlyOverTheSeaWhenRoadsReachBothShores() {
+        CostCalculator calc = calculator(banksOnly(), new WaterBodies("없는파일.geojson"), landWithBay());
+        var outcome = calc.calculate(scenario(10.0), List.of(standard(ModeType.TRAM, StructureType.AT_GRADE)),
+                Map.of(ModeType.TRAM, capacity(ModeType.TRAM, null, 60_000, 1.0, 20.0, null)), List.of());
+
+        ScenarioResult tram = outcome.results().get(0);
+        assertThat(tram.getRouteLine()).startsWith("R ").contains("|N ");
+        assertThat(tram.getRoadCost()).isBetween(215L, 236L);
+    }
+
     /** 큰 육지(위도 36~39, 경도 125~129) 안에 바다 만 하나 — 만은 위 강 테스트와 같은 자리(동서로 놓인 남북 0.5km 폭)다 */
     private static Coastline landWithBay() {
         double[][] continent = {{36.0, 125.0}, {36.0, 129.0}, {39.0, 129.0}, {39.0, 125.0}, {36.0, 125.0}};

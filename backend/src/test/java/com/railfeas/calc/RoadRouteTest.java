@@ -85,4 +85,110 @@ class RoadRouteTest {
         assertThat(back.get(1).points().get(1)).containsExactly(37.50, 126.91);
         assertThat(RoadRoute.decode(null)).isEmpty();
     }
+
+    // ── 도로 + 새 다리 혼합(11-19) — 돌아가는 길이 1.5배를 넘어도 직선이 물을 건너면 육지는 도로, 물 위만 새 도로
+
+    private static double[] on(double[] a, double[] b, double t) {
+        return new double[]{a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t};
+    }
+
+    /** 위도 띠 {남쪽, 북쪽} 들에 동서로 놓인 강 — 남북으로 그은 선분이 그 띠를 지나는 토막. 입력 순서를 섞어도 돌려주는 대로 쓴다 */
+    private static RoadRoute.WaterOnLine rivers(double[]... bands) {
+        return (a, b) -> {
+            java.util.List<double[][]> out = new java.util.ArrayList<>();
+            for (double[] band : bands) {
+                double t0 = (band[0] - a[0]) / (b[0] - a[0]), t1 = (band[1] - a[0]) / (b[0] - a[0]);
+                double s = Math.max(0, Math.min(t0, t1)), e = Math.min(1, Math.max(t0, t1));
+                if (e > s) {
+                    out.add(new double[][]{on(a, b, s), on(a, b, e)});
+                }
+            }
+            return out;
+        };
+    }
+
+    private static final double[] A = {37.50, 126.90}, B = {37.53, 126.90};
+
+    /** 강(위도 37.5105~37.5195)을 사이에 둔 두 남북 길 — 서로는 동쪽 5.3km 를 도는 다리로만 이어져 도로로는 14km(직선 3.3km 의 4배) */
+    private static final RoadNetwork ACROSS_RIVER = RoadNetwork.ofEdges(List.of(
+            edge(0, 1, new double[]{37.50, 126.90}, new double[]{37.51, 126.90}),
+            edge(1, 2, new double[]{37.51, 126.90}, new double[]{37.51, 126.96}),
+            new RoadNetwork.Edge(2, 3, RoadNetwork.BRIDGE, new double[][]{{37.51, 126.96}, {37.52, 126.96}}),
+            edge(3, 4, new double[]{37.52, 126.96}, new double[]{37.52, 126.90}),
+            edge(4, 5, new double[]{37.52, 126.90}, new double[]{37.53, 126.90})));
+
+    @Test
+    @DisplayName("돌아가는 길이 1.5배를 넘어도 직선이 강을 건너면 — 육지는 도로를 따라가고 강 위만 새 다리다(11-19)")
+    void 육지는_도로_물_위만_새_다리() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), ACROSS_RIVER, rivers(new double[]{37.5105, 37.5195}));
+
+        assertThat(p.pieces()).extracting(RoadRoute.Piece::road).containsExactly(true, false, true);
+        assertThat(p.newKm()).as("새로 놓는 것은 강 양쪽 도로 끝 사이 한 토막(위도 0.01°)").isCloseTo(1.112, within(0.005));
+        assertThat(p.roadKm()).isCloseTo(2.224, within(0.01));
+        assertThat(p.pieces().get(1).points().get(0)).containsExactly(37.51, 126.90);
+        assertThat(p.pieces().get(1).points().get(p.pieces().get(1).points().size() - 1)).containsExactly(37.52, 126.90);
+        // 조각이 끊기지 않는다 — 앞 조각의 끝이 다음 조각의 시작이다
+        for (int i = 1; i < p.pieces().size(); i++) {
+            List<double[]> prev = p.pieces().get(i - 1).points(), next = p.pieces().get(i).points();
+            assertThat(next.get(0)).containsExactly(prev.get(prev.size() - 1));
+        }
+    }
+
+    @Test
+    @DisplayName("한쪽 육지만 도로가 닿으면 그쪽만 도로 — 나머지는 다리에 이어 새 도로로 둔다")
+    void 한쪽만_도로() {
+        RoadNetwork southOnly = RoadNetwork.ofEdges(List.of(edge(0, 1, new double[]{37.50, 126.90}, new double[]{37.51, 126.90})));
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), southOnly, rivers(new double[]{37.5105, 37.5195}));
+
+        assertThat(p.pieces()).extracting(RoadRoute.Piece::road).containsExactly(true, false);
+        List<double[]> tail = p.pieces().get(1).points();
+        assertThat(tail.get(0)).containsExactly(37.51, 126.90);
+        assertThat(tail.get(tail.size() - 1)).as("북쪽 끝은 도착점까지 직선").containsExactly(B);
+        assertThat(p.newKm()).isCloseTo(2.224, within(0.01));
+    }
+
+    @Test
+    @DisplayName("강 양쪽 어디에도 도로가 안 닿으면 예전처럼 직선 한 토막 — 혼합은 도로를 따라갈 육지가 있을 때만")
+    void 도로가_안_닿으면_직선() {
+        RoadNetwork far = RoadNetwork.ofEdges(List.of(edge(0, 1, new double[]{37.50, 127.20}, new double[]{37.51, 127.20})));
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), far, rivers(new double[]{37.5105, 37.5195}));
+
+        assertThat(p.pieces()).hasSize(1);
+        assertThat(p.pieces().get(0).road()).isFalse();
+        assertThat(p.pieces().get(0).points()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("50m 도 안 되는 개울은 다리로 치지 않는다 — 그 때문에 구간을 쪼개지 않는다")
+    void 작은_개울은_무시() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), ACROSS_RIVER, rivers(new double[]{37.5100, 37.5101}));    // 약 11m
+
+        assertThat(p.pieces()).hasSize(1);
+        assertThat(p.pieces().get(0).road()).isFalse();
+        assertThat(p.pieces().get(0).points()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("강을 두 번 건너면 사이 육지도 도로다 — 도로·새 다리·도로·새 다리·도로 다섯 조각, 강 목록의 순서와 무관")
+    void 강이_둘() {
+        RoadNetwork three = RoadNetwork.ofEdges(List.of(
+                edge(0, 1, new double[]{37.49, 126.90}, new double[]{37.50, 126.90}),
+                edge(2, 3, new double[]{37.51, 126.90}, new double[]{37.52, 126.90}),
+                edge(4, 5, new double[]{37.53, 126.90}, new double[]{37.55, 126.90})));
+        // 북쪽 강을 먼저 적는다 — 선 위 순서(남→북)로 정렬해야 한다
+        RoadRoute.Plan p = RoadRoute.plan(List.of(new double[]{37.49, 126.90}, new double[]{37.55, 126.90}), three,
+                rivers(new double[]{37.5205, 37.5295}, new double[]{37.5005, 37.5095}));
+
+        assertThat(p.pieces()).extracting(RoadRoute.Piece::road).containsExactly(true, false, true, false, true);
+        assertThat(p.newKm()).as("다리 둘, 위도 0.01° 씩").isCloseTo(2 * 1.112, within(0.02));
+    }
+
+    @Test
+    @DisplayName("혼합 조각도 저장 문자열로 바꿨다 되돌려도 같다")
+    void 혼합_저장() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), ACROSS_RIVER, rivers(new double[]{37.5105, 37.5195}));
+        List<RoadRoute.Piece> back = RoadRoute.decode(RoadRoute.encode(p));
+
+        assertThat(back).extracting(RoadRoute.Piece::road).containsExactly(true, false, true);
+    }
 }

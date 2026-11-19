@@ -150,6 +150,22 @@ public class CostCalculator {
                 RoadRoute.encode(plan));
     }
 
+    /**
+     * 선분 a→b 가 지나는 물 위 토막들 — 호수·강(물 파일)과 바다(해안선). `RoadRoute` 가 도로로 못 이은 구간에서 다리를 둘 자리를 찾는 데 쓴다(11-19).
+     * 강 하구에서 둘이 겹치는 토막은 `RoadRoute` 가 합친다. 자료가 없으면 그 몫은 빈다(물을 모르면 예전처럼 구간 전체가 직선 새 도로)
+     */
+    private List<double[][]> waterPieces(double[] a, double[] b) {
+        List<double[]> segment = List.of(a, b);
+        List<double[][]> out = new ArrayList<>();
+        if (water != null) {
+            water.onWater(segment).forEach(s -> out.addAll(s.pieces()));
+        }
+        if (coast != null) {
+            coast.seaSpan(segment, water == null ? null : water::contains).ifPresent(s -> out.addAll(s.pieces()));
+        }
+        return out;
+    }
+
     /** warning 칸(VARCHAR 200)에 맞춘다 — 넘치면 저장이 통째로 실패한다 */
     static String fitWarning(String warning) {
         if (warning == null || warning.length() <= WARNING_MAX) {
@@ -210,8 +226,9 @@ public class CostCalculator {
         TunnelKm.Tunnels tunnelKm = tunnel.on(points, standards);
 
         // 트램·BRT 는 기존 도로·다리를 따라간다(11-12) — 구간마다 기존 도로(1.5배 안) 또는 새 도로. 도로망이 없으면 null(그린 직선)
+        // 도로로 못 이은 구간이 강·바다를 건너면 육지는 도로, 물 위만 새 다리로 잇는다(11-19) — 물 토막은 아래 waterPieces
         RoadRoute.Plan roadPlan = standards.stream().anyMatch(s -> ON_ROAD.contains(s.getModeType()))
-                ? RoadRoute.plan(points, roads) : null;
+                ? RoadRoute.plan(points, roads, this::waterPieces) : null;
         RoadPart road = roadPlan == null ? null : roadPart(roadPlan, standards);
         // 도로를 따라가는 행의 구역 경고는 **새로 놓는 구간만** 본다(11-14) — 기존 도로는 이미 있다. 그린 직선 기준 경고는 도로가 구역을 비껴가도 붙었다
         String roadZoneWarning = roadPlan == null ? null

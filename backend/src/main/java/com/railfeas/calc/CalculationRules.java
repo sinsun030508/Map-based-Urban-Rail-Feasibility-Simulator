@@ -18,6 +18,11 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
+     * 도로로 못 이은 구간(돌아가는 길이 직선의 1.5배 초과·길 없음)이 강·호수·바다를 건너면 **육지는 도로를 따라가고 물 위만 새 다리로 잇게** 한 시각(11-19 14:54,
+     * `RoadRoute` 의 혼합 — 사용자 요청) — 전에는 그 구간 전체가 직선 새 도로였다. 트램·BRT·광역급행 행의 연장·역·소요시간·건설비·B/C 가 바뀐다:
+     * 육지가 기존 도로(공사비 0)가 되고 새 도로는 물 위 다리 토막만 남아, 「땅 위 공사비 모름」 길이가 줄고 다리값(451억/km)은 물 위 길이만큼 그대로다.
+     * 도로로 잇는 육지가 하나도 없으면 이전과 같다.
+     * 그 전 — 11-18 00:34
      * 트램·BRT 의 새 도로가 바다를 건너는 몫에도 다리값을 매기게 한 시각(11-18, `Coastline` — OSM 해안선, 짝홀 판정) — 해안선 파일(`coastline.csv.gz`)이 있을 때만
      * 값이 바뀐다(없으면 이전과 같다). 바다 위 길이 × 일반국도 교량 451억/km 가 `road_cost` 에 더해지고, 땅 위 공사비 「모름」 길이에서는 빠진다.
      * 강 하구에서 물 파일과 겹치는 토막은 한 번만 센다. 단가는 하한이다(지침은 바다·큰 강 다리가 더 든다고 한다).
@@ -56,7 +61,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 18, 0, 34);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 19, 14, 54);
 
     private CalculationRules() {
     }

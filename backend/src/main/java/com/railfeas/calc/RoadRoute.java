@@ -4,14 +4,17 @@ import com.railfeas.geo.Haversine;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * 트램·BRT 의 노선 — 그린 구간(점 i → i+1)마다 기존 도로를 따라갈지, 새 도로를 놓을지 정한다(11-12 사용자 요청, 자동 적용).
  *
  * <p>땅 위 도로를 쓰는 수단이 그린 직선 그대로 가면 다리 없는 강을 건너는 도로를 새로 놓는 셈이었다. <b>기존 도로가 직선의
  * {@value #MAX_RATIO}배 이하면 도로를 따라간다</b>(호수·산 우회와 같은 가정값). 넘게 돌거나 도로를 못 찾으면 그 구간만 직선 새 도로다.
- * 새 도로의 땅 위 공사비는 KDI 지침에 km 표준이 없어 판정은 길이로만 한다(설계 문서 4). 구간 일부만 새 다리로 잇는 혼합은 찾지 않는다 —
- * 경유점을 찍어 구간을 나누면 된다.
+ * 새 도로의 땅 위 공사비는 KDI 지침에 km 표준이 없어 판정은 길이로만 한다(설계 문서 4).
+ *
+ * <p><b>단 그 직선이 강·호수·바다를 건너면 육지는 도로를 따라가고 물 위만 새 다리로 잇는다</b>(11-19 사용자 요청, {@link #acrossWater}) —
+ * 전에는 4.6km 중 한강 0.9km 때문에 구간 전체가 직선 새 도로였다. 도로로 잇는 육지가 하나도 없으면 이전과 같다.
  */
 public final class RoadRoute {
 
@@ -22,6 +25,12 @@ public final class RoadRoute {
      */
     static final double BRIDGE_2019 = 386.01;
     public static final double BRIDGE_PER_KM = BRIDGE_2019 * MountainCost.DEFLATOR_2019;
+    /** 물 위 토막이 이보다 짧으면 개울이라 다리로 치지 않는다 — 패널이 물 위 구간을 거르는 기준(50m)과 같다 */
+    static final double MIN_BRIDGE_KM = 0.05;
+    /** 이보다 짧은 육지 토막은 도로로 잇지 않고 이웃한 다리에 붙인다 — 도로 두 점 사이를 억지로 찾지 않는다 */
+    static final double MIN_LAND_KM = 0.1;
+    /** 물 토막 둘이 이만큼 안으로 맞닿으면 하나로 본다(강 하구에서 강 면과 바다 면이 겹치거나 비켜 닿는다) */
+    private static final double MERGE_GAP_KM = 0.02;
     /** 저장할 때 선을 줄이는 오차(km) — 서울~부산 도로 경로가 수천 점이라 */
     private static final double STORE_TOLERANCE_KM = 0.02;
 
@@ -63,8 +72,19 @@ public final class RoadRoute {
     private RoadRoute() {
     }
 
-    /** 도로망 자료가 없으면 null — 예전처럼 그린 직선으로 센다(「도로 없음」 이 아니다) */
+    /** 선분 a→b 가 지나는 물(호수·강·바다) 위 토막들 {시작, 끝} — 없으면 빈 목록 */
+    @FunctionalInterface
+    public interface WaterOnLine {
+        List<double[][]> pieces(double[] a, double[] b);
+    }
+
+    /** 물을 모르는 계획 — 1.5배를 넘으면 그 구간 전체가 직선 새 도로다 */
     public static Plan plan(List<double[]> drawn, RoadNetwork roads) {
+        return plan(drawn, roads, null);
+    }
+
+    /** 도로망 자료가 없으면 null — 예전처럼 그린 직선으로 센다(「도로 없음」 이 아니다) */
+    public static Plan plan(List<double[]> drawn, RoadNetwork roads, WaterOnLine water) {
         if (!roads.available() || drawn.size() < 2) {
             return null;
         }
@@ -77,13 +97,94 @@ public final class RoadRoute {
             var path = roads.route(a, b);
             if (path.isPresent() && path.get().km() <= straight * MAX_RATIO) {
                 pieces.add(new Piece(true, path.get().points(), path.get().km(), null));
-            } else {
-                String reason = path.isEmpty() ? "가까운 기존 도로로 잇지 못해 새 도로"
-                        : String.format(Locale.ROOT, "기존 도로가 %.1f배(%.1fkm)라 새 도로", path.get().km() / straight, path.get().km());
+                continue;
+            }
+            String reason = path.isEmpty() ? "가까운 기존 도로로 잇지 못해 새 도로"
+                    : String.format(Locale.ROOT, "기존 도로가 %.1f배(%.1fkm)라 새 도로", path.get().km() / straight, path.get().km());
+            // 직선이 물을 건너면 육지는 도로를 따라가고 물 위만 새 다리로 잇는다(11-19) — 도로로 잇는 육지가 하나도 없으면 비어 있다
+            List<Piece> mixed = water == null ? List.of() : acrossWater(a, b, roads, water, reason);
+            if (mixed.isEmpty()) {
                 pieces.add(new Piece(false, List.of(a, b), straight, reason));
+            } else {
+                pieces.addAll(mixed);
             }
         }
         return new Plan(pieces);
+    }
+
+    /**
+     * 도로로 못 이은 구간 a→b 를 「육지 – 다리 – 육지 …」 로 쪼갠다. 직선이 물 위를 지나는 토막마다 다리를 두고, 그 사이·양 끝의 육지 토막은
+     * 양 끝을 큰길 위로 옮겨 도로 경로가 직선의 {@value #MAX_RATIO}배 이하면 도로를 따라간다. 도로로 못 잇는 육지는 이웃한 다리에 붙여
+     * 한 토막의 새 도로로 둔다. 도로로 잇는 육지가 하나도 없으면 빈 목록 — 예전처럼 구간 전체가 직선 새 도로다(혼합이 아니다).
+     */
+    private static List<Piece> acrossWater(double[] a, double[] b, RoadNetwork roads, WaterOnLine water, String reason) {
+        List<double[][]> bridges = bridges(a, b, water);
+        if (bridges.isEmpty()) {
+            return List.of();
+        }
+        int n = bridges.size();
+        List<Piece> out = new ArrayList<>();
+        List<double[]> run = null;           // 이어 붙이는 중인 새 도로(다리 + 도로로 못 이은 육지)
+        boolean anyRoad = false;
+        for (int i = 0; i <= n; i++) {
+            double[] from = i == 0 ? a : bridges.get(i - 1)[1], to = i == n ? b : bridges.get(i)[0];
+            // 양 끝은 큰길 위로 옮긴다 — 강둑에서 가장 가까운 길이 다리가 닿는 자리다. a·b 는 이미 옮겼다
+            double[] s = i == 0 ? a : roads.snap(from), e = i == n ? b : roads.snap(to);
+            double land = Haversine.distanceKm(s[0], s[1], e[0], e[1]);
+            Optional<RoadNetwork.Path> path = land >= MIN_LAND_KM ? roads.route(s, e) : Optional.empty();
+            if (path.isPresent() && path.get().km() <= land * MAX_RATIO) {
+                if (run != null) {
+                    run.set(run.size() - 1, s);           // 앞 다리는 도로 위에서 끝난다 — 조각이 끊기지 않게
+                    out.add(newRoad(run, reason));
+                }
+                out.add(new Piece(true, path.get().points(), path.get().km(), null));
+                run = i == n ? null : new ArrayList<>(List.of(e));
+                anyRoad = true;
+            } else {
+                if (run == null) {
+                    run = new ArrayList<>(List.of(from));
+                }
+                run.add(to);
+            }
+            if (i < n) {
+                run.add(bridges.get(i)[1]);               // 다리 — 물 건너편 끝까지
+            }
+        }
+        if (!anyRoad) {
+            return List.of();
+        }
+        if (run != null) {
+            out.add(newRoad(run, reason));
+        }
+        return out;
+    }
+
+    private static Piece newRoad(List<double[]> points, String reason) {
+        double km = 0;
+        for (int i = 1; i < points.size(); i++) {
+            km += Haversine.distanceKm(points.get(i - 1)[0], points.get(i - 1)[1], points.get(i)[0], points.get(i)[1]);
+        }
+        return new Piece(false, points, km, reason);
+    }
+
+    /** 선 a→b 위 물 토막들 — a 에서 가까운 순으로 정렬하고, 겹치거나 맞닿은 것(강 하구의 강·바다)은 합친 뒤, 개울({@value #MIN_BRIDGE_KM}km 미만)은 뺀다 */
+    private static List<double[][]> bridges(double[] a, double[] b, WaterOnLine water) {
+        List<double[][]> sorted = new ArrayList<>(water.pieces(a, b));
+        sorted.sort(java.util.Comparator.comparingDouble(p -> Haversine.distanceKm(a[0], a[1], p[0][0], p[0][1])));
+        List<double[][]> merged = new ArrayList<>();
+        for (double[][] p : sorted) {
+            double[][] last = merged.isEmpty() ? null : merged.get(merged.size() - 1);
+            if (last != null && Haversine.distanceKm(a[0], a[1], p[0][0], p[0][1])
+                    <= Haversine.distanceKm(a[0], a[1], last[1][0], last[1][1]) + MERGE_GAP_KM) {
+                if (Haversine.distanceKm(a[0], a[1], p[1][0], p[1][1]) > Haversine.distanceKm(a[0], a[1], last[1][0], last[1][1])) {
+                    last[1] = p[1];
+                }
+            } else {
+                merged.add(new double[][]{p[0], p[1]});
+            }
+        }
+        merged.removeIf(p -> Haversine.distanceKm(p[0][0], p[0][1], p[1][0], p[1][1]) < MIN_BRIDGE_KM);
+        return merged;
     }
 
     /** 저장 문자열 — 구간마다 `R`(도로)·`N`(새 도로) 뒤에 `위도,경도` 들, 구간은 `|` 로 가른다. 도로 선은 20m 오차로 줄인다 */
