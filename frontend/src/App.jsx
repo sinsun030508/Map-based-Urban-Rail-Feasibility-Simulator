@@ -403,6 +403,8 @@ export default function App() {
       setCalculatedAt(s.calculatedAt ?? null);
       setStandardChanged(Boolean(s.standardChanged));
       setExistingOption(s.existingOption ?? null);
+      // 앞 시나리오에서 비교표로 고른 행을 비운다 — 안 비우면 새로 연 노선이 그 노선의 추천안이 아니라 앞에서 고른 수단으로 그려진다(11-21)
+      setSelectedResult(null);
       setFocus((f) => f + 1);
     } catch (e) {
       setError(e.message);
