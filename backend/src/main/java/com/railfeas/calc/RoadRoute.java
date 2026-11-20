@@ -115,7 +115,7 @@ public final class RoadRoute {
             String base = path.isEmpty() ? "가까운 기존 도로로 잇지 못해"
                     : String.format(Locale.ROOT, "기존 도로가 %.1f배(%.1fkm)라", path.get().km() / straight, path.get().km());
             // 직선이 물을 건너면 육지는 도로를 따라가고 물 위만 새 다리로 잇는다(11-19) — 도로로 잇는 육지가 하나도 없으면 비어 있다
-            List<Piece> mixed = bridges.isEmpty() ? List.of() : acrossWater(a, b, bridges, roads, base);
+            List<Piece> mixed = bridges.isEmpty() ? List.of() : acrossWater(a, b, bridges, roads, water, base);
             if (mixed.isEmpty()) {
                 String reason = base + " 새 도로" + (bridges.isEmpty() ? "" : " — 물을 건너지만 양쪽 육지도 도로로 이을 수 없어 직선 그대로");
                 pieces.add(new Piece(false, List.of(a, b), straight, reason));
@@ -131,7 +131,7 @@ public final class RoadRoute {
      * 양 끝을 큰길 위로 옮겨 도로 경로가 직선의 {@value #MAX_RATIO}배 이하면 도로를 따라간다. 도로로 못 잇는 육지는 이웃한 다리에 붙여
      * 한 토막의 새 도로로 둔다. 도로로 잇는 육지가 하나도 없으면 빈 목록 — 예전처럼 구간 전체가 직선 새 도로다(혼합이 아니다).
      */
-    private static List<Piece> acrossWater(double[] a, double[] b, List<double[][]> bridges, RoadNetwork roads, String base) {
+    private static List<Piece> acrossWater(double[] a, double[] b, List<double[][]> bridges, RoadNetwork roads, WaterOnLine water, String base) {
         int n = bridges.size();
         List<Piece> out = new ArrayList<>();
         List<double[]> run = null;           // 이어 붙이는 중인 새 도로(다리 + 도로로 못 이은 육지)
@@ -146,7 +146,7 @@ public final class RoadRoute {
             if (path.isPresent() && path.get().km() <= land * MAX_RATIO) {
                 if (run != null) {
                     run.set(run.size() - 1, s);           // 앞 다리는 도로 위에서 끝난다 — 조각이 끊기지 않게
-                    out.add(newRoad(run, base, runLand));
+                    out.add(newRoad(run, base, runLand, water));
                 }
                 out.add(new Piece(true, path.get().points(), path.get().km(), null));
                 run = i == n ? null : new ArrayList<>(List.of(e));
@@ -167,19 +167,32 @@ public final class RoadRoute {
             return List.of();
         }
         if (run != null) {
-            out.add(newRoad(run, base, runLand));
+            out.add(newRoad(run, base, runLand, water));
         }
         return out;
     }
 
-    /** 혼합 구간의 새 도로 — 이유는 뿌리(base) 뒤에 육지가 도로였는지를 붙인다 */
-    private static Piece newRoad(List<double[]> points, String base, boolean withLand) {
+    /**
+     * 혼합 구간의 새 도로 — 이유는 뿌리(base) 뒤에 육지가 도로였는지·**이 조각에 실제로 물이 있는지**를 붙인다. 물이 없는 조각이 나온다 — 둑 점을 큰길로
+     * 옮기면(15% 가 건너편으로 옮겨진다, 진짜 자료 6천 선 표본) 개울을 도로의 기존 다리가 건너고 새 도로는 육지만 남는다. 거기에 「물 위」 라 적으면 사실과 다르다(11-21)
+     */
+    private static Piece newRoad(List<double[]> points, String base, boolean withLand, WaterOnLine water) {
         double km = 0;
+        boolean wet = false;
         for (int i = 1; i < points.size(); i++) {
-            km += Haversine.distanceKm(points.get(i - 1)[0], points.get(i - 1)[1], points.get(i)[0], points.get(i)[1]);
+            double[] p = points.get(i - 1), q = points.get(i);
+            km += Haversine.distanceKm(p[0], p[1], q[0], q[1]);
+            wet |= water.pieces(p, q).stream().anyMatch(w -> Haversine.distanceKm(w[0][0], w[0][1], w[1][0], w[1][1]) >= MIN_BRIDGE_KM);
         }
-        String reason = base + (withLand ? " 물 위와 도로로 못 이은 육지만 새 도로" : " 육지는 도로를 따르고 물 위만 새 다리");
-        return new Piece(false, points, km, reason);
+        return new Piece(false, points, km, mixedReason(base, withLand, wet));
+    }
+
+    /** 혼합 구간의 새 도로 까닭 문구 — 물이 있으면 「물 위」, 육지가 끼었으면 「도로로 못 이은 육지」, 물이 없으면 물 얘기를 안 한다 */
+    static String mixedReason(String base, boolean withLand, boolean wet) {
+        if (!wet) {
+            return base + " 도로로 못 이은 육지만 새 도로";
+        }
+        return base + (withLand ? " 물 위와 도로로 못 이은 육지만 새 도로" : " 육지는 도로를 따르고 물 위만 새 다리");
     }
 
     /** 선 a→b 위 물 토막들 — a 에서 가까운 순으로 정렬하고, 겹치거나 맞닿은 것(강 하구의 강·바다)은 합친 뒤, 개울({@value #MIN_BRIDGE_KM}km 미만)은 뺀다 */

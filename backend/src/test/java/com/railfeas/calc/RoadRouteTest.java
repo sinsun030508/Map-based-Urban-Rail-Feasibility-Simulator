@@ -269,6 +269,17 @@ class RoadRouteTest {
     }
 
     @Test
+    @DisplayName("새 도로 조각에 물이 없으면 까닭에 「물 위」 를 쓰지 않는다 — 개울을 기존 도로 다리로 건너는 혼합에서 사실과 다른 말이 나왔다(11-21)")
+    void 물이_없는_새_도로의_까닭() {
+        String base = "기존 도로가 1.7배(7.6km)라";
+
+        assertThat(RoadRoute.mixedReason(base, true, false)).as("물이 없다 — 육지만 새 도로").endsWith("도로로 못 이은 육지만 새 도로").doesNotContain("물");
+        assertThat(RoadRoute.mixedReason(base, true, true)).as("물도 있고 육지도 끼었다").endsWith("물 위와 도로로 못 이은 육지만 새 도로");
+        assertThat(RoadRoute.mixedReason(base, false, true)).as("물 위만이다").endsWith("육지는 도로를 따르고 물 위만 새 다리");
+        assertThat(RoadRoute.mixedReason(base, false, false)).as("물도 육지도 아닌 조각은 없지만 물이 없으면 물 얘기를 안 한다").doesNotContain("물");
+    }
+
+    @Test
     @DisplayName("이유 없이 저장된 옛 노선도 읽는다 — 탭이 없는 저장 문자열(11-19 이전)")
     void 옛_저장은_이유_없이() {
         List<RoadRoute.Piece> back = RoadRoute.decode("R 37.50000,126.90000 37.51000,126.90000|N 37.51000,126.90000 37.52000,126.90000");
