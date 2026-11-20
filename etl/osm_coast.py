@@ -7,7 +7,8 @@
   OSM 해안선(`natural=coastline`)은 **간척지를 둑 쪽에 그려** 육지로 두므로 이 문제가 없다.
 
 무엇을 받나
-  `natural=coastline` way — 육지가 있는 1° 칸(`osm_water.TILES`)에 **섬만 있는 바다 칸**(`ISLAND_TILES` — 서해 124~125°, 울릉도·독도 130~131°)을 더해 0.5° 로 나눠 받는다.
+  `natural=coastline` way — 육지가 있는 1° 칸(`osm_water.TILES`)에 **서쪽으로 쏜 선이 지나는 칸**(`RAY_TILES` — 육지 칸마다 그 위도의 124° 부터,
+  서해 섬과 북위 38° 의 북한 서해안이 든다)과 울릉도·독도 칸(`ISLAND_TILES`)을 더해 0.5° 로 나눠 받는다.
   한반도 상자 안은 way 11,598개·원본 약 66~83MB 로 어림했다. 섬 칸을 빼면 짝홀 판정은 섬 **밖**의 점은 맞지만(섬을 지나는 선은 횟수를 2씩만 늘린다)
   그 섬 **안**의 점이 바다로 읽혀 섬에 새 도로를 그으면 다리값이 붙는다.
 
@@ -40,9 +41,13 @@ from shapely.ops import transform
 from osm_roads import HALF, MIN_SIZE, SPLIT_AFTER, quarters
 from osm_water import TILES, UA, URL
 
-# 섬만 있는 바다 칸 — 서해 섬(백령·연평·덕적·신안·흑산·가거도)은 124~125° 에, 울릉도·독도는 130~131° 에 있다(위도 33~38°)
-ISLAND_TILES = [(lat, lng) for lat in range(33, 38) for lng in (124, 125)] + [(37, 130), (37, 131)]
-COAST_TILES = TILES + ISLAND_TILES
+# 짝홀 판정이 서쪽(경도 123°)으로 쏜 선이 지나는 칸 — 육지 칸마다 그 위도의 경도 124° 부터 그 칸 바로 서쪽까지. 손으로 적지 않고 육지 칸에서
+# 끌어낸다(11-21) — 손으로 적었을 때 북위 38° 의 124~126°(북한 서해안)가 빠져 철원·화천·인제·속초 내륙이 「바다」 로 읽혔다.
+# 서해 섬(백령·연평·덕적·신안·흑산·가거도)도 여기 든다
+RAY_TILES = sorted({(lat, k) for lat, lng in TILES for k in range(124, lng)} - set(TILES))
+# 울릉도·독도 — 선이 지나는 칸은 아니지만 받지 않으면 섬 안의 점이 바다로 읽힌다(130~131°)
+ISLAND_TILES = [(37, 130), (37, 131)]
+COAST_TILES = TILES + RAY_TILES + ISLAND_TILES
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / 'data' / 'build'

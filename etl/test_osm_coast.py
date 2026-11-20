@@ -45,3 +45,13 @@ def test_멀리_떨어진_섬도_받을_칸_안에_있다():
                '울릉도': (37.50, 130.87), '독도': (37.24, 131.87), '제주도': (33.38, 126.55), '거제도': (34.88, 128.62)}
     missing = [n for n, (lat, lng) in islands.items() if (floor(lat), floor(lng)) not in COAST_TILES]
     assert missing == [], '받을 칸 밖의 섬: %s' % missing
+
+
+def test_육지_칸에서_서쪽_바다까지_선이_지나는_칸을_모두_받는다():
+    # 짝홀 판정(Coastline.isSea)은 점에서 서쪽(경도 123°)으로 쏜 선이 해안선과 만나는 횟수를 센다. 그 선이 지나는 칸을 하나라도
+    # 안 받으면 그 위도의 내륙이 통째로 바다로 읽힌다 — 북위 38° 의 경도 124~126 칸(북한 서해안)을 안 받아 철원·화천·인제·속초가 「바다」 였다(11-21)
+    from osm_coast import COAST_TILES
+    from osm_water import TILES
+    have = set(COAST_TILES)
+    missing = sorted({(lat, k) for lat, lng in TILES for k in range(124, lng) if (lat, k) not in have})
+    assert missing == [], '서쪽으로 쏜 선이 지나는데 안 받는 칸: %s' % missing
