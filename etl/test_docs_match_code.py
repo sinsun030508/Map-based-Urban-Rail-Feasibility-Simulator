@@ -164,11 +164,14 @@ class Test테스트수:
     README = (ROOT / 'README.md').read_text(encoding='utf-8')
 
     def actual(self):
+        import os
         import subprocess
         import sys
+        # 하위 파이썬도 UTF-8 로 내보내게 한다 — 윈도우는 기본이 cp949 라 한글 테스트 이름에서 읽기가 깨져 출력이 None 이 됐고,
+        # CLAUDE.md 의 안내대로 `python -m pytest` 만 치면 이 테스트가 실패했다(PYTHONUTF8=1 을 붙여야 통과, 11-21)
         out = subprocess.run([sys.executable, '-m', 'pytest', '--collect-only', '-q'],
                              cwd=self.ROOT / 'etl', capture_output=True, text=True,
-                             encoding='utf-8').stdout
+                             encoding='utf-8', env={**os.environ, 'PYTHONIOENCODING': 'utf-8'}).stdout
         etl = int(re.search(r'(\d+) tests? collected', out).group(1))
         java = [p.read_text(encoding='utf-8') for p in (self.ROOT / 'backend/src/test/java').rglob('*.java')]
         # @Test 하나가 테스트 하나다. 매개변수 테스트가 생기면 이 셈이 틀어진다 — 그때는
