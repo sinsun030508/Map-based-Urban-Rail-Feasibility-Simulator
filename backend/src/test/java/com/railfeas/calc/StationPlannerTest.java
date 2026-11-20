@@ -447,4 +447,32 @@ class StationPlannerTest {
         assertThat(placed).hasSize(6);
         assertThat(placed.get(0).lat()).isEqualTo(LAT0);
     }
+
+    @Test
+    @DisplayName("도로를 따라가는 노선의 중간역이 터널·다리 위면 뺀다 — 남산1호터널 안에 「한남동 2」 역이 놓였다(11-21)")
+    void stationsInRoadTunnelsAreDropped(@TempDir Path dir) throws IOException {
+        PopulationIndex index = thinEverywhere(dir);
+        double top = STATION_LAT + 0.004, bottom = STATION_LAT - 0.004;     // 셋째 역의 창을 다 덮는 터널
+        RoadNetwork roads = RoadNetwork.ofEdges(List.of(
+                new RoadNetwork.Edge(0, 1, 0, new double[][]{{LAT0, LNG0}, {top, LNG0}}),
+                new RoadNetwork.Edge(1, 2, RoadNetwork.TUNNEL, new double[][]{{top, LNG0}, {bottom, LNG0}}),
+                new RoadNetwork.Edge(2, 3, 0, new double[][]{{bottom, LNG0}, {LAT0 - 0.09, LNG0}})));
+
+        StationPlanner.Plan plan = new StationPlanner(index, roads).planWithDetour(ROUTE, 6, 1.2, true);
+
+        assertThat(plan.stations()).as("터널 안 역 하나가 빠진다").hasSize(5);
+        assertThat(plan.offLimits()).as("뺀 까닭을 따로 센다 — 경고가 「인구가 없어」 라고 틀리게 말하지 않게").isEqualTo(1);
+        assertThat(plan.stations()).noneSatisfy(p -> assertThat(p.lat()).isBetween(bottom + 0.0001, top - 0.0001));
+    }
+
+    @Test
+    @DisplayName("물 위라 뺀 역도 까닭으로 센다")
+    void stationsDroppedOnWaterAreCountedAsOffLimits(@TempDir Path dir) throws IOException {
+        PopulationIndex index = thinEverywhere(dir);
+        StationPlanner.Plan plan = new StationPlanner(index, RoadNetwork.of(List.of()), waterBand(STATION_LAT - 0.004, STATION_LAT + 0.004))
+                .planWithDetour(ROUTE, 6, 1.2);
+
+        assertThat(plan.stations()).hasSize(5);
+        assertThat(plan.offLimits()).isEqualTo(1);
+    }
 }

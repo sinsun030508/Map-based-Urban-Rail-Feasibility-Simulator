@@ -78,6 +78,10 @@ public class RoadNetwork {
     private int[] segs = new int[0];
     private Map<Long, int[]> segGrid = Map.of();
     private Map<Long, int[]> minorGrid = Map.of();
+    // 역을 둘 수 없는 토막(다리·터널·진출입로) — 역을 옮길 때는 안 쓰고, 「이 자리가 그런 간선 위인가」 를 물을 때만 쓴다(11-21)
+    private Map<Long, int[]> blockedGrid = Map.of();
+    /** 역 자리가 그 간선 「위」 인가를 볼 거리 — 도로 노선의 점은 간선 좌표 사이를 보간한 자리라 사실상 0 이다. 판단값 */
+    static final double ON_EDGE_KM = 0.008;
 
     // 길 찾기 — 간선 e 의 좌표는 coords[2·start[e] …] , 교차점 v 의 간선은 adjEdge[adjStart[v] … adjStart[v+1])
     private int[] edgeA = new int[0], edgeB = new int[0], edgeStart = new int[1];
@@ -137,7 +141,7 @@ public class RoadNetwork {
             return;
         }
         build(edges);
-        log.info("큰길 도로망 — 교차점 {}개 · 간선 {}개 · 역 붙일 토막 {}개", nodeLat.length, edgeA.length, segs.length / 4);
+        log.info("큰길 도로망 — 교차점 {}개 · 간선 {}개 · 토막 {}개", nodeLat.length, edgeA.length, segs.length / 4);
     }
 
     private void build(List<Edge> edges) {
@@ -145,9 +149,7 @@ public class RoadNetwork {
         for (Edge e : edges) {
             nodes = Math.max(nodes, Math.max(e.a(), e.b()) + 1);
             points += e.coords().length;
-            if ((e.flags() & NO_STATION) == 0) {
-                pieces += e.coords().length - 1;
-            }
+            pieces += e.coords().length - 1;
         }
         int m = edges.size();
         int[] ea = new int[m], eb = new int[m], start = new int[m + 1];
@@ -158,6 +160,7 @@ public class RoadNetwork {
         int[] s = new int[pieces * 4];
         Map<Long, List<Integer>> segCells = new HashMap<>();
         Map<Long, List<Integer>> minorCells = new HashMap<>();
+        Map<Long, List<Integer>> blockedCells = new HashMap<>();
         int p = 0, k = 0;
         for (int e = 0; e < m; e++) {
             Edge in = edges.get(e);
@@ -170,16 +173,15 @@ public class RoadNetwork {
                 xy[p * 2 + 1] = (int) Math.round(c[i][1] * SCALE);
                 if (i > 0) {
                     km[e] += Haversine.distanceKm(c[i - 1][0], c[i - 1][1], c[i][0], c[i][1]);
-                    if ((in.flags() & NO_STATION) == 0) {
-                        System.arraycopy(new int[]{xy[(p - 1) * 2], xy[(p - 1) * 2 + 1], xy[p * 2], xy[p * 2 + 1]}, 0, s, k * 4, 4);
-                        Map<Long, List<Integer>> target = (in.flags() & MINOR) == 0 ? segCells : minorCells;
-                        for (long r = cell(Math.min(c[i - 1][0], c[i][0])); r <= cell(Math.max(c[i - 1][0], c[i][0])); r++) {
-                            for (long q = cell(Math.min(c[i - 1][1], c[i][1])); q <= cell(Math.max(c[i - 1][1], c[i][1])); q++) {
-                                target.computeIfAbsent(key(r, q), x -> new ArrayList<>()).add(k);
-                            }
+                    System.arraycopy(new int[]{xy[(p - 1) * 2], xy[(p - 1) * 2 + 1], xy[p * 2], xy[p * 2 + 1]}, 0, s, k * 4, 4);
+                    Map<Long, List<Integer>> target = (in.flags() & NO_STATION) != 0 ? blockedCells
+                            : (in.flags() & MINOR) == 0 ? segCells : minorCells;
+                    for (long r = cell(Math.min(c[i - 1][0], c[i][0])); r <= cell(Math.max(c[i - 1][0], c[i][0])); r++) {
+                        for (long q = cell(Math.min(c[i - 1][1], c[i][1])); q <= cell(Math.max(c[i - 1][1], c[i][1])); q++) {
+                            target.computeIfAbsent(key(r, q), x -> new ArrayList<>()).add(k);
                         }
-                        k++;
                     }
+                    k++;
                 }
             }
             lat[in.a()] = c[0][0];
@@ -209,6 +211,7 @@ public class RoadNetwork {
         this.segs = s;
         this.segGrid = freeze(segCells);
         this.minorGrid = freeze(minorCells);
+        this.blockedGrid = freeze(blockedCells);
         this.edgeA = ea;
         this.edgeB = eb;
         this.edgeStart = start;
@@ -225,6 +228,17 @@ public class RoadNetwork {
         Map<Long, int[]> g = new HashMap<>(cells.size() * 2);
         cells.forEach((key, list) -> g.put(key, list.stream().mapToInt(Integer::intValue).toArray()));
         return g;
+    }
+
+    /**
+     * 이 자리가 역을 둘 수 없는 간선(다리·터널·진출입로) 위인가(11-21) — {@value #ON_EDGE_KM}km 안에 그런 간선이 있고 역을 둘 수 있는 큰길·집산도로는 없다.
+     * 고가 밑에 지상 도로가 겹치거나 터널 입구처럼 큰길과 맞닿은 자리는 역 자리다. 길이 없는 곳(새 도로 구간)도 이 판정으로는 막지 않는다.
+     * 도로를 따라가는 행은 역을 선 위 그대로 두므로(`StationPlanner`) 이걸 따로 물어야 한다 — 안 물어 남산1호터널 안에 역이 놓였다
+     */
+    public boolean stationBlockedAt(double lat, double lng) {
+        return nearestIn(blockedGrid, lat, lng, ON_EDGE_KM).isPresent()
+                && nearestIn(segGrid, lat, lng, ON_EDGE_KM).isEmpty()
+                && nearestIn(minorGrid, lat, lng, ON_EDGE_KM).isEmpty();
     }
 
     public boolean available() {

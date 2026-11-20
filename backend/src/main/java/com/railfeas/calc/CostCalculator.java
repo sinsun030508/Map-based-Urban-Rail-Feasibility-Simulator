@@ -166,6 +166,26 @@ public class CostCalculator {
         return out;
     }
 
+    /**
+     * 뺀 역의 경고 — **까닭별로** 적는다(11-21). 물·다리·터널 위라 뺀 역({@code offLimits})을 「인구가 없어」 로 적으면 사실과 다르다
+     * (물 위 역을 직접 빼기 시작하며 생긴 어긋남). dropped 는 추정 역 수 − 실제 역 수라 최소 역 수로 받치면 offLimits 보다 작을 수 있다 — 그만큼만 센다
+     */
+    static List<String> droppedNotes(int dropped, int offLimits) {
+        // 왜 역이 적은지 말해 주지 않으면 "계산이 덜 됐나" 로 읽힌다(소양호 33km 에 역 8개 — 가운데 20km 가 물과 산이다).
+        // **확인한 사실만 적는다** — 「인구가 없어」 는 반경 500m 안 인구만 본 것이다(값이 가려진 집계구가 있어 「사람이 없다」 가 아니라 「자료가 없다」 일 수 있다).
+        // `warning` 이 VARCHAR(200) 이라 짧게 — 경고가 넷까지 함께 붙는다
+        List<String> notes = new ArrayList<>();
+        int off = Math.max(0, Math.min(offLimits, dropped));
+        int empty = Math.max(0, dropped - off);
+        if (empty > 0) {
+            notes.add(empty + "곳은 반경 500m 안에 인구가 없어 역을 놓지 않았습니다");
+        }
+        if (off > 0) {
+            notes.add(off + "곳은 물·다리·터널 위라 역을 놓지 않았습니다");
+        }
+        return notes;
+    }
+
     /** warning 칸(VARCHAR 200)에 맞춘다 — 넘치면 저장이 통째로 실패한다 */
     static String fitWarning(String warning) {
         if (warning == null || warning.length() <= WARNING_MAX) {
@@ -296,7 +316,7 @@ public class CostCalculator {
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
                     .warning(warning(routeKm, peak, capacity, onRoad ? roadZoneWarning : zoneWarning, people,
-                            stations - stationCount, tunnelPart.note(), vehicle ? road.note() : null))
+                            stations - stationCount, plan.offLimits(), tunnelPart.note(), vehicle ? road.note() : null))
                     .build();
             attachStations(result, placed, dailyRiders);
             results.add(result);
@@ -398,17 +418,8 @@ public class CostCalculator {
 
     /** 경고는 계산을 막지 않는다. 판단 근거만 덧붙인다. */
     private String warning(double lengthKm, Integer peak, ModeCapacity capacity,
-                           String zoneWarning, long people, int dropped, String tunnelNote, String roadNote) {
-        List<String> notes = new ArrayList<>();
-        if (dropped > 0) {
-            // 왜 역이 적은지 말해 주지 않으면 "계산이 덜 됐나" 로 읽힌다. 33km 노선에
-            // 역이 8개뿐인 결과가 실제로 나온다 (소양호 — 가운데 20km 가 물과 산이다)
-            // **확인한 사실만 적는다.** 전에는 "(수면·무인 구간)" 이라고 단정했는데,
-            // 값이 가려진 집계구가 있어 "사람이 없다" 가 아니라 "여기 자료가 없다" 일 수 있다.
-            // 우리가 실제로 본 것은 **반경 500m 안의 인구**뿐이다.
-            // `warning` 이 VARCHAR(200) 이라 짧게 — 경고가 넷까지 함께 붙는다
-            notes.add(dropped + "곳은 반경 500m 안에 인구가 없어 역을 놓지 않았습니다");
-        }
+                           String zoneWarning, long people, int dropped, int offLimits, String tunnelNote, String roadNote) {
+        List<String> notes = new ArrayList<>(droppedNotes(dropped, offLimits));
         if (capacity != null && capacity.getMaxLengthKm() != null
                 && lengthKm > capacity.getMaxLengthKm().doubleValue()) {
             notes.add("권장 연장 초과 — 복선전철 대안 참고");

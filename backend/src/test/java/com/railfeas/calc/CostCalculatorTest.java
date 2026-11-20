@@ -766,4 +766,16 @@ class CostCalculatorTest {
         assertThat(CostCalculator.fitWarning("짧다")).isEqualTo("짧다");
         assertThat(CostCalculator.fitWarning(null)).isNull();
     }
+
+    @Test
+    @DisplayName("뺀 역의 경고는 까닭별로 — 물·다리·터널 위라 뺀 역을 「인구가 없어」 로 적지 않는다(11-21)")
+    void droppedStationNotesSayTheRealReason() {
+        assertThat(CostCalculator.droppedNotes(3, 1)).containsExactly(
+                "2곳은 반경 500m 안에 인구가 없어 역을 놓지 않았습니다", "1곳은 물·다리·터널 위라 역을 놓지 않았습니다");
+        assertThat(CostCalculator.droppedNotes(1, 1)).containsExactly("1곳은 물·다리·터널 위라 역을 놓지 않았습니다");
+        assertThat(CostCalculator.droppedNotes(2, 0)).containsExactly("2곳은 반경 500m 안에 인구가 없어 역을 놓지 않았습니다");
+        assertThat(CostCalculator.droppedNotes(0, 0)).isEmpty();
+        // 최소 역 수로 받쳐 뺀 수가 까닭 수보다 작으면 — 음수·0 문장을 만들지 않는다
+        assertThat(CostCalculator.droppedNotes(1, 2)).containsExactly("1곳은 물·다리·터널 위라 역을 놓지 않았습니다");
+    }
 }

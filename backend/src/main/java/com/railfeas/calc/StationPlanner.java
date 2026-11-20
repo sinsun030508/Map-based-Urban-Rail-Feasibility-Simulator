@@ -101,7 +101,11 @@ public class StationPlanner {
      * 그래서 **같은 방식으로 만든 두 선을 견준다** — 옆으로 옮긴 선과 안 옮긴 선.
      * 보간 오차는 양쪽에 똑같이 생겨 상쇄되고 옆으로 간 몫만 남는다.
      */
-    public record Plan(List<Placed> stations, double detourKm) {
+    public record Plan(List<Placed> stations, double detourKm, int offLimits) {
+        /** offLimits — 물·다리·터널 위라 뺀 중간역 수(11-21). 「반경 인구 0」 으로 뺀 역과 경고 문구가 달라 따로 센다 */
+        public Plan(List<Placed> stations, double detourKm) {
+            this(stations, detourKm, 0);
+        }
     }
 
     public List<Placed> plan(List<double[]> route, int count, double spacingKm) {
@@ -126,6 +130,7 @@ public class StationPlanner {
         double window = spacingKm * WINDOW_RATIO;
         double minGap = spacingKm * MIN_GAP_RATIO;
         List<Placed> out = new ArrayList<>(count);
+        int offLimits = 0;
         List<double[]> onLine = new ArrayList<>(count);   // 옆으로 안 옮겼다고 쳤을 때의 자리
         Map<String, Integer> usedNames = new HashMap<>();
 
@@ -163,13 +168,16 @@ public class StationPlanner {
             // **물 위면 반경 안에 사람이 있어도 뺀다**(11-21) — 위의 「반경 500m 인구 0」 은 물을 간접으로만 본다. 강변에 아파트가 있으면
             // 다리 한가운데도 반경 안 인구가 0 이 아니라, 도로를 따라가는 행(선 위 그대로 둔다)에서 「용강동」 역이 마포대교 위 한강 물 위에 놓였다.
             // 물 면을 직접 본다 — 기존 다리·새 다리·철도 모두 같은 규칙이다. 종점은 사용자가 찍은 자리라 그대로 둔다
-            if (!terminal && wet.test(at[0], at[1])) {
+            // 다리·터널·진출입로 위도 역 자리가 아니다(11-21) — 도로를 따라가는 행은 역을 선 위 그대로 둬 큰길로 옮기는 단계(그런 간선을 피한다)를
+            // 건너뛰므로 따로 본다. 남산1호터널 안·한남동 고가 위에 「한남동 2」 역이 놓였다. 「교량·하저터널 구간에 중간역이 없다」 와 같은 원칙으로 뺀다
+            if (!terminal && (wet.test(at[0], at[1]) || (onRoute && roads.stationBlockedAt(at[0], at[1])))) {
+                offLimits++;
                 continue;
             }
             onLine.add(on);
             out.add(place(at, usedNames));
         }
-        return new Plan(out, detour(out, onLine));
+        return new Plan(out, detour(out, onLine), offLimits);
     }
 
     /** 옆으로 옮긴 선과 안 옮긴 선의 길이 차. 아무도 안 움직였으면 정확히 0 이다 */

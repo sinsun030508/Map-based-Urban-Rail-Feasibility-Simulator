@@ -160,4 +160,30 @@ class RoadNetworkTest {
         assertThat(none.snap(p)).isSameAs(p);
         assertThat(none.route(p, new double[]{37.52, 126.95})).isEmpty();
     }
+
+    @Test
+    @DisplayName("다리·터널·진출입로 위는 역 자리가 아니다 — 고가 밑 지상 도로처럼 큰길이 겹치면 역 자리다(11-21)")
+    void 다리_터널_위는_역_자리가_아니다() {
+        RoadNetwork net = RoadNetwork.ofEdges(List.of(
+                edge(0, 1, 0, new double[]{37.5000, 126.9000}, new double[]{37.5000, 126.9100}),                   // 땅 위 큰길
+                edge(1, 2, RoadNetwork.TUNNEL, new double[]{37.5000, 126.9100}, new double[]{37.5000, 126.9300}),  // 터널
+                edge(3, 4, RoadNetwork.BRIDGE, new double[]{37.5100, 126.9000}, new double[]{37.5100, 126.9200}),  // 고가
+                edge(5, 6, 0, new double[]{37.5100, 126.9050}, new double[]{37.5100, 126.9080})));                 // 고가 밑 지상 도로
+
+        assertThat(net.stationBlockedAt(37.5000, 126.9200)).as("터널 한가운데").isTrue();
+        assertThat(net.stationBlockedAt(37.5100, 126.9150)).as("고가 위").isTrue();
+        assertThat(net.stationBlockedAt(37.5000, 126.9050)).as("땅 위 큰길").isFalse();
+        assertThat(net.stationBlockedAt(37.5000, 126.9100)).as("터널 입구 — 큰길과 맞닿은 교차점").isFalse();
+        assertThat(net.stationBlockedAt(37.5100, 126.9060)).as("고가 밑에 지상 도로가 겹친다").isFalse();
+        assertThat(net.stationBlockedAt(37.5300, 126.9500)).as("길이 없는 곳(새 도로 구간)").isFalse();
+    }
+
+    @Test
+    @DisplayName("다리·터널 토막을 따로 담아도 역은 여전히 그 위로 옮기지 않는다")
+    void 금지_토막은_역을_붙이는_데_안_쓴다() {
+        RoadNetwork net = RoadNetwork.ofEdges(List.of(
+                edge(0, 1, RoadNetwork.TUNNEL, new double[]{37.5000, 126.9100}, new double[]{37.5000, 126.9300})));
+
+        assertThat(net.nearest(37.5003, 126.9200, 0.3)).isEmpty();
+    }
 }

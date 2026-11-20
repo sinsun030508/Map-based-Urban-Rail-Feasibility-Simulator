@@ -18,6 +18,10 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
+     * 도로를 따라가는 행의 중간역이 다리·터널·진출입로 위면 빼게 한 시각(11-21 00:58, `StationPlanner`·`RoadNetwork.stationBlockedAt` — 코드 점검) —
+     * 그 행들은 역을 선 위 그대로 둬 「다리·터널에는 역을 안 놓는다」 를 안 지켰다(한남동~명동 트램 역이 고가 위, BRT 역이 남산1호터널 안).
+     * 뺀 역의 경고도 까닭별로 나눴다(「인구가 없어」 · 「물·다리·터널 위라」). 그런 행은 역 수·건설비·B/C 가 조금 바뀐다.
+     * 그 전 — 11-21 00:50
      * 중간 정차역이 물(호수·강·바다) 위면 반경 안에 사람이 있어도 빼게 한 시각(11-21 00:50, `StationPlanner` — 코드 점검) — 전에는 「반경 500m 인구 0」 으로만
      * 물을 걸러, 강변에 아파트가 있으면 다리 한가운데 역이 남았다(실제 서버로 한강 4노선을 계산하니 여의도~마포 BRT 의 「용강동」 역이 마포대교 위 한강 물 위였다).
      * 그런 행은 역이 하나 줄어 역 수·건설비·역별 이용객 배분·B/C 가 조금 바뀐다. 종점은 그대로다.
@@ -69,7 +73,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 21, 0, 50);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 21, 0, 58);
 
     private CalculationRules() {
     }
