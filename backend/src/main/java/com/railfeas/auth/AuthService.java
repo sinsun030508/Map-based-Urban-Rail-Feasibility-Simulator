@@ -1,5 +1,6 @@
 package com.railfeas.auth;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,8 @@ import com.railfeas.user.UserRepository;
 
 @Service
 public class AuthService {
+
+    private static final String DUPLICATE_EMAIL = "이미 가입된 이메일입니다";
 
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
@@ -28,15 +31,22 @@ public class AuthService {
     @Transactional
     public AuthDto.TokenResponse signup(AuthDto.SignupRequest request) {
         if (users.existsByEmail(request.email())) {
-            throw new ApiException(HttpStatus.CONFLICT, "이미 가입된 이메일입니다");
+            throw new ApiException(HttpStatus.CONFLICT, DUPLICATE_EMAIL);
         }
-        User user = users.save(User.builder()
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .nickname(request.nickname())
-                .provider(AuthProvider.LOCAL)
-                .role(Role.USER)
-                .build());
+        User user;
+        try {
+            user = users.save(User.builder()
+                    .email(request.email())
+                    .password(passwordEncoder.encode(request.password()))
+                    .nickname(request.nickname())
+                    .provider(AuthProvider.LOCAL)
+                    .role(Role.USER)
+                    .build());
+        } catch (DataIntegrityViolationException e) {
+            // 위 확인과 저장 사이에 같은 이메일이 먼저 들어왔다(가입 버튼을 빠르게 두 번) — 이메일 유니크 제약이 막는다.
+            // 잡지 않으면 처리기가 없어 /error 로 넘어가 403·500 으로 보인다(11-21 코드 점검). id 가 IDENTITY 라 save 가 바로 INSERT 해 여기서 잡힌다
+            throw new ApiException(HttpStatus.CONFLICT, DUPLICATE_EMAIL);
+        }
         return toToken(user);
     }
 
