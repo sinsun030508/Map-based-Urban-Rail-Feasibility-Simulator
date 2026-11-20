@@ -18,6 +18,10 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
+     * 중간 정차역이 물(호수·강·바다) 위면 반경 안에 사람이 있어도 빼게 한 시각(11-21 00:50, `StationPlanner` — 코드 점검) — 전에는 「반경 500m 인구 0」 으로만
+     * 물을 걸러, 강변에 아파트가 있으면 다리 한가운데 역이 남았다(실제 서버로 한강 4노선을 계산하니 여의도~마포 BRT 의 「용강동」 역이 마포대교 위 한강 물 위였다).
+     * 그런 행은 역이 하나 줄어 역 수·건설비·역별 이용객 배분·B/C 가 조금 바뀐다. 종점은 그대로다.
+     * 그 전 — 11-21 00:22
      * 직선이 강·호수·바다를 건너는 구간은 기존 도로로 돌아가는 길이 **2.0배까지** 도로를 따라가게 한 시각(11-21 00:22, `RoadRoute.MAX_RATIO_OVER_WATER` — 사용자 결정, 판단값) —
      * 전에는 1.5배였다. 새 다리는 1km 에 약 451억이라 돌아가더라도 기존 다리가 낫다는 판단이다. 상암~염창 4.4km 가 가양대교로 돌아 8.2km(1.85배)라 통째로 새 다리였던 것이
      * 도로가 된다 — 그 행의 연장·역·소요시간·건설비(새 다리값 0)·B/C 가 바뀐다. 물을 안 건너는 구간과 혼합의 육지 토막은 1.5배 그대로다.
@@ -65,7 +69,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 21, 0, 22);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 21, 0, 50);
 
     private CalculationRules() {
     }

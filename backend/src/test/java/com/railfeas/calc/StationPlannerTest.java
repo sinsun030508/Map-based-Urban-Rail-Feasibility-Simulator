@@ -407,4 +407,44 @@ class StationPlannerTest {
         assertThat(placed).hasSizeLessThan(6);
         assertThat(placed).noneMatch(p -> p.score() == 0);
     }
+
+    // ── 물 위에는 중간역을 놓지 않는다(11-21) — 「반경 500m 인구 0」 만 보면 강변에 사람이 있을 때 다리 한가운데 역이 남았다
+    //    (실제 서버: 여의도→마포 BRT 의 「용강동」 역이 한강 물 위, 마포대교 위였다)
+
+    /** 위도 띠 [lo, hi] 가 물이라고 보는 판정 */
+    private static java.util.function.BiPredicate<Double, Double> waterBand(double lo, double hi) {
+        return (lat, lng) -> lat >= lo && lat <= hi;
+    }
+
+    private PopulationIndex thinEverywhere(Path dir) throws IOException {
+        PopulationIndex index = new PopulationIndex(censusWithPeakAt(dir, LAT0 - 0.07).toString(), "없는파일.csv");
+        index.load();
+        return index;
+    }
+
+    @Test
+    @DisplayName("물 위에 놓일 중간역은 뺀다 — 반경 안에 강변 인구가 있어도(마포대교 위 「용강동」 역)")
+    void stationsOnWaterAreDroppedEvenWithPeopleNearby(@TempDir Path dir) throws IOException {
+        PopulationIndex index = thinEverywhere(dir);
+        // 셋째 역(위도 0.036 아래)의 창 ±0.42km 를 다 덮는 강
+        var wet = waterBand(STATION_LAT - 0.004, STATION_LAT + 0.004);
+
+        List<StationPlanner.Placed> dry = new StationPlanner(index).plan(ROUTE, 6, 1.2);
+        List<StationPlanner.Placed> placed = new StationPlanner(index, RoadNetwork.of(List.of()), wet).plan(ROUTE, 6, 1.2);
+
+        assertThat(dry).as("물 판정이 없으면 — 반경 안에 사람이 있어 지금처럼 6개").hasSize(6);
+        assertThat(placed).as("물 위의 한 역이 빠진다").hasSize(5);
+        assertThat(placed).noneSatisfy(p -> assertThat(wet.test(p.lat(), p.lng())).isTrue());
+    }
+
+    @Test
+    @DisplayName("종점은 물 위여도 남는다 — 사용자가 찍은 자리다")
+    void terminalsStayEvenOnWater(@TempDir Path dir) throws IOException {
+        PopulationIndex index = thinEverywhere(dir);
+        List<StationPlanner.Placed> placed = new StationPlanner(index, RoadNetwork.of(List.of()), waterBand(LAT0 - 0.001, LAT0 + 0.001))
+                .plan(ROUTE, 6, 1.2);
+
+        assertThat(placed).hasSize(6);
+        assertThat(placed.get(0).lat()).isEqualTo(LAT0);
+    }
 }

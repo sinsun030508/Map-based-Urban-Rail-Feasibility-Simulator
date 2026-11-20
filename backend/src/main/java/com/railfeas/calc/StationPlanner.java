@@ -57,16 +57,29 @@ public class StationPlanner {
 
     private final PopulationIndex population;
     private final RoadNetwork roads;
+    /** 이 자리가 물(호수·강·바다) 위인가 — 중간역을 놓지 않는다(11-21) */
+    private final java.util.function.BiPredicate<Double, Double> wet;
 
     /** 큰길 자료 없이 — 역을 인구 자리에 그대로 둔다(테스트) */
     public StationPlanner(PopulationIndex population) {
         this(population, RoadNetwork.of(List.of()));
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    /** 물 자료 없이(테스트) — 물 위 역은 「반경 인구 0」 으로만 걸러진다 */
     public StationPlanner(PopulationIndex population, RoadNetwork roads) {
+        this(population, roads, (lat, lng) -> false);
+    }
+
+    /** 앱 — 호수·강(물 파일)과 바다(해안선)를 물로 본다. 자료 파일이 없으면 그 몫은 「물 아님」 이다 */
+    @org.springframework.beans.factory.annotation.Autowired
+    public StationPlanner(PopulationIndex population, RoadNetwork roads, WaterBodies water, Coastline coast) {
+        this(population, roads, (lat, lng) -> water.contains(lat, lng) || coast.isSea(lat, lng));
+    }
+
+    StationPlanner(PopulationIndex population, RoadNetwork roads, java.util.function.BiPredicate<Double, Double> wet) {
         this.population = population;
         this.roads = roads;
+        this.wet = wet;
     }
 
     /** 배치된 역 하나. score 는 반경 안 인구로, 이용객 배분에 쓴다 */
@@ -146,6 +159,12 @@ public class StationPlanner {
             if (!terminal && population.hasCensus() && score(at) == 0
                     && population.hasCensusNear(at[0], at[1], COVERAGE_RADIUS_KM)) {
                 continue;        // previous 는 이미 chosen 으로 옮겨 뒀다
+            }
+            // **물 위면 반경 안에 사람이 있어도 뺀다**(11-21) — 위의 「반경 500m 인구 0」 은 물을 간접으로만 본다. 강변에 아파트가 있으면
+            // 다리 한가운데도 반경 안 인구가 0 이 아니라, 도로를 따라가는 행(선 위 그대로 둔다)에서 「용강동」 역이 마포대교 위 한강 물 위에 놓였다.
+            // 물 면을 직접 본다 — 기존 다리·새 다리·철도 모두 같은 규칙이다. 종점은 사용자가 찍은 자리라 그대로 둔다
+            if (!terminal && wet.test(at[0], at[1])) {
+                continue;
             }
             onLine.add(on);
             out.add(place(at, usedNames));
