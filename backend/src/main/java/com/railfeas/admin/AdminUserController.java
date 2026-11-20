@@ -30,7 +30,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 회원 관리·시나리오 생성 통계 (제안서 기능 8). `/api/admin/**` 은 ADMIN 만 들어온다(`SecurityConfig`).
  *
- * **자기 자신은 바꾸거나 지울 수 없다** — 그래서 관리자가 0명이 되는 일이 없다(행동하는 관리자가 늘 남는다).
+ * **자기 자신은 바꾸거나 지울 수 없다** — 그래서 관리자가 0명이 되는 일이 없다(행동하는 관리자가 늘 남는다). **동시 요청도 막는다** —
+ * 바꾸기·지우기 전에 관리자 행을 잠그고 요청한 사람이 지금도 관리자인지 다시 본다(`requireStillAdmin`, 11-21).
  * **관리자 계정은 일반 회원으로 내린 뒤에만 지운다** — 지우면 되돌릴 수 없어 두 단계로 둔다. 시나리오는 외래키의
  * `ON DELETE CASCADE` 로 함께 지워진다. 권한은 요청마다 DB 에서 읽고 지운 계정은 익명이 되므로
  * (`JwtAuthenticationFilter`) 바꾸면 그 사람의 다음 요청부터 바로 적용된다.
@@ -96,6 +97,7 @@ public class AdminUserController {
         if (id.equals(me)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "자기 권한은 바꿀 수 없습니다 — 다른 관리자에게 맡기세요");
         }
+        requireStillAdmin(me);
         target.changeRole(request.role());
         return UserRow.of(target, scenarios.countByUserId(id));
     }
@@ -109,6 +111,7 @@ public class AdminUserController {
         if (id.equals(me)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "자기 계정은 지울 수 없습니다");
         }
+        requireStillAdmin(me);
         if (target.getRole() == Role.ADMIN) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "관리자는 일반 회원으로 내린 뒤에 지울 수 있습니다");
         }
@@ -153,6 +156,17 @@ public class AdminUserController {
             out.put(row[0].toString(), (Long) row[1]);
         }
         return out;
+    }
+
+    /**
+     * 요청한 사람이 **지금도** 관리자인가 — 관리자 행을 잠그고 다시 읽는다(11-21). 권한은 요청이 들어올 때(`JwtAuthenticationFilter`) 읽어서,
+     * 두 관리자가 동시에 서로를 내리면 둘 다 「관리자」 로 통과해 관리자가 0명이 됐다(「자기 자신은 못 바꾼다」 만으로는 동시 요청을 못 막는다).
+     * 잠근 읽기는 먼저 끝난 요청의 결과를 보므로 뒤 요청은 자기가 이미 내려진 것을 보고 멈춘다
+     */
+    private void requireStillAdmin(Long me) {
+        if (users.lockByRole(Role.ADMIN).stream().noneMatch(u -> u.getId().equals(me))) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "관리자 권한이 없어졌습니다 — 다시 로그인해 주세요");
+        }
     }
 
     private User find(Long id) {

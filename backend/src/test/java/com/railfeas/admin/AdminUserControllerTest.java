@@ -34,6 +34,12 @@ class AdminUserControllerTest {
     private final ScenarioRepository scenarios = Mockito.mock(ScenarioRepository.class);
     private final AdminUserController controller = new AdminUserController(users, scenarios);
 
+    /** 요청한 사람(ME)은 기본으로 지금도 관리자다 — 잠그고 다시 읽은 관리자 목록에 있다 */
+    @org.junit.jupiter.api.BeforeEach
+    void meIsStillAdmin() {
+        Mockito.when(users.lockByRole(Role.ADMIN)).thenReturn(List.of(user(ME, Role.ADMIN, AuthProvider.LOCAL)));
+    }
+
     private static User user(long id, Role role, AuthProvider provider) {
         User u = User.builder().email("u" + id + "@example.test").password("해시").nickname("회원" + id)
                 .provider(provider).role(role).build();
@@ -99,6 +105,28 @@ class AdminUserControllerTest {
         assertThat(statusOf(() -> controller.changeRole(ME, ME, new AdminUserController.RoleRequest(Role.USER))))
                 .isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(me.getRole()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    @DisplayName("요청한 관리자가 그사이 내려졌으면 권한을 못 바꾼다 — 두 관리자가 동시에 서로를 내려 관리자가 0명이 되는 길을 막는다(11-21)")
+    void 내려진_관리자는_권한을_못_바꾼다() {
+        // A(ME)·B(2) 가 동시에 서로를 내린다. B 의 요청이 먼저 끝나 A 가 이미 일반 회원이다 — 잠그고 다시 읽은 관리자 목록에 A 가 없다
+        User b = stored(2, Role.ADMIN);
+        Mockito.when(users.lockByRole(Role.ADMIN)).thenReturn(List.of(b));
+
+        assertThat(statusOf(() -> controller.changeRole(ME, 2L, new AdminUserController.RoleRequest(Role.USER))))
+                .isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(b.getRole()).as("마지막 관리자가 남는다").isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    @DisplayName("요청한 관리자가 그사이 내려졌으면 회원도 못 지운다 — 되돌릴 수 없는 일이다")
+    void 내려진_관리자는_못_지운다() {
+        stored(2, Role.USER);
+        Mockito.when(users.lockByRole(Role.ADMIN)).thenReturn(List.of());
+
+        assertThat(statusOf(() -> controller.delete(ME, 2L))).isEqualTo(HttpStatus.FORBIDDEN);
+        Mockito.verify(users, Mockito.never()).delete(Mockito.any());
     }
 
     @Test
