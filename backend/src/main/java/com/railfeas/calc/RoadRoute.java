@@ -10,7 +10,8 @@ import java.util.Optional;
  * 트램·BRT 의 노선 — 그린 구간(점 i → i+1)마다 기존 도로를 따라갈지, 새 도로를 놓을지 정한다(11-12 사용자 요청, 자동 적용).
  *
  * <p>땅 위 도로를 쓰는 수단이 그린 직선 그대로 가면 다리 없는 강을 건너는 도로를 새로 놓는 셈이었다. <b>기존 도로가 직선의
- * {@value #MAX_RATIO}배 이하면 도로를 따라간다</b>(호수·산 우회와 같은 가정값). 넘게 돌거나 도로를 못 찾으면 그 구간만 직선 새 도로다.
+ * {@value #MAX_RATIO}배 이하면 도로를 따라간다</b>(호수·산 우회와 같은 가정값) — <b>직선이 물을 건너는 구간은 {@value #MAX_RATIO_OVER_WATER}배까지</b>(새 다리보다 기존 다리).
+ * 넘게 돌거나 도로를 못 찾으면 그 구간만 직선 새 도로다.
  * 새 도로의 땅 위 공사비는 KDI 지침에 km 표준이 없어 판정은 길이로만 한다(설계 문서 4).
  *
  * <p><b>단 그 직선이 강·호수·바다를 건너면 육지는 도로를 따라가고 물 위만 새 다리로 잇는다</b>(11-19 사용자 요청, {@link #acrossWater}) —
@@ -19,6 +20,11 @@ import java.util.Optional;
 public final class RoadRoute {
 
     public static final double MAX_RATIO = 1.5;
+    /**
+     * 직선이 강·호수·바다를 건너는 구간의 문턱 — 판단값(11-21 사용자 결정). 새 다리는 1km 에 약 451억({@link #BRIDGE_PER_KM})이라 도로로 돌더라도 기존 다리가 낫다.
+     * 근거가 약한 값이다 — 가양대교로 돌아 건너는 상암~염창 4.4km(8.2km, 1.85배)가 1.5배에서는 통째로 새 다리였다. 돌아가는 시간 값을 비용에 넣으면 이 값을 비용으로 갈라야 한다
+     */
+    public static final double MAX_RATIO_OVER_WATER = 2.0;
     /**
      * 새 도로가 강·호수를 건너는 다리 — KDI 2021 세부지침 표 Ⅲ-14 일반국도 교량형식별 표준공사비, 편도 2차로(폭 11.5m) PSC Box
      * 38,601천원/m = 386.01억원/km(2019, VAT 제외 — 큰 강을 건너는 다리에 흔한 형식). 지침은 바다·큰 강 다리는 더 잡을 수 있다고 한다 — 하한이다
@@ -99,11 +105,16 @@ public final class RoadRoute {
                 pieces.add(new Piece(true, path.get().points(), path.get().km(), null));
                 continue;
             }
+            // 직선이 물을 건너면 문턱이 더 넓다(11-21) — 새 다리를 놓느니 기존 다리로 돌아간다. 물 토막은 개울(50m 미만)을 빼고 센다
+            List<double[][]> bridges = water == null ? List.of() : bridges(a, b, water);
+            if (path.isPresent() && !bridges.isEmpty() && path.get().km() <= straight * MAX_RATIO_OVER_WATER) {
+                pieces.add(new Piece(true, path.get().points(), path.get().km(), null));
+                continue;
+            }
             // 왜 새 도로인가 — 화면이 그대로 보여 준다(11-19). 「기존 도로가 N배라」 · 「가까운 기존 도로로 잇지 못해」 가 뿌리고, 물이 끼면 그 뒤에 경우를 붙인다
             String base = path.isEmpty() ? "가까운 기존 도로로 잇지 못해"
                     : String.format(Locale.ROOT, "기존 도로가 %.1f배(%.1fkm)라", path.get().km() / straight, path.get().km());
             // 직선이 물을 건너면 육지는 도로를 따라가고 물 위만 새 다리로 잇는다(11-19) — 도로로 잇는 육지가 하나도 없으면 비어 있다
-            List<double[][]> bridges = water == null ? List.of() : bridges(a, b, water);
             List<Piece> mixed = bridges.isEmpty() ? List.of() : acrossWater(a, b, bridges, roads, base);
             if (mixed.isEmpty()) {
                 String reason = base + " 새 도로" + (bridges.isEmpty() ? "" : " — 물을 건너지만 양쪽 육지도 도로로 이을 수 없어 직선 그대로");

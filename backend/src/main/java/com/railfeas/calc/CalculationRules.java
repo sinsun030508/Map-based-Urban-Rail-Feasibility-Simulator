@@ -18,6 +18,10 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
+     * 직선이 강·호수·바다를 건너는 구간은 기존 도로로 돌아가는 길이 **2.0배까지** 도로를 따라가게 한 시각(11-21 00:22, `RoadRoute.MAX_RATIO_OVER_WATER` — 사용자 결정, 판단값) —
+     * 전에는 1.5배였다. 새 다리는 1km 에 약 451억이라 돌아가더라도 기존 다리가 낫다는 판단이다. 상암~염창 4.4km 가 가양대교로 돌아 8.2km(1.85배)라 통째로 새 다리였던 것이
+     * 도로가 된다 — 그 행의 연장·역·소요시간·건설비(새 다리값 0)·B/C 가 바뀐다. 물을 안 건너는 구간과 혼합의 육지 토막은 1.5배 그대로다.
+     * 그 전 — 11-19 14:54
      * 도로로 못 이은 구간(돌아가는 길이 직선의 1.5배 초과·길 없음)이 강·호수·바다를 건너면 **육지는 도로를 따라가고 물 위만 새 다리로 잇게** 한 시각(11-19 14:54,
      * `RoadRoute` 의 혼합 — 사용자 요청) — 전에는 그 구간 전체가 직선 새 도로였다. 트램·BRT·광역급행 행의 연장·역·소요시간·건설비·B/C 가 바뀐다:
      * 육지가 기존 도로(공사비 0)가 되고 새 도로는 물 위 다리 토막만 남아, 「땅 위 공사비 모름」 길이가 줄고 다리값(451억/km)은 물 위 길이만큼 그대로다.
@@ -61,7 +65,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 19, 14, 54);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 21, 0, 22);
 
     private CalculationRules() {
     }

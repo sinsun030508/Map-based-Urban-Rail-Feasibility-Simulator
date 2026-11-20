@@ -199,6 +199,54 @@ class RoadRouteTest {
         assertThat(back.get(0).reason()).isNull();
     }
 
+    // ── 물을 건너는 구간은 도로 문턱이 2.0배다(11-21 사용자 결정) — 새 다리는 1km 에 약 451억이라 돌아가더라도 기존 다리가 낫다
+
+    /** 직선(37.50→37.53, 3.34km)을 동쪽 eastDeg° 로 돌아가는 ㄷ자 도로 — 동쪽 1.45km 면 6.24km 로 1.87배, 2.2km 면 2.3배 */
+    private static RoadNetwork bracket(double eastDeg) {
+        return RoadNetwork.ofEdges(List.of(
+                edge(0, 1, new double[]{37.50, 126.90}, new double[]{37.50, 126.90 + eastDeg}),
+                edge(1, 2, new double[]{37.50, 126.90 + eastDeg}, new double[]{37.53, 126.90 + eastDeg}),
+                edge(2, 3, new double[]{37.53, 126.90 + eastDeg}, new double[]{37.53, 126.90})));
+    }
+
+    @Test
+    @DisplayName("직선이 강을 건너면 도로가 1.5배를 넘어도 2.0배까지는 도로를 따라간다 — 새 다리보다 기존 다리가 낫다")
+    void 물을_건너면_문턱이_2배() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers(new double[]{37.514, 37.518}));
+
+        assertThat(p.pieces()).hasSize(1);
+        assertThat(p.pieces().get(0).road()).as("1.87배 — 물을 건너니 도로").isTrue();
+        assertThat(p.roadKm()).isCloseTo(6.24, within(0.05));
+        assertThat(p.newKm()).isZero();
+    }
+
+    @Test
+    @DisplayName("물을 안 건너면 문턱은 그대로 1.5배 — 같은 도로가 새 도로가 된다")
+    void 물이_없으면_문턱은_1점5배() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers());
+
+        assertThat(p.pieces()).hasSize(1);
+        assertThat(p.pieces().get(0).road()).isFalse();
+        assertThat(p.pieces().get(0).reason()).contains("1.9배");
+    }
+
+    @Test
+    @DisplayName("50m 도 안 되는 개울은 물로 치지 않으니 문턱을 올리지 않는다")
+    void 개울은_문턱을_안_올린다() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers(new double[]{37.5140, 37.5141}));    // 약 11m
+
+        assertThat(p.pieces().get(0).road()).isFalse();
+    }
+
+    @Test
+    @DisplayName("물을 건너도 2.0배를 넘으면 도로가 아니다 — 2.3배는 새 도로(또는 혼합)")
+    void 물을_건너도_2배를_넘으면_새_도로() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.025), rivers(new double[]{37.514, 37.518}));
+
+        assertThat(p.pieces()).extracting(RoadRoute.Piece::road).doesNotContain(true);
+        assertThat(p.pieces().get(0).reason()).contains("2.3배");
+    }
+
     @Test
     @DisplayName("깨진 조각은 건너뛰고 나머지를 읽는다 — 한 조각 때문에 시나리오 상세 조회가 통째로 실패하지 않는다")
     void 깨진_조각은_건너뛴다() {
