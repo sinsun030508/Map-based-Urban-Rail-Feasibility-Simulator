@@ -42,7 +42,9 @@ cd frontend && npm run dev                       # 3000 (`VITE_PORT`)
   `PW=$(grep '^DB_PASSWORD=' .env | cut -d= -f2-)` 로 받아 `MYSQL_PWD` 로 넘긴다
 - **`package` 는 조용히 실패한다.** 백엔드를 켜 둔 채거나 maven 내려받기가 끊기면 `./mvnw`
   가 아무것도 안 하고 `surefire-reports` 에 **예전 결과가 남아** 통과한 것처럼 읽힌다 —
-  jar 와 보고서의 **시각까지** 볼 것. 받아 둔 maven 은 `~/.m2/wrapper/dists/*/*/bin/mvn -o`
+  jar 와 보고서의 **시각까지** 볼 것. 받아 둔 maven 은 `~/.m2/wrapper/dists/*/*/bin/mvn -o`.
+  **원인 하나는 찾았다**(11-21) — 셸 `mvnw` 는 배포본 폴더를 자기 해시(8자리, `…/apache-maven-3.9.9/3477a4f1`)로 찾는데 `mvnw.cmd` 가 MD5(32자리) 폴더에
+  받아 둬 못 찾고, 다시 받으려다 `wget` 에서 실패한다(`-q` 면 그 메시지도 안 보인다). 받아 둔 폴더를 그 이름으로 복사하면 `./mvnw -o` 가 돈다
 - **SQL 첫 줄에 `SET NAMES utf8mb4;`** / **`JWT_SECRET` 은 기본값이 없다**(32바이트 이상,
   바꾸면 토큰 전부 무효) / **MapLibre 에는 `ResizeObserver`** (없으면 클릭 좌표가 어긋난다)
 - **프론트 포트는 3000 이다**(11-14) — 윈도우가 5094~5193 을 예약한 PC 에서 5173 이 `EACCES` 로 안 열렸다(Docker·Hyper-V 를 껐다 켜도 안 풀렸다).
