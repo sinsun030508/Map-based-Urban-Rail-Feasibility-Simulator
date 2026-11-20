@@ -96,20 +96,39 @@ export function routeFeatures(points, stations, routeLine) {
   }];
 }
 
+/** 조각의 길이(km) — 점은 [위도, 경도] */
+function pieceKm(piece) {
+  let km = 0;
+  for (let i = 1; i < piece.points.length; i += 1) {
+    const [a1, b1] = piece.points[i - 1];
+    const [a2, b2] = piece.points[i];
+    km += distanceKm([b1, a1], [b2, a2]);
+  }
+  return km;
+}
+
 /** 기존 도로·새 도로 길이(km) — 노선 모양이 없으면 null */
 export function roadSummary(routeLine) {
   if (!routeLine?.length) return null;
   let roadKm = 0;
   let newKm = 0;
   routeLine.forEach((p) => {
-    let km = 0;
-    for (let i = 1; i < p.points.length; i += 1) {
-      const [a1, b1] = p.points[i - 1];
-      const [a2, b2] = p.points[i];
-      km += distanceKm([b1, a1], [b2, a2]);
-    }
-    if (p.road) roadKm += km;
-    else newKm += km;
+    if (p.road) roadKm += pieceKm(p);
+    else newKm += pieceKm(p);
   });
   return { roadKm, newKm };
+}
+
+/**
+ * 새 도로가 왜 새 도로인지(11-19) — 서버가 새 도로 조각마다 주는 이유를 중복 없이 모은다. 「기존 도로가 1.7배라 육지는 도로를 따르고 물 위만 새 다리」 ·
+ * 「물을 건너지만 양쪽 육지도 도로로 이을 수 없어 직선 그대로」 같은 말이다. 이유 없이 저장된 옛 결과와 50m 도 안 되는 조각(패널이 새로 놓는 구간을 거르는
+ * 기준과 같다)은 뺀다 — 모르는 것을 지어내지 않고 잡음도 만들지 않는다. 새 도로가 없으면 빈 목록
+ */
+export function newRoadReasons(routeLine) {
+  const out = [];
+  (routeLine || []).forEach((p) => {
+    if (p.road || !p.reason || pieceKm(p) < 0.05) return;
+    if (!out.includes(p.reason)) out.push(p.reason);
+  });
+  return out;
 }

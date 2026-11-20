@@ -1,7 +1,7 @@
 // `npm test` (node --test). 화면 노선 — 그린 꼭짓점과 역을 선 위 거리 순으로 엮고, 양 끝은 종점역이다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { roadSummary, routeFeatures, routeThroughStations } from './routeLine.js';
+import { newRoadReasons, roadSummary, routeFeatures, routeThroughStations } from './routeLine.js';
 
 const st = ([lng, lat]) => ({ longitude: lng, latitude: lat });
 
@@ -60,4 +60,28 @@ test('기존 도로·새 도로 길이를 따로 잰다 — 노선 모양이 없
   assert.ok(Math.abs(s.newKm - 3.336) < 0.01, String(s.newKm));
   assert.equal(roadSummary(null), null);
   assert.equal(roadSummary([]), null);
+});
+
+// ── 새 도로인 까닭(11-19) — 서버가 새 도로 조각마다 이유를 준다. 패널이 중복 없이 한 줄로 적는다
+const NEW = (km, reason) => ({ road: false, reason, points: [[37.5, 126.9], [37.5 + km / 111.2, 126.9]] });
+
+test('새 도로의 까닭을 모은다 — 같은 까닭은 한 번, 기존 도로 조각은 뺀다', () => {
+  const r = newRoadReasons([
+    { road: true, points: [[37.5, 126.9], [37.6, 126.9]] },
+    NEW(1.4, '기존 도로가 1.7배(7.6km)라 육지는 도로를 따르고 물 위만 새 다리'),
+    NEW(1.2, '기존 도로가 1.7배(7.6km)라 육지는 도로를 따르고 물 위만 새 다리'),
+    NEW(2.0, '가까운 기존 도로로 잇지 못해 새 도로'),
+  ]);
+  assert.deepEqual(r, ['기존 도로가 1.7배(7.6km)라 육지는 도로를 따르고 물 위만 새 다리', '가까운 기존 도로로 잇지 못해 새 도로']);
+});
+
+test('까닭이 없는 조각(옛 저장)·50m 도 안 되는 조각은 뺀다 — 안내가 잡음이 되지 않게', () => {
+  assert.deepEqual(newRoadReasons([NEW(1.0, null), NEW(1.0, '')]), []);
+  assert.deepEqual(newRoadReasons([NEW(0.03, '기존 도로가 2.0배(1.0km)라 새 도로')]), []);
+});
+
+test('노선 모양이 없거나 새 도로가 없으면 빈 목록 — 줄을 그리지 않는다', () => {
+  assert.deepEqual(newRoadReasons(null), []);
+  assert.deepEqual(newRoadReasons([]), []);
+  assert.deepEqual(newRoadReasons([{ road: true, points: [[37.5, 126.9], [37.6, 126.9]] }]), []);
 });

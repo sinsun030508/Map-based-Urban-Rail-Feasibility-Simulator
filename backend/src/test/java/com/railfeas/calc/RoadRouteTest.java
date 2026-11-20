@@ -41,7 +41,7 @@ class RoadRouteTest {
         assertThat(p.pieces()).hasSize(1);
         assertThat(p.pieces().get(0).road()).isFalse();
         assertThat(p.pieces().get(0).points()).hasSize(2);
-        assertThat(p.pieces().get(0).reason()).contains("배");
+        assertThat(p.pieces().get(0).reason()).contains("배").endsWith("새 도로").doesNotContain("물");
         assertThat(p.newKm()).isCloseTo(0.88, within(0.01));
     }
 
@@ -127,6 +127,8 @@ class RoadRouteTest {
         assertThat(p.roadKm()).isCloseTo(2.224, within(0.01));
         assertThat(p.pieces().get(1).points().get(0)).containsExactly(37.51, 126.90);
         assertThat(p.pieces().get(1).points().get(p.pieces().get(1).points().size() - 1)).containsExactly(37.52, 126.90);
+        assertThat(p.pieces().get(1).reason()).as("왜 새 도로인가 — 도로로는 돌아야 해서 육지는 도로, 물 위만 새 다리").contains("배").contains("물 위만 새 다리");
+        assertThat(p.pieces().get(0).reason()).as("도로 조각에는 이유가 없다").isNull();
         // 조각이 끊기지 않는다 — 앞 조각의 끝이 다음 조각의 시작이다
         for (int i = 1; i < p.pieces().size(); i++) {
             List<double[]> prev = p.pieces().get(i - 1).points(), next = p.pieces().get(i).points();
@@ -144,6 +146,7 @@ class RoadRouteTest {
         List<double[]> tail = p.pieces().get(1).points();
         assertThat(tail.get(0)).containsExactly(37.51, 126.90);
         assertThat(tail.get(tail.size() - 1)).as("북쪽 끝은 도착점까지 직선").containsExactly(B);
+        assertThat(p.pieces().get(1).reason()).as("도로로 못 이은 육지가 새 도로에 낀다고 적는다").contains("도로로 못 이은 육지");
         assertThat(p.newKm()).isCloseTo(2.224, within(0.01));
     }
 
@@ -156,6 +159,7 @@ class RoadRouteTest {
         assertThat(p.pieces()).hasSize(1);
         assertThat(p.pieces().get(0).road()).isFalse();
         assertThat(p.pieces().get(0).points()).hasSize(2);
+        assertThat(p.pieces().get(0).reason()).as("물을 건너는데도 직선인 까닭").contains("물을 건너지만 양쪽 육지도 도로로 이을 수 없어");
     }
 
     @Test
@@ -166,6 +170,7 @@ class RoadRouteTest {
         assertThat(p.pieces()).hasSize(1);
         assertThat(p.pieces().get(0).road()).isFalse();
         assertThat(p.pieces().get(0).points()).hasSize(2);
+        assertThat(p.pieces().get(0).reason()).as("개울은 물로 치지 않으니 이유에도 물이 없다").doesNotContain("물");
     }
 
     @Test
@@ -190,5 +195,38 @@ class RoadRouteTest {
         List<RoadRoute.Piece> back = RoadRoute.decode(RoadRoute.encode(p));
 
         assertThat(back).extracting(RoadRoute.Piece::road).containsExactly(true, false, true);
+        assertThat(back.get(1).reason()).as("이유도 저장했다 되돌려도 같다").isEqualTo(p.pieces().get(1).reason());
+        assertThat(back.get(0).reason()).isNull();
+    }
+
+    @Test
+    @DisplayName("깨진 조각은 건너뛰고 나머지를 읽는다 — 한 조각 때문에 시나리오 상세 조회가 통째로 실패하지 않는다")
+    void 깨진_조각은_건너뛴다() {
+        // 둘째 조각: 이유가 탭이 아니라 공백 뒤에 붙었다(편집기가 탭을 공백으로 바꾼 저장) — 좌표가 아닌 토큰이 섞였다
+        // 셋째 조각: 점이 하나뿐이다(선이 아니다)
+        List<RoadRoute.Piece> back = RoadRoute.decode(
+                "R 37.50000,126.90000 37.51000,126.90000|N 37.51000,126.90000 37.52000,126.90000 기존 도로가 1.7배라|N 37.52000,126.90000|"
+                        + "R 37.52000,126.90000 37.53000,126.90000");
+
+        assertThat(back).extracting(RoadRoute.Piece::road).containsExactly(true, true);
+        assertThat(back.get(1).points().get(1)).containsExactly(37.53, 126.90);
+    }
+
+    @Test
+    @DisplayName("소스에 실제 탭 문자를 넣지 않는다 — 이유 구분자는 '\t' 이스케이프다(편집기가 탭을 공백으로 바꾸면 저장 형식이 깨진다)")
+    void 소스에_탭_문자가_없다() throws java.io.IOException {
+        String src = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/java/com/railfeas/calc/RoadRoute.java"));
+
+        assertThat(src).doesNotContain("	");
+    }
+
+    @Test
+    @DisplayName("이유 없이 저장된 옛 노선도 읽는다 — 탭이 없는 저장 문자열(11-19 이전)")
+    void 옛_저장은_이유_없이() {
+        List<RoadRoute.Piece> back = RoadRoute.decode("R 37.50000,126.90000 37.51000,126.90000|N 37.51000,126.90000 37.52000,126.90000");
+
+        assertThat(back).extracting(RoadRoute.Piece::road).containsExactly(true, false);
+        assertThat(back.get(1).reason()).isNull();
+        assertThat(back.get(1).points()).hasSize(2);
     }
 }

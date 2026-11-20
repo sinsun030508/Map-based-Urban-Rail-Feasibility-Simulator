@@ -99,11 +99,14 @@ public final class RoadRoute {
                 pieces.add(new Piece(true, path.get().points(), path.get().km(), null));
                 continue;
             }
-            String reason = path.isEmpty() ? "가까운 기존 도로로 잇지 못해 새 도로"
-                    : String.format(Locale.ROOT, "기존 도로가 %.1f배(%.1fkm)라 새 도로", path.get().km() / straight, path.get().km());
+            // 왜 새 도로인가 — 화면이 그대로 보여 준다(11-19). 「기존 도로가 N배라」 · 「가까운 기존 도로로 잇지 못해」 가 뿌리고, 물이 끼면 그 뒤에 경우를 붙인다
+            String base = path.isEmpty() ? "가까운 기존 도로로 잇지 못해"
+                    : String.format(Locale.ROOT, "기존 도로가 %.1f배(%.1fkm)라", path.get().km() / straight, path.get().km());
             // 직선이 물을 건너면 육지는 도로를 따라가고 물 위만 새 다리로 잇는다(11-19) — 도로로 잇는 육지가 하나도 없으면 비어 있다
-            List<Piece> mixed = water == null ? List.of() : acrossWater(a, b, roads, water, reason);
+            List<double[][]> bridges = water == null ? List.of() : bridges(a, b, water);
+            List<Piece> mixed = bridges.isEmpty() ? List.of() : acrossWater(a, b, bridges, roads, base);
             if (mixed.isEmpty()) {
+                String reason = base + " 새 도로" + (bridges.isEmpty() ? "" : " — 물을 건너지만 양쪽 육지도 도로로 이을 수 없어 직선 그대로");
                 pieces.add(new Piece(false, List.of(a, b), straight, reason));
             } else {
                 pieces.addAll(mixed);
@@ -117,14 +120,11 @@ public final class RoadRoute {
      * 양 끝을 큰길 위로 옮겨 도로 경로가 직선의 {@value #MAX_RATIO}배 이하면 도로를 따라간다. 도로로 못 잇는 육지는 이웃한 다리에 붙여
      * 한 토막의 새 도로로 둔다. 도로로 잇는 육지가 하나도 없으면 빈 목록 — 예전처럼 구간 전체가 직선 새 도로다(혼합이 아니다).
      */
-    private static List<Piece> acrossWater(double[] a, double[] b, RoadNetwork roads, WaterOnLine water, String reason) {
-        List<double[][]> bridges = bridges(a, b, water);
-        if (bridges.isEmpty()) {
-            return List.of();
-        }
+    private static List<Piece> acrossWater(double[] a, double[] b, List<double[][]> bridges, RoadNetwork roads, String base) {
         int n = bridges.size();
         List<Piece> out = new ArrayList<>();
         List<double[]> run = null;           // 이어 붙이는 중인 새 도로(다리 + 도로로 못 이은 육지)
+        boolean runLand = false;             // 그 새 도로에 도로로 못 이은 육지가 끼었나 — 이유 문구가 갈린다
         boolean anyRoad = false;
         for (int i = 0; i <= n; i++) {
             double[] from = i == 0 ? a : bridges.get(i - 1)[1], to = i == n ? b : bridges.get(i)[0];
@@ -135,16 +135,18 @@ public final class RoadRoute {
             if (path.isPresent() && path.get().km() <= land * MAX_RATIO) {
                 if (run != null) {
                     run.set(run.size() - 1, s);           // 앞 다리는 도로 위에서 끝난다 — 조각이 끊기지 않게
-                    out.add(newRoad(run, reason));
+                    out.add(newRoad(run, base, runLand));
                 }
                 out.add(new Piece(true, path.get().points(), path.get().km(), null));
                 run = i == n ? null : new ArrayList<>(List.of(e));
+                runLand = false;
                 anyRoad = true;
             } else {
                 if (run == null) {
                     run = new ArrayList<>(List.of(from));
                 }
                 run.add(to);
+                runLand = true;
             }
             if (i < n) {
                 run.add(bridges.get(i)[1]);               // 다리 — 물 건너편 끝까지
@@ -154,16 +156,18 @@ public final class RoadRoute {
             return List.of();
         }
         if (run != null) {
-            out.add(newRoad(run, reason));
+            out.add(newRoad(run, base, runLand));
         }
         return out;
     }
 
-    private static Piece newRoad(List<double[]> points, String reason) {
+    /** 혼합 구간의 새 도로 — 이유는 뿌리(base) 뒤에 육지가 도로였는지를 붙인다 */
+    private static Piece newRoad(List<double[]> points, String base, boolean withLand) {
         double km = 0;
         for (int i = 1; i < points.size(); i++) {
             km += Haversine.distanceKm(points.get(i - 1)[0], points.get(i - 1)[1], points.get(i)[0], points.get(i)[1]);
         }
+        String reason = base + (withLand ? " 물 위와 도로로 못 이은 육지만 새 도로" : " 육지는 도로를 따르고 물 위만 새 다리");
         return new Piece(false, points, km, reason);
     }
 
@@ -201,6 +205,10 @@ public final class RoadRoute {
             for (double[] pt : simplify(p.points())) {
                 sb.append(String.format(Locale.ROOT, " %.5f,%.5f", pt[0], pt[1]));
             }
+            // 새 도로는 왜 새 도로인지도 함께 — 탭 뒤가 이유다. 구간 구분(`|`)·점 구분(공백)과 안 겹치고, 옛 저장(탭 없음)도 그대로 읽힌다
+            if (p.reason() != null && !p.reason().isBlank()) {
+                sb.append('\t').append(p.reason().replace('|', '/').replace('\t', ' '));
+            }
         }
         return sb.toString();
     }
@@ -210,16 +218,37 @@ public final class RoadRoute {
         if (text == null || text.isBlank()) {
             return out;
         }
-        for (String part : text.split("[|]")) {
-            String[] tok = part.trim().split(" ");
-            List<double[]> pts = new ArrayList<>();
+        for (String raw : text.split("[|]")) {
+            Piece piece = parsePiece(raw);
+            if (piece != null) {
+                out.add(piece);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 저장 조각 하나 — 깨졌으면 null(건너뛴다). 좌표가 아닌 토큰이 섞였거나(`StringIndexOutOfBounds`·`NumberFormat`) 점이 하나뿐이면 선이 아니다.
+     * 한 조각 때문에 시나리오 상세 조회가 통째로 실패하면 안 된다 — 노선 모양은 보조 정보고, 계산 값은 따로 저장돼 있다
+     */
+    private static Piece parsePiece(String raw) {
+        int tab = raw.indexOf('\t');
+        String part = tab < 0 ? raw : raw.substring(0, tab);
+        String reason = tab < 0 ? null : raw.substring(tab + 1).trim();
+        String[] tok = part.trim().split(" ");
+        List<double[]> pts = new ArrayList<>();
+        try {
             for (int i = 1; i < tok.length; i++) {
                 int c = tok[i].indexOf(',');
                 pts.add(new double[]{Double.parseDouble(tok[i].substring(0, c)), Double.parseDouble(tok[i].substring(c + 1))});
             }
-            out.add(new Piece("R".equals(tok[0]), pts, 0, null));
+        } catch (NumberFormatException | StringIndexOutOfBoundsException e) {
+            return null;
         }
-        return out;
+        if (pts.size() < 2) {
+            return null;
+        }
+        return new Piece("R".equals(tok[0]), pts, 0, reason == null || reason.isEmpty() ? null : reason);
     }
 
     /** 더글러스-포이커 — 양 끝은 남긴다 */

@@ -83,11 +83,14 @@ public class ScenarioDto {
         }
     }
 
-    /** 트램·BRT 가 따라간 노선 구간 — road(기존 도로) 또는 새 도로, 점은 {위도, 경도} */
-    public record RoutePiece(boolean road, List<double[]> points) {
+    /**
+     * 트램·BRT 가 따라간 노선 구간 — road(기존 도로) 또는 새 도로, 점은 {위도, 경도}.
+     * reason — 새 도로인 까닭(「기존 도로가 1.7배(7.6km)라 육지는 도로를 따르고 물 위만 새 다리」). 기존 도로 구간과 이유 없이 저장된 옛 결과는 null(11-19)
+     */
+    public record RoutePiece(boolean road, List<double[]> points, String reason) {
         static List<RoutePiece> of(String encoded) {
             return com.railfeas.calc.RoadRoute.decode(encoded).stream()
-                    .map(p -> new RoutePiece(p.road(), p.points())).toList();
+                    .map(p -> new RoutePiece(p.road(), p.points(), p.reason())).toList();
         }
     }
 

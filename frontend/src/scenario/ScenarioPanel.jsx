@@ -4,7 +4,7 @@ import { followsRoad, mountainNote, roadMountainNote } from './mountainNote';
 import { zoneNote } from './zoneNote';
 import { bridgeCostIncluded } from './roadWater';
 import { drawnStructure } from './drawnStructure';
-import { roadSummary } from '../geo/routeLine';
+import { newRoadReasons, roadSummary } from '../geo/routeLine';
 import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
 
 const rowLabel = (r) => `${modeLabel(r.modeType)} ${STRUCTURE_LABEL[r.structureType] || ''}`.trim();
@@ -124,11 +124,18 @@ export default function ScenarioPanel({
         {(() => {
           const s = roadSummary(mountainRow?.routeLine);
           if (!s) return null;
+          // 왜 새 도로인가(11-19) — 서버가 주는 이유를 그대로 적는다. 이유 없이 저장된 옛 결과는 줄이 없다(지어내지 않는다)
+          const reasons = s.newKm > 0.05 ? newRoadReasons(mountainRow.routeLine) : [];
           return (
-            <p className="water-span small muted">
-              <b>{rowLabel(mountainRow)}</b> 기존 도로 {s.roadKm.toFixed(1)}km
-              {s.newKm > 0.05 && ` · 새로 놓는 구간(점선) ${s.newKm.toFixed(1)}km`}
-            </p>
+            <>
+              <p className="water-span small muted">
+                <b>{rowLabel(mountainRow)}</b> 기존 도로 {s.roadKm.toFixed(1)}km
+                {s.newKm > 0.05 && ` · 새로 놓는 구간(점선) ${s.newKm.toFixed(1)}km`}
+              </p>
+              {reasons.length > 0 && (
+                <p className="water-span small muted">새로 놓는 까닭 — {reasons.join(' · ')}</p>
+              )}
+            </>
           );
         })()}
         {mismatch && (
