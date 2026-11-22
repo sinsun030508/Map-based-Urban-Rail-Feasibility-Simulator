@@ -321,21 +321,32 @@ public class StationPlanner {
         return cum;
     }
 
-    /** 기점에서 distance 만큼 간 지점. 선분 안에서는 직선 보간한다 */
-    private double[] pointAt(List<double[]> route, List<Double> cum, double distance) {
-        double total = cum.get(cum.size() - 1);
-        double d = Math.max(0, Math.min(total, distance));
-        for (int i = 1; i < cum.size(); i++) {
-            if (d <= cum.get(i) || i == cum.size() - 1) {
-                double segment = cum.get(i) - cum.get(i - 1);
-                double ratio = segment <= 0 ? 0 : (d - cum.get(i - 1)) / segment;
-                double[] a = route.get(i - 1);
-                double[] b = route.get(i);
-                return new double[]{
-                        a[0] + (b[0] - a[0]) * ratio,
-                        a[1] + (b[1] - a[1]) * ratio};
+    /**
+     * 기점에서 distance 만큼 간 지점. 선분 안에서는 직선 보간한다.
+     *
+     * <p>**이분 탐색이다**(11-22 JFR 재프로파일) — 전에는 호출마다 첫 꼭짓점부터 선형으로 훑어, 꼭짓점이 수천 개인 도로 경로에서 역 하나를 찾을 때(후보 위치 수십 번) 제곱이 됐고
+     * 최악 노선 계산 CPU 의 14% 가 이 한 줄이었다. `cum` 은 정렬돼 있다. 정의는 **「`d <= cum[i]` 를 처음 만족하는 i(≥1), 없으면 마지막」** — 선형 탐색과 같다(같은 누적 거리가 이어지면
+     * **첫** 인덱스). `StationPlannerPointAtTest` 가 옛 구현과 같음을 증명한다.
+     */
+    static double[] pointAt(List<double[]> route, List<Double> cum, double distance) {
+        int last = cum.size() - 1;
+        double d = Math.max(0, Math.min(cum.get(last), distance));
+        int lo = 1, hi = last;                      // 답은 [1, last] 안 — last 는 조건과 상관없이 마지막 후보다
+        while (lo < hi) {
+            int mid = (lo + hi) >>> 1;
+            if (d <= cum.get(mid)) {
+                hi = mid;
+            } else {
+                lo = mid + 1;
             }
         }
-        return route.get(route.size() - 1);
+        int i = lo;
+        double segment = cum.get(i) - cum.get(i - 1);
+        double ratio = segment <= 0 ? 0 : (d - cum.get(i - 1)) / segment;
+        double[] a = route.get(i - 1);
+        double[] b = route.get(i);
+        return new double[]{
+                a[0] + (b[0] - a[0]) * ratio,
+                a[1] + (b[1] - a[1]) * ratio};
     }
 }
