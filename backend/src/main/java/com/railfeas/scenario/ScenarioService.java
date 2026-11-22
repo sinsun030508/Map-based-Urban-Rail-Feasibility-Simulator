@@ -10,6 +10,7 @@ import com.railfeas.reference.CostStandard;
 import com.railfeas.reference.CostStandardRepository;
 import com.railfeas.reference.ModeCapacity;
 import com.railfeas.reference.ModeCapacityRepository;
+import com.railfeas.reference.RestrictedZone;
 import com.railfeas.reference.RestrictedZoneRepository;
 import com.railfeas.user.User;
 import com.railfeas.user.UserRepository;
@@ -23,7 +24,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class ScenarioService {
@@ -36,11 +39,14 @@ public class ScenarioService {
     private final CostCalculator calculator;
     private final ExistingOptions existingOptions;
     private final EntityManager entityManager;
+    /** 계산을 트랜잭션 밖에 두려고 `calculate` 만 읽기·쓰기를 따로 연다 — 나머지 메서드는 `@Transactional` 그대로다 */
+    private final TransactionTemplate readTx, writeTx;
 
     public ScenarioService(ScenarioRepository scenarios, UserRepository users,
                            CostStandardRepository standards, ModeCapacityRepository capacities,
                            RestrictedZoneRepository zones, CostCalculator calculator,
-                           ExistingOptions existingOptions, EntityManager entityManager) {
+                           ExistingOptions existingOptions, EntityManager entityManager,
+                           PlatformTransactionManager transactionManager) {
         this.scenarios = scenarios;
         this.users = users;
         this.standards = standards;
@@ -49,6 +55,9 @@ public class ScenarioService {
         this.calculator = calculator;
         this.existingOptions = existingOptions;
         this.entityManager = entityManager;
+        this.readTx = new TransactionTemplate(transactionManager);
+        this.readTx.setReadOnly(true);
+        this.writeTx = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -61,27 +70,52 @@ public class ScenarioService {
      */
     static final double MAX_ROUTE_KM = 1_000;
 
-    /** 수단×구조별 건설비를 계산해 저장한다. 수요·B/C 는 SGIS 연동 후에 채운다. */
-    @Transactional
+    /** 계산에 쓰려고 읽은 것 — 읽기 트랜잭션이 끝난 뒤에도 쓴다(점은 엔티티 그래프로 함께 읽혀 지연 로딩이 없다). routeKey 는 노선이 그사이 바뀌었는지 보려는 지문이다 */
+    private record CalcInput(Scenario scenario, List<CostStandard> active, Map<ModeType, ModeCapacity> byMode,
+                             List<RestrictedZone> zones, String routeKey) {
+    }
+
+    /**
+     * 수단×구조별 건설비를 계산해 저장한다. 수요·B/C 는 SGIS 연동 후에 채운다.
+     *
+     * <p><b>계산은 트랜잭션 밖이다</b>(11-22 코드 점검). 계산이 1~7초(서울~부산 3초)인데 메서드 전체가 한 트랜잭션이라 그동안 DB 연결이 묶였고, `open-in-view` 가 꺼져 있어
+     * 연결 풀(기본 10)을 계산 열 개가 차지하면 로그인·목록까지 막혔다. 그래서 읽기(읽기 전용) → 계산 → 쓰기로 나눈다. 계산하는 동안 사용자가 노선을 고쳤으면
+     * <b>낡은 결과를 새 노선에 붙이지 않고 409</b> 로 돌려보낸다 — 이전엔 한 트랜잭션이라 같은 경주가 있었지만 좁았고, 이제는 계산 시간만큼 넓어서 막는다.
+     */
     public ScenarioDto.DetailResponse calculate(Long userId, Long scenarioId) {
-        Scenario scenario = loadOwned(userId, scenarioId);
-        // 저장할 때도 막지만, 상한을 두기 전에 저장된 노선이 계산으로 들어오는 것까지 막는다
-        requireDrawable(scenario.getTotalLengthKm().doubleValue());
-        List<CostStandard> active = standards.findByActiveTrue();
-        if (active.isEmpty()) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "비용 기준값이 없습니다 — db/seed/S5__cost_standard.sql 적재를 확인하세요");
-        }
-        Map<ModeType, ModeCapacity> byMode = byMode();
-        var outcome = calculator.calculate(scenario, active, byMode, zones.findAll());
-        // 유니크 제약(scenario+수단+구조) 때문에 옛 결과 DELETE 를 새 INSERT 보다 먼저 내보낸다.
-        // 한 flush 에 맡기면 Hibernate 가 INSERT 를 앞에 보내 재계산이 1062 로 실패한다
-        scenario.clearResults();
-        entityManager.flush();
-        scenario.applyResults(outcome.results(), outcome.population1km(),
-                outcome.recommendedMode());
-        scenario.noteExistingLine(outcome.existingLine());
-        return detail(scenario, outcome.existingOption());
+        CalcInput in = readTx.execute(status -> {
+            Scenario scenario = loadOwned(userId, scenarioId);
+            // 저장할 때도 막지만, 상한을 두기 전에 저장된 노선이 계산으로 들어오는 것까지 막는다
+            requireDrawable(scenario.getTotalLengthKm().doubleValue());
+            List<CostStandard> active = standards.findByActiveTrue();
+            if (active.isEmpty()) {
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "비용 기준값이 없습니다 — db/seed/S5__cost_standard.sql 적재를 확인하세요");
+            }
+            return new CalcInput(scenario, active, byMode(), zones.findAll(), routeKey(scenario));
+        });
+        var outcome = calculator.calculate(in.scenario(), in.active(), in.byMode(), in.zones());
+        return writeTx.execute(status -> {
+            Scenario scenario = loadOwned(userId, scenarioId);
+            if (!routeKey(scenario).equals(in.routeKey())) {
+                throw new ApiException(HttpStatus.CONFLICT, "계산하는 동안 노선이 바뀌었습니다 — 다시 계산해 주세요");
+            }
+            // 유니크 제약(scenario+수단+구조) 때문에 옛 결과 DELETE 를 새 INSERT 보다 먼저 내보낸다.
+            // 한 flush 에 맡기면 Hibernate 가 INSERT 를 앞에 보내 재계산이 1062 로 실패한다
+            scenario.clearResults();
+            entityManager.flush();
+            scenario.applyResults(outcome.results(), outcome.population1km(),
+                    outcome.recommendedMode());
+            scenario.noteExistingLine(outcome.existingLine());
+            return detail(scenario, outcome.existingOption());
+        });
+    }
+
+    /** 노선의 지문 — 점의 좌표 순서와 길이. 계산하는 동안 노선이 바뀌었는지 가린다 */
+    private static String routeKey(Scenario scenario) {
+        return scenario.getTotalLengthKm().stripTrailingZeros().toPlainString() + "|" + scenario.getPoints().stream()
+                .map(p -> p.getLatitude().stripTrailingZeros().toPlainString() + "," + p.getLongitude().stripTrailingZeros().toPlainString())
+                .collect(Collectors.joining(";"));
     }
 
     @Transactional
