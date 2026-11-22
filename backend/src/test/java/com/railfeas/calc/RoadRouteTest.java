@@ -199,7 +199,8 @@ class RoadRouteTest {
         assertThat(back.get(0).reason()).isNull();
     }
 
-    // ── 물을 건너는 구간은 도로 문턱이 2.0배다(11-21 사용자 결정) — 새 다리는 1km 에 약 451억이라 돌아가더라도 기존 다리가 낫다
+    // ── 도로 문턱은 2.0배다 — 물을 건너는 구간은 11-21 사용자 결정(새 다리는 1km 에 약 451억이라 돌아가더라도 기존 다리가 낫다),
+    //    땅 위 구간도 11-22 같은 값으로 넓혔다(도심 391구간 중 26% 가 도로망 한계(자동차전용도로·이면도로 없음) 때문에 건물을 뚫는 새 도로가 됐다)
 
     /** 직선(37.50→37.53, 3.34km)을 동쪽 eastDeg° 로 돌아가는 ㄷ자 도로 — 동쪽 1.45km 면 6.24km 로 1.87배, 2.2km 면 2.3배 */
     private static RoadNetwork bracket(double eastDeg) {
@@ -210,32 +211,34 @@ class RoadRouteTest {
     }
 
     @Test
-    @DisplayName("직선이 강을 건너면 도로가 1.5배를 넘어도 2.0배까지는 도로를 따라간다 — 새 다리보다 기존 다리가 낫다")
-    void 물을_건너면_문턱이_2배() {
-        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers(new double[]{37.514, 37.518}));
+    @DisplayName("물을 안 건너는 땅 위 구간도 도로가 2.0배까지는 도로를 따라간다 — 도로망이 큰길만 담아 도심에서 돌아가는 길이 길다(11-22)")
+    void 땅_위도_문턱이_2배() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers());
 
         assertThat(p.pieces()).hasSize(1);
-        assertThat(p.pieces().get(0).road()).as("1.87배 — 물을 건너니 도로").isTrue();
+        assertThat(p.pieces().get(0).road()).as("1.87배 — 1.5배 문턱이던 때는 새 도로였다").isTrue();
         assertThat(p.roadKm()).isCloseTo(6.24, within(0.05));
         assertThat(p.newKm()).isZero();
     }
 
     @Test
-    @DisplayName("물을 안 건너면 문턱은 그대로 1.5배 — 같은 도로가 새 도로가 된다")
-    void 물이_없으면_문턱은_1점5배() {
-        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers());
+    @DisplayName("물을 건너는 구간도 같은 2.0배다 — 새 다리보다 기존 다리가 낫다(11-21)")
+    void 물을_건너도_문턱이_2배() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers(new double[]{37.514, 37.518}));
 
         assertThat(p.pieces()).hasSize(1);
-        assertThat(p.pieces().get(0).road()).isFalse();
-        assertThat(p.pieces().get(0).reason()).contains("1.9배");
+        assertThat(p.pieces().get(0).road()).as("1.87배 — 물을 건너도 도로").isTrue();
+        assertThat(p.newKm()).isZero();
     }
 
     @Test
-    @DisplayName("50m 도 안 되는 개울은 물로 치지 않으니 문턱을 올리지 않는다")
-    void 개울은_문턱을_안_올린다() {
-        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.0165), rivers(new double[]{37.5140, 37.5141}));    // 약 11m
+    @DisplayName("2.0배를 넘으면 땅 위 구간은 새 도로 — 2.3배는 직선, 까닭에 배수를 적는다")
+    void 땅_위는_2배를_넘으면_새_도로() {
+        RoadRoute.Plan p = RoadRoute.plan(List.of(A, B), bracket(0.025), rivers());
 
+        assertThat(p.pieces()).hasSize(1);
         assertThat(p.pieces().get(0).road()).isFalse();
+        assertThat(p.pieces().get(0).reason()).contains("2.3배").doesNotContain("물");
     }
 
     @Test

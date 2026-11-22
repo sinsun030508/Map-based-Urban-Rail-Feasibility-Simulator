@@ -78,7 +78,7 @@ export function routeThroughStations(points, stations) {
 
 /**
  * 지도에 그릴 노선 조각들(GeoJSON Feature). **서버가 노선 모양(`routeLine`)을 주면 그대로 그린다** — 트램·BRT·광역급행은 기존
- * 도로를 따라가고(11-12), 1.5배를 넘게 돌거나 길이 없는 구간만 새 도로다. `properties.road` 가 false 인 조각은 지도가 점선으로 그린다.
+ * 도로를 따라가고(11-12), 2.0배를 넘게 돌거나 길이 없는 구간만 새 도로다. `properties.road` 가 false 인 조각은 지도가 점선으로 그린다.
  * 모양이 없으면(철도 행·계산 전) 예전처럼 그린 점과 역을 엮은 선 하나다. 서버 좌표는 [위도, 경도], 지도는 [경도, 위도]
  */
 export function routeFeatures(points, stations, routeLine) {
