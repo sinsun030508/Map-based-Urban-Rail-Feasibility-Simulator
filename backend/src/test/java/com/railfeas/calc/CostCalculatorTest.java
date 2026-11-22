@@ -187,6 +187,18 @@ class CostCalculatorTest {
     }
 
     @Test
+    @DisplayName("인구가 없다는 경고는 수도권 한정처럼 말하지 않는다 — 자료는 전국이고, 아는 것은 「선 둘레 1km 안에 집계가 없다」 뿐이다")
+    void noPopulationWarningDoesNotBlameTheRegion() {
+        // 새만금 간척지처럼 전국 자료 안인데 선 둘레에 집계구가 없는 곳(11-22 훑기에서 「수도권 밖이라」 로 나왔다)
+        var outcome = run(scenario(10.0),
+                capacity(ModeType.LIGHT_RAIL, null, 60_000, 2.0, 30.0, null));
+
+        String warning = outcome.results().get(0).getWarning();
+        assertThat(warning).contains("인구 자료 없음").contains("1km");
+        assertThat(warning).as("전국 자료를 받은 뒤라 수도권 밖이라는 설명은 사실이 아니다").doesNotContain("수도권");
+    }
+
+    @Test
     @DisplayName("권장 연장을 넘어도 탈락시키지 않고 경고만 붙인다")
     void overLengthOnlyWarns() {
         var outcome = run(scenario(40.0),
