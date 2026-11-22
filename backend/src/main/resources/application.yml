@@ -57,6 +57,10 @@ app:
   coast-file: ${COAST_FILE:../data/build/coastline.csv.gz}
   # 땅 높이 타일 — 노선이 35‰ 보다 가파른 산을 지나면 터널·우회 안을 보인다 (etl/dem_tiles.py). 없으면 꺼진다
   dem-dir: ${DEM_DIR:../data/cache/dem}
+  # 계산의 동시 실행 한도(`CalculationGate`, 판단값) — 넘으면 기다리게 하지 않고 바로 429. max-concurrent 0 이면 CPU 코어의 절반(최소 2)
+  calc:
+    max-concurrent: ${CALC_MAX_CONCURRENT:0}
+    max-per-user: ${CALC_MAX_PER_USER:2}
   jwt:
     # 기본값을 두지 않는다. 이 파일은 공개 저장소에 올라가므로 여기 적힌 키는
     # 누구나 읽어 토큰을 위조할 수 있다. 값이 없으면 조용히 돌지 말고 기동이 막혀야 한다.

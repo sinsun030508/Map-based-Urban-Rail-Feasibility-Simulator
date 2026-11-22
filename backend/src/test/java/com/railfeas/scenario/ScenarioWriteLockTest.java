@@ -55,7 +55,7 @@ class ScenarioWriteLockTest {
         ModeCapacityRepository capacities = Mockito.mock(ModeCapacityRepository.class);
         service = new ScenarioService(scenarios, Mockito.mock(UserRepository.class), Mockito.mock(CostStandardRepository.class), capacities,
                 Mockito.mock(RestrictedZoneRepository.class), Mockito.mock(CostCalculator.class), Mockito.mock(ExistingOptions.class),
-                Mockito.mock(EntityManager.class), tx);
+                Mockito.mock(EntityManager.class), tx, new CalculationGate(4, 4));
     }
 
     private static ScenarioDto.SaveRequest save() {

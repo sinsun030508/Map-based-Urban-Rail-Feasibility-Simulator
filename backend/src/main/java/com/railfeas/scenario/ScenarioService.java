@@ -41,12 +41,15 @@ public class ScenarioService {
     private final EntityManager entityManager;
     /** 계산을 트랜잭션 밖에 두려고 `calculate` 만 읽기·쓰기를 따로 연다 — 나머지 메서드는 `@Transactional` 그대로다 */
     private final TransactionTemplate readTx, writeTx;
+    /** 계산의 동시 실행 한도 — 사용자당·전체(`CalculationGate`). 넘으면 기다리게 하지 않고 429 */
+    private final CalculationGate gate;
 
     public ScenarioService(ScenarioRepository scenarios, UserRepository users,
                            CostStandardRepository standards, ModeCapacityRepository capacities,
                            RestrictedZoneRepository zones, CostCalculator calculator,
                            ExistingOptions existingOptions, EntityManager entityManager,
-                           PlatformTransactionManager transactionManager) {
+                           PlatformTransactionManager transactionManager, CalculationGate gate) {
+        this.gate = gate;
         this.scenarios = scenarios;
         this.users = users;
         this.standards = standards;
@@ -81,8 +84,17 @@ public class ScenarioService {
      * <p><b>계산은 트랜잭션 밖이다</b>(11-22 코드 점검). 계산이 1~7초(서울~부산 3초)인데 메서드 전체가 한 트랜잭션이라 그동안 DB 연결이 묶였고, `open-in-view` 가 꺼져 있어
      * 연결 풀(기본 10)을 계산 열 개가 차지하면 로그인·목록까지 막혔다. 그래서 읽기(읽기 전용) → 계산 → 쓰기로 나눈다. 계산하는 동안 사용자가 노선을 고쳤으면
      * <b>낡은 결과를 새 노선에 붙이지 않고 409</b> 로 돌려보낸다 — 이전엔 한 트랜잭션이라 같은 경주가 있었지만 좁았고, 이제는 계산 시간만큼 넓어서 막는다.
+     *
+     * <p><b>동시에 도는 계산 수를 제한한다</b>(`CalculationGate`, 11-22 최악 입력 시험). 상한 근처 노선은 한 건에 19초이고 CPU 를 다 쓴다 — 한 사용자의 30개가 10개를 500 으로,
+     * 다른 사용자의 목록 조회를 51초 막았다. 한도가 차면 <b>읽기 트랜잭션도 열지 않고</b> 바로 429 다. 허가는 어떤 경로로 끝나도 반납한다(`try-with-resources`).
      */
     public ScenarioDto.DetailResponse calculate(Long userId, Long scenarioId) {
+        try (CalculationGate.Permit permit = gate.enter(userId)) {
+            return calculateWithin(userId, scenarioId);
+        }
+    }
+
+    private ScenarioDto.DetailResponse calculateWithin(Long userId, Long scenarioId) {
         CalcInput in = readTx.execute(status -> {
             Scenario scenario = loadOwned(userId, scenarioId);
             // 저장할 때도 막지만, 상한을 두기 전에 저장된 노선이 계산으로 들어오는 것까지 막는다

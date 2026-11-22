@@ -91,7 +91,7 @@ class ScenarioCalculateTransactionTest {
         RestrictedZoneRepository zones = Mockito.mock(RestrictedZoneRepository.class);
         Mockito.when(zones.findAll()).thenReturn(List.of());
         service = new ScenarioService(scenarios, Mockito.mock(UserRepository.class), standards, capacities, zones, calculator,
-                Mockito.mock(ExistingOptions.class), entityManager, tx);
+                Mockito.mock(ExistingOptions.class), entityManager, tx, new CalculationGate(4, 4));
     }
 
     private CostCalculator.Outcome outcome() {
