@@ -96,6 +96,9 @@ public class ScenarioService {
         });
         var outcome = calculator.calculate(in.scenario(), in.active(), in.byMode(), in.zones());
         return writeTx.execute(status -> {
+            // **첫 문장으로 행을 잠근다** — 같은 시나리오를 동시에 계산한 요청들이 쓰기 단계에서 줄을 서게 한다. 안 잠그면 서로 옛 결과 삭제·새 결과 삽입을 기다려
+            // MySQL 교착이 나 8개 중 7개가 500 이었다(11-22 동시 계산 시험). 잠근 **뒤에** 읽어야 앞 요청이 커밋한 결과를 본다
+            lockOwned(userId, scenarioId);
             Scenario scenario = loadOwned(userId, scenarioId);
             if (!routeKey(scenario).equals(in.routeKey())) {
                 throw new ApiException(HttpStatus.CONFLICT, "계산하는 동안 노선이 바뀌었습니다 — 다시 계산해 주세요");
@@ -152,6 +155,8 @@ public class ScenarioService {
     @Transactional
     public ScenarioDto.DetailResponse update(Long userId, Long scenarioId,
                                              ScenarioDto.SaveRequest request) {
+        // 첫 문장으로 행을 잠근다 — 같은 시나리오를 동시에 수정하면 둘 다 옛 점을 지우고 다시 넣다가 두 번째가 OptimisticLockException(500)이었다(11-22 동시 시험)
+        lockOwned(userId, scenarioId);
         Scenario scenario = loadOwned(userId, scenarioId);
         BigDecimal length = lengthOf(request.points());     // 지우기 전에 잰다 — 넘으면 아무것도 안 바뀐다
         scenario.rename(request.title());
@@ -165,6 +170,7 @@ public class ScenarioService {
 
     @Transactional
     public void delete(Long userId, Long scenarioId) {
+        lockOwned(userId, scenarioId);      // 계산·수정 중인 시나리오를 지울 때 서로 기다려 교착이 나지 않게 같은 잠금을 먼저 건다
         scenarios.delete(loadOwned(userId, scenarioId));
     }
 
@@ -189,6 +195,15 @@ public class ScenarioService {
                         p.getLongitude().doubleValue()})
                 .toList();
         return existingOptions.find(points, scenario.getTotalLengthKm().doubleValue());
+    }
+
+    /**
+     * 내 시나리오 행을 잠근다(`FOR UPDATE`) — **쓰기 트랜잭션의 첫 문장**으로 부른다. 같은 시나리오를 바꾸는 쓰기들(계산·수정·삭제)이 교착·낙관적 잠금 실패(500) 대신 줄을 선다.
+     * 남의 시나리오·없는 시나리오는 잠그지 않고 404 다
+     */
+    private void lockOwned(Long userId, Long scenarioId) {
+        scenarios.lockOwned(scenarioId, userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "시나리오를 찾을 수 없습니다"));
     }
 
     private Scenario loadOwned(Long userId, Long scenarioId) {

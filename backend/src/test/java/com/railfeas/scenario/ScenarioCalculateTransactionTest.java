@@ -83,6 +83,7 @@ class ScenarioCalculateTransactionTest {
         scenario = Scenario.builder().user(owner).title("시험").totalLengthKm(BigDecimal.valueOf(8)).preferredStructure(StructureType.ELEVATED).build();
         scenario.replacePoints(List.of(point(0, 37.50, 127.00, PointType.START), point(1, 37.55, 127.05, PointType.END)), BigDecimal.valueOf(8));
         Mockito.when(scenarios.findWithDetailsById(SCENARIO)).thenReturn(Optional.of(scenario));
+        Mockito.when(scenarios.lockOwned(SCENARIO, OWNER)).thenReturn(Optional.of(scenario));
         Mockito.when(standards.findByActiveTrue()).thenReturn(List.of(Mockito.mock(CostStandard.class)));
         Mockito.when(standards.findAll()).thenReturn(List.of());
         ModeCapacityRepository capacities = Mockito.mock(ModeCapacityRepository.class);
@@ -122,6 +123,32 @@ class ScenarioCalculateTransactionTest {
         assertThat(scenario.getPopulation1km()).isEqualTo(12_345L);
         assertThat(scenario.getCalculatedAt()).isNotNull();
         Mockito.verify(entityManager).flush();
+    }
+
+    /**
+     * **같은 시나리오의 계산 쓰기 단계는 줄을 선다**(11-22 동시 계산 시험). 같은 시나리오를 동시에 계산하면 쓰기 트랜잭션 둘이 서로 옛 결과 삭제·새 결과 삽입을 기다려
+     * MySQL 교착이 나 8개 중 7개가 500 이었다. 쓰기 트랜잭션의 **첫 문장으로 행을 잠가**(`lockOwned`) 나머지가 교착 대신 순서를 기다리게 한다 — 잠근 **뒤에** 읽어야
+     * 앞 요청이 커밋한 결과를 보므로(REPEATABLE READ 스냅샷) 순서가 중요하다.
+     */
+    @Test
+    @DisplayName("쓰기 단계는 쓰기 트랜잭션 안에서 시나리오 행을 먼저 잠그고, 그다음에 노선을 읽는다")
+    void writePhaseLocksTheScenarioRowFirst() {
+        Mockito.when(calculator.calculate(Mockito.any(), Mockito.anyList(), Mockito.anyMap(), Mockito.anyList())).thenReturn(outcome());
+        List<Boolean> lockedInWritableTx = new ArrayList<>();
+        Mockito.when(scenarios.lockOwned(SCENARIO, OWNER)).thenAnswer(inv -> {
+            lockedInWritableTx.add(TransactionSynchronizationManager.isActualTransactionActive()
+                    && !TransactionSynchronizationManager.isCurrentTransactionReadOnly());
+            return Optional.of(scenario);
+        });
+
+        service.calculate(OWNER, SCENARIO);
+
+        // 읽기 단계(잠그지 않는다 — 읽기 전용) → 쓰기 단계(잠금 → 읽기)
+        var order = Mockito.inOrder(scenarios);
+        order.verify(scenarios).findWithDetailsById(SCENARIO);
+        order.verify(scenarios).lockOwned(SCENARIO, OWNER);
+        order.verify(scenarios).findWithDetailsById(SCENARIO);
+        assertThat(lockedInWritableTx).as("잠금은 쓰기 가능한 트랜잭션 안에서 딱 한 번").containsExactly(true);
     }
 
     @Test
