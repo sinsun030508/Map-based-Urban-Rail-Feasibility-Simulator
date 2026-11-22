@@ -79,7 +79,12 @@ public class ScenarioResult {
 
     private String warning;
 
-    @OneToMany(mappedBy = "result", cascade = CascadeType.ALL, orphanRemoval = true)
+    /**
+     * 정차역. **JPA 가 저장·삭제하지 않는다**(cascade·orphanRemoval 없음, 11-22) — 읽기만 한다. 저장은 `StationBatchWriter`(JDBC 배치), 삭제는 DB 의 `ON DELETE CASCADE`
+     * (`fk_station_result`)가 결과를 지울 때 한 번에 한다. cascade 로 두면 IDENTITY 키라 역 7,475행을 한 행씩 INSERT·DELETE 해 쓰기가 12.9초였다.
+     * 계산 직후의 이 목록은 아직 저장되지 않은 객체를 담고 있다 — 응답을 조립하는 데만 쓰고 다시 persist 하지 말 것
+     */
+    @OneToMany(mappedBy = "result")
     @OrderBy("sequence asc")
     private List<Station> stations = new ArrayList<>();
 
@@ -107,7 +112,7 @@ public class ScenarioResult {
         this.warning = warning;
     }
 
-    /** 배치된 정차역을 붙인다. 결과가 지워지면 cascade 로 함께 지워진다 */
+    /** 배치된 정차역을 붙인다. 결과가 지워지면 DB 의 `ON DELETE CASCADE` 로 함께 지워진다 — JPA cascade 가 아니다 */
     public void addStation(Station station) {
         this.stations.add(station);
     }

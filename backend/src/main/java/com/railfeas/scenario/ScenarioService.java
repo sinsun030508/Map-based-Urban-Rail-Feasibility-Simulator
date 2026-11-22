@@ -43,13 +43,17 @@ public class ScenarioService {
     private final TransactionTemplate readTx, writeTx;
     /** 계산의 동시 실행 한도 — 사용자당·전체(`CalculationGate`). 넘으면 기다리게 하지 않고 429 */
     private final CalculationGate gate;
+    /** 정차역을 JDBC 배치로 넣는다 — 결과(11행)는 JPA, 역(최악 7천여 행)은 배치(`StationBatchWriter`) */
+    private final StationBatchWriter stationWriter;
 
     public ScenarioService(ScenarioRepository scenarios, UserRepository users,
                            CostStandardRepository standards, ModeCapacityRepository capacities,
                            RestrictedZoneRepository zones, CostCalculator calculator,
                            ExistingOptions existingOptions, EntityManager entityManager,
-                           PlatformTransactionManager transactionManager, CalculationGate gate) {
+                           PlatformTransactionManager transactionManager, CalculationGate gate,
+                           StationBatchWriter stationWriter) {
         this.gate = gate;
+        this.stationWriter = stationWriter;
         this.scenarios = scenarios;
         this.users = users;
         this.standards = standards;
@@ -121,6 +125,10 @@ public class ScenarioService {
             entityManager.flush();
             scenario.applyResults(outcome.results(), outcome.population1km(),
                     outcome.recommendedMode());
+            // 결과를 먼저 내보내 id 를 얻고(11행), 그 id 로 역을 JDBC 배치로 넣는다 — 역은 JPA 가 저장하지 않는다(`ScenarioResult.stations` 에 cascade 없음).
+            // 하이버네이트는 IDENTITY 키라 INSERT 를 배치하지 못해 역 7,475행에 쓰기가 12.9초였다(11-22 측정). 순서가 바뀌면(flush 전) 결과 id 가 없어 저장기가 거부한다
+            entityManager.flush();
+            stationWriter.save(scenario.getResults());
             scenario.noteExistingLine(outcome.existingLine());
             return detail(scenario, outcome.existingOption());
         });

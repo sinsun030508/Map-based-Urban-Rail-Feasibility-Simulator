@@ -69,6 +69,7 @@ class ScenarioCalculateTransactionTest {
     private final CostStandardRepository standards = Mockito.mock(CostStandardRepository.class);
     private final CostCalculator calculator = Mockito.mock(CostCalculator.class);
     private final EntityManager entityManager = Mockito.mock(EntityManager.class);
+    private final StationBatchWriter stationWriter = Mockito.mock(StationBatchWriter.class);
     private Scenario scenario;
     private ScenarioService service;
 
@@ -91,7 +92,7 @@ class ScenarioCalculateTransactionTest {
         RestrictedZoneRepository zones = Mockito.mock(RestrictedZoneRepository.class);
         Mockito.when(zones.findAll()).thenReturn(List.of());
         service = new ScenarioService(scenarios, Mockito.mock(UserRepository.class), standards, capacities, zones, calculator,
-                Mockito.mock(ExistingOptions.class), entityManager, tx, new CalculationGate(4, 4));
+                Mockito.mock(ExistingOptions.class), entityManager, tx, new CalculationGate(4, 4), stationWriter);
     }
 
     private CostCalculator.Outcome outcome() {
@@ -122,7 +123,7 @@ class ScenarioCalculateTransactionTest {
 
         assertThat(scenario.getPopulation1km()).isEqualTo(12_345L);
         assertThat(scenario.getCalculatedAt()).isNotNull();
-        Mockito.verify(entityManager).flush();
+        Mockito.verify(entityManager, Mockito.times(2)).flush();     // 옛 결과 삭제 flush + 새 결과 insert flush(역 배치 저장 전)
     }
 
     /**
@@ -149,6 +150,41 @@ class ScenarioCalculateTransactionTest {
         order.verify(scenarios).lockOwned(SCENARIO, OWNER);
         order.verify(scenarios).findWithDetailsById(SCENARIO);
         assertThat(lockedInWritableTx).as("잠금은 쓰기 가능한 트랜잭션 안에서 딱 한 번").containsExactly(true);
+    }
+
+    /**
+     * **역은 결과를 flush 해 id 를 얻은 뒤에 JDBC 배치로 저장한다**(11-22 쓰기 단계 측정 — 최악 노선 역 7,475행이 행마다 INSERT 되어 12.9초). 순서가 틀리면(flush 전) 결과 id 가 없어 고아 행이 생기거나
+     * 저장기가 거부한다. 쓰기 트랜잭션 안이어야 롤백이 함께 된다.
+     */
+    @Test
+    @DisplayName("역 저장은 결과를 flush 한 뒤, 쓰기 트랜잭션 안에서 한 번 일어난다")
+    void stationsAreSavedAfterTheResultsAreFlushed() {
+        Mockito.when(calculator.calculate(Mockito.any(), Mockito.anyList(), Mockito.anyMap(), Mockito.anyList())).thenReturn(outcome());
+        List<String> log = new ArrayList<>();
+        Mockito.doAnswer(inv -> log.add("flush")).when(entityManager).flush();
+        Mockito.doAnswer(inv -> {
+            log.add("stations:" + (TransactionSynchronizationManager.isActualTransactionActive()
+                    && !TransactionSynchronizationManager.isCurrentTransactionReadOnly() ? "writeTx" : "outside"));
+            return null;
+        }).when(stationWriter).save(Mockito.any());
+
+        service.calculate(OWNER, SCENARIO);
+
+        // 옛 결과 삭제 flush → (결과 추가) → 결과 insert flush → 역 배치 저장
+        assertThat(log).containsExactly("flush", "flush", "stations:writeTx");
+    }
+
+    @Test
+    @DisplayName("노선이 바뀌어 409 가 나면 역을 저장하지 않는다")
+    void staleCalculationDoesNotSaveStations() {
+        Mockito.when(calculator.calculate(Mockito.any(), Mockito.anyList(), Mockito.anyMap(), Mockito.anyList())).thenAnswer(inv -> {
+            scenario.replacePoints(List.of(point(0, 35.10, 129.00, PointType.START), point(1, 35.20, 129.10, PointType.END)), BigDecimal.valueOf(15));
+            return outcome();
+        });
+
+        assertThatThrownBy(() -> service.calculate(OWNER, SCENARIO)).isInstanceOf(ApiException.class);
+
+        Mockito.verifyNoInteractions(stationWriter);
     }
 
     @Test

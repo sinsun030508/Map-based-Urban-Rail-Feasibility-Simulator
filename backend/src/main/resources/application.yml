@@ -9,7 +9,7 @@ spring:
   application:
     name: railfeas
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/railfeas?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/railfeas?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
     username: ${DB_USER:root}
     password: ${DB_PASSWORD}   # 기본값 없음 — 비밀번호가 저장소에 올라갔었다(JWT_SECRET 과 같은 이유)
   data:

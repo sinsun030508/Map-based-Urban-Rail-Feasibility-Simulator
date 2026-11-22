@@ -38,6 +38,7 @@ class ScenarioCalculateGateTest {
     private final ScenarioCalculateTransactionTest.RecordingTxManager tx = new ScenarioCalculateTransactionTest.RecordingTxManager();
     private final ScenarioRepository scenarios = Mockito.mock(ScenarioRepository.class);
     private final CostCalculator calculator = Mockito.mock(CostCalculator.class);
+    private final StationBatchWriter stationWriter = Mockito.mock(StationBatchWriter.class);
     private Scenario scenario;
 
     private static RoutePoint point(int seq, double lat, double lng, PointType type) {
@@ -62,7 +63,7 @@ class ScenarioCalculateGateTest {
         RestrictedZoneRepository zones = Mockito.mock(RestrictedZoneRepository.class);
         Mockito.when(zones.findAll()).thenReturn(List.of());
         return new ScenarioService(scenarios, Mockito.mock(UserRepository.class), standards, capacities, zones, calculator,
-                Mockito.mock(ExistingOptions.class), Mockito.mock(EntityManager.class), tx, gate);
+                Mockito.mock(ExistingOptions.class), Mockito.mock(EntityManager.class), tx, gate, stationWriter);
     }
 
     private void calculatorReturnsOutcome() {
