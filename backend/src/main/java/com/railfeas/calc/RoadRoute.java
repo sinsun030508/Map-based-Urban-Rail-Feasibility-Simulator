@@ -84,7 +84,7 @@ public final class RoadRoute {
         List<double[][]> pieces(double[] a, double[] b);
     }
 
-    /** 물을 모르는 계획 — 1.5배를 넘으면 그 구간 전체가 직선 새 도로다 */
+    /** 물을 모르는 계획 — {@link #MAX_RATIO}배를 넘으면 그 구간 전체가 직선 새 도로다(물을 아는 쪽은 혼합으로 쪼갠다) */
     public static Plan plan(List<double[]> drawn, RoadNetwork roads) {
         return plan(drawn, roads, null);
     }
