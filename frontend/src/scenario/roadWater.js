@@ -31,3 +31,14 @@ export function mergeRoadWater(responses) {
 export function bridgeCostIncluded(row) {
   return ['TRAM', 'BRT_HIGH', 'BRT_LOW'].includes(row?.modeType);
 }
+
+/**
+ * 계산 전 물 안내의 덧말(11-22) — **계산 전엔 어떤 수단인지 몰라** 그린 직선 전체의 물 위 구간을 알린다. 계산하면 트램·BRT·광역급행은 기존 도로를 따라가 새로 놓는 구간의 물만 남고
+ * (도로 문턱이 2.0배다) 파란 토막이 사라지거나 옮겨간다 — 안내 없이 바뀌면 「파란색이 그린 직선 위에 뜬다」 로 읽혔다. 계산한 뒤엔 그 줄이 이미 고른 행 기준이라 덧말이 없다.
+ * 물 위 구간이 없으면(줄 자체가 없으면) 덧말도 없다
+ */
+export function preCalcWaterHint(hasResults, spanCount) {
+  if (hasResults || !(spanCount > 0)) return null;
+  return '계산 전이라 그린 직선 기준입니다 — 계산하면 도로를 따라가는 수단(트램·BRT·광역급행)은 새로 놓는 구간의 물 위만 남습니다';
+}
+

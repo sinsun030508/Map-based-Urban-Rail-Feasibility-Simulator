@@ -2,7 +2,7 @@ import { totalLengthKm } from '../geo/haversine';
 import CostTable from './CostTable';
 import { followsRoad, mountainNote, roadMountainNote } from './mountainNote';
 import { zoneNote } from './zoneNote';
-import { bridgeCostIncluded } from './roadWater';
+import { bridgeCostIncluded, preCalcWaterHint } from './roadWater';
 import { drawnStructure } from './drawnStructure';
 import { newRoadReasons, roadSummary } from '../geo/routeLine';
 import { modeLabel, STRUCTURE_LABEL } from '../modeLabels';
@@ -87,7 +87,9 @@ export default function ScenarioPanel({
           // 도로를 따라가는 행은 지도에 그린 행의 구조·새로 놓는 구간 기준이다(11-12) — 선택창의 구조가 아니다
           const roadRow = followsRoad(mountainRow);
           const under = drawnStructure(mountainRow, structure) === 'UNDERGROUND';
+          const hint = preCalcWaterHint(Boolean(results?.length), spans.length);
           return spans.length > 0 && (
+            <>
             <p className="water-span small muted">
               <b>{roadRow ? (under ? '새로 놓는 구간의 물 아래' : '새로 놓는 구간의 물 위') : (under ? '물 아래 구간' : '물 위 구간')}</b>(지도의 파란 토막){' '}
               {spans.map((w) => `${w.name} ${w.km.toFixed(1)}km`).join(' · ')} —{' '}
@@ -97,6 +99,8 @@ export default function ScenarioPanel({
                 ? '새 도로 다리값이 비교표 건설비에 들어 있습니다'
                 : `${under ? '하저터널' : '교량'} 할증은 넣지 않아 건설비가 그만큼 낮게 잡혔을 수 있습니다`}
             </p>
+            {hint && <p className="water-span small muted">{hint}</p>}
+            </>
           );
         })()}
         {/* 산 구간 — 호수처럼 **제안만** 한다. 계산 전엔 길이만, 계산 후엔 지도에 그린 안(비교표에서 고른 행)의

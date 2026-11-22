@@ -18,3 +18,10 @@ test('패널이 새 도로의 까닭을 가져와 「새로 놓는 구간」 줄
 test('새로 놓는 구간이 있을 때만 까닭을 적는다 — 구간 줄과 같은 50m 기준', () => {
   assert.match(text, /s\.newKm > 0\.05 \? newRoadReasons/);
 });
+
+test('패널이 계산 전 물 안내의 덧말을 가져와 물 위 구간 줄 아래에 적는다(11-22)', () => {
+  assert.match(text, /import \{ bridgeCostIncluded, preCalcWaterHint \} from '\.\/roadWater'/);
+  assert.ok(text.includes('preCalcWaterHint(Boolean(results?.length), spans.length)'), '덧말 판정을 안 쓴다');
+  assert.ok(text.includes('{hint && <p className="water-span small muted">{hint}</p>}'), '덧말 줄이 없다');
+});
+
