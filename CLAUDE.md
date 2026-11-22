@@ -32,6 +32,9 @@ cd backend && ./mvnw package -DskipTests && java -jar target/railfeas-0.1.0.jar
 cd frontend && npm run dev                       # 3000 (`VITE_PORT`)
 ```
 
+**실제 스택 검증**(`tools/verify/` — 노선 훑기 `sweep.py`·입력 견고성 `fuzz.py`·동시성 `concurrency.py`·정답지 대조 `oracle.py`): 단위 테스트(목)가 못 보는 교착·연결 풀·DB 저장 값을 본다.
+영속성·트랜잭션·계산을 바꾸기 **전에** `oracle.py` 로 정답지를 먼저 만들 것 — `tools/verify/README.md`.
+
 배포는 `docs/deploy.md` — `docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --build`.
 
 **밟으면 한참 헤매는 것들** (자세한 것은 노트의 「실행」)

@@ -38,3 +38,6 @@ data/cache/brt/*
 !data/cache/brt/observations*.csv
 # 계획 실행 기록(작업 공간) — 커밋하지 않는다
 .superpowers/
+
+# 검증 도구 출력(로그·정답지 JSON)
+tools/verify/out/
