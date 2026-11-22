@@ -828,3 +828,16 @@ PSC Box 39,223·75,645·98,057 / ST Box 29,345·56,595·73,364 / RC 라멘 39,46
 - **대가·한계** — ① 추천이 바뀌는 건 짧은 노선뿐이다. ② **급행의 B/C 자체는 여전히 짧은 노선에서 부풀어 있다**(표에는 0.20 이 남는다) — 이 결정은 「내세우지 않는다」 이지 값을 고치지 않는다.
   표정속도를 길이에 따라 깎는 모형(가속·감속 구간)은 근거 자료(역 사이 시운전 기록)가 없어 넣지 않았다. ③ 복선전철(역간격 2.62km)도 2.6km 미만 노선에서는 같은 이유로 빠진다 — 그 아래는 이 결정의 의도다.
 - **되돌리려면** `CostCalculator.withinLength` 에서 `overSpacing` 줄을 지우고 `outsideLengthRange`(`lengthRange.js`)의 역간격 줄을 지운다 — 한쪽만 지우면 지도와 서버 추천이 어긋난다(`lengthRange.test.js` 가 연결을 막는다).
+
+## 의존성 취약점 점검 — `npm audit` 4건 중 하나는 코드로 막았고 셋은 안 올렸다 (2026-11-22)
+
+- **결과** — `npm audit`: critical 1(maplibre-gl) · high 2(vite·source-map-js) · moderate 1(esbuild). **심각도 숫자가 실제 위험이 아니다** — 권고문을 읽고 우리가 닿는 경로인지 봤다.
+- **maplibre-gl ≤ 6.4.0 (critical, GHSA-jrc7-96c5-q579)** — `DOM.sanitize()` 우회 XSS. 그 살균기를 쓰는 건 `Popup.setHTML` 이고, 우리는 구역 팝업(`MapView.jsx`) 한 곳뿐이었다.
+  넣는 값(구역 이름)은 DB 시드에서만 오고 관리자 화면에도 편집이 없어 **지금은 악용할 길이 없었다.** 그래도 `${p.name}` 을 HTML 문자열에 끼우는 모양이라 구역 편집이 생기면 바로 취약하다 —
+  **`setDOMContent` + `textContent` 로 바꿔 살균기를 아예 안 쓴다**(`MapView.popup.test.js` — 어디서도 `setHTML` 없음·노드로 만듦·문자열 끼우기 없음, 가드를 꺼 보면 셋 다 깨진다).
+  화면에서 경복궁 일대 팝업을 눌러 모양이 그대로인 것을 확인했다. **`npm audit` 은 여전히 critical 로 센다**(라이브러리가 그대로라) — 정상이다. 4 → 6 메이저 업그레이드는 deck.gl 연동(`@deck.gl/mapbox`)이 깨질 위험이 커 안 했다.
+  **구역·시나리오 이름 등 사용자가 넣을 수 있는 값을 지도 팝업에 넣게 되면 반드시 `textContent` 로** 넣을 것.
+- **vite ≤ 6.4.3 · esbuild ≤ 0.24.2 (high/moderate 8건, launch-editor 포함)** — 전부 **개발 서버**(`npm run dev`)에만 해당한다. 운영은 빌드한 정적 파일을 nginx 가 서빙해 닿지 않는다.
+  고치려면 vite 5 → 8 메이저라 안 올렸다. 개발 서버는 `127.0.0.1` 에서만 돌리고 낯선 사이트를 열어 둔 채로 두지 말 것(esbuild 권고: 아무 웹사이트가 개발 서버로 요청을 보내 응답을 읽을 수 있다).
+- **source-map-js (high, 빌드 중 소스맵 DoS)** — 호환 범위 안의 수정이라 `npm audit fix`(`--force` 없이)로 1.2.4 로 올렸다. 잠금 파일 4줄, `package.json` 은 그대로.
+- **백엔드(Maven)는 안 봤다** — 취약점 DB 조회 도구(OWASP dependency-check 등)가 설정에 없고, 내려받으면 시간이 길다. 열린 과제.

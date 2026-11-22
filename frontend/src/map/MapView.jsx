@@ -364,14 +364,21 @@ export default function MapView({
     }, before);
     map.on('click', 'zone-fill', (e) => {
       const p = e.features[0].properties;
-      new maplibregl.Popup()
-        .setLngLat(e.lngLat)
-        .setHTML(
-          `<strong>${p.name}</strong><br/>${
-            p.severity === 'BLOCKED' ? '사실상 불가' : '심의·협의 필요'
-          } · 반경 약 ${p.radiusKm}km<br/><small>좌표는 근사치입니다</small>`
-        )
-        .addTo(map);
+      // HTML 문자열이 아니라 **DOM 노드**로 만든다 — `setHTML` 은 maplibre 의 `DOM.sanitize()` 에 기대는데 ≤ 6.4.0 에 우회 XSS 가 있다(npm audit 11-22).
+      // 값은 전부 textContent 로 들어가 해석되지 않는다(`MapView.popup.test.js`)
+      const box = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = p.name;
+      const note = document.createElement('small');
+      note.textContent = '좌표는 근사치입니다';
+      box.append(
+        title,
+        document.createElement('br'),
+        `${p.severity === 'BLOCKED' ? '사실상 불가' : '심의·협의 필요'} · 반경 약 ${p.radiusKm}km`,
+        document.createElement('br'),
+        note
+      );
+      new maplibregl.Popup().setLngLat(e.lngLat).setDOMContent(box).addTo(map);
     });
   }, [zones, mapReady]);
 
