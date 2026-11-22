@@ -205,7 +205,8 @@ public class PopulationIndex {
                     continue;
                 }
                 for (Cell cell : bucket) {
-                    if (Haversine.distanceKm(lat, lng, cell.lat(), cell.lng()) <= radiusKm) {
+                    // 거리 값은 필요 없고 「반경 안인가」 만 필요하다 — `distanceKm(...) <= radiusKm` 과 항상 같은 답이면서 `atan2` 없이 가른다(11-22 JFR: 최악 노선 계산 CPU 의 57%)
+                    if (Haversine.within(lat, lng, cell.lat(), cell.lng(), radiusKm)) {
                         found.add(cell);
                     }
                 }

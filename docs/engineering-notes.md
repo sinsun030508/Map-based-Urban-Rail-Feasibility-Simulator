@@ -171,6 +171,18 @@
   지울 때 역이 남는다 — 스키마(`db/schema/V2`)와 같이 봐야 한다. 새 DB 는 항상 그 스크립트로 만들어지므로(JPA 가 스키마를 안 만든다) 운영도 같다.
   테스트: `StationBatchWriterTest`(값·result_id·1,000행 단위·null 은 setNull·id 없는 결과 거부·실패해도 문장 닫기·SQL 컬럼 이름) + `ScenarioCalculateTransactionTest`(flush 뒤·쓰기 트랜잭션 안·409 면 저장 안 함).
   **한계:** 실제 MySQL 에서만 나타나는 차이(소수 자릿수 반올림 등)는 단위 테스트가 못 본다 — 그건 위 정답지 대조가 잡는다. 계산(CPU) 7초는 그대로다(도로를 따라가는 수단이 구간마다 A* 를 돌린다)
+- **계산(CPU)의 절반 이상은 하버사인 `atan2` 였다 — 추정이 틀렸고 측정이 맞았다**(11-22 JFR 프로파일, `Haversine.within`). 최악 노선 단건 7초 중 계산 6.4초가 남았을 때 「도로를 따라가는 수단이 구간마다 A* 를 돌려서」 라고
+  **추정**했다 — **틀렸다.** JDK 내장 JFR 로 실제 서버를 샘플링하니(665개 샘플) **정차역 배치(`StationPlanner.planWithDetour`)가 포함 시간 72%**, 그 안의 `PopulationIndex.near` → `Haversine.distanceKm` 이 **57%**,
+  CPU 맨 위 메서드는 `StrictMath.atan2`·`atan` 이 57%(24.7 + 23.2 + 9.6)였다. 도로 A*(`RoadNetwork`)는 4% 였다. 후보 역의 점수를 매길 때마다 주변 집계구마다 하버사인을 새로 계산했다.
+  **조치:** `near()` 가 필요한 것은 거리 값이 아니라 「반경 안인가」 다 — `Haversine.within` 이 `distanceKm(...) <= r` 과 **항상 같은 답**을 `atan2` 없이 낸다: ① 위도 차이의 호(`R·|Δφ|`)가 이미 반경보다 크면 탈락(대권 거리 ≥ 위도 호),
+  ② `a ≤ sin²(r/2R)` 로 가른다, ③ 임계값 ±1e-9 상대 여유 안이면 옛 `distanceKm` 으로 되돌린다(부동소수점 오차 ~1e-15 가 답을 못 바꾸게).
+  **검증:** ① 노선 24개 응답 전체 **바이트 단위 동일**(5,693,343B, 정답지 대조) ② 31개 노선 수단별 B/C·역 수·추천 동일 ③ `HaversineWithinTest` 5개 — 무작위 20만 쌍 · 경계 이분 탐색 후 좌표 ulp 이웃 · **반경을 거리 값의 ulp 이웃으로**.
+  **세 번째 시험이 있는 이유(돌연변이가 살아남았다):** ③ 의 여유·되돌림을 없애고 `a <= threshold` 만 남겨도 앞 두 시험은 **그대로 통과했다** — 좌표를 ulp 씩 움직이면 거리는 상대 1e-12 씩 변해 안전 여유가 지키는 오차 영역(상대 ~1e-16)에 닿지
+  못한다. 반경을 `nextDown(d)`·`d`·`nextUp(d)` 로 잡는 시험이 그 돌연변이를 잡는다(그 영역이 실제로 있다는 증거). **「통과만 하는 테스트는 못이 아니다」 — 가드를 꺼 보고서야 알았다.**
+  **속도:** 최악 노선 단건 **6.1 → 2.3초**, 서울~부산 0.8 → 0.6초, 서울~대전 0.6 → 0.4초, 24개 합 11.7 → 7.6초. 남은 시간은 `StationPlanner` 자체·`pointAt`·`HashMap` 조회·도로 로드다.
+  **재는 법(다음에):** JFR 은 서버에 옵션만 주면 된다 — `JAVA_TOOL_OPTIONS=-XX:FlightRecorderOptions=repository=<ASCII 경로> -XX:StartFlightRecording=settings=profile,filename=<ASCII 경로>` 후 `jcmd <pid> JFR.dump name=1 filename=…` 로 덤프,
+  `jfr print --events jdk.ExecutionSample --stack-depth 40` 로 집계. **경로 함정 셋(겪은 것):** ① 저장소 경로의 **공백**("Map-based Urban Rail …")은 `JAVA_TOOL_OPTIONS` 에서 잘려 JVM 이 `Unrecognized option` 으로 못 뜬다
+  ② 사용자 폴더의 **한글**(`C:\Users\신선호`)은 JFR 경로로 넘어가며 깨져 파일을 못 쓴다 ③ **JFR 저장소(`repository`) 기본값이 한글 임시 폴더라** 덤프가 0바이트다 — 저장소 폴더도 ASCII 경로(`C:/Users/Public/…`)로 지정할 것
 - 우회(`/api/route/detour`)·인구(`/api/reference/population`)는 전부터 버틴다 — 점 50개로 호수 41곳을
   지나도 0.6~1.6초, 인구는 전국 범위도 2만 칸(0.9MB)에서 잘려 0.1초다
 - **검증 오류의 지점 좌표는 「N번째 지점이 한반도 밖입니다」 로 말한다**(`ApiExceptionHandler.message`).
