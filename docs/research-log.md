@@ -829,7 +829,7 @@ PSC Box 39,223·75,645·98,057 / ST Box 29,345·56,595·73,364 / RC 라멘 39,46
   표정속도를 길이에 따라 깎는 모형(가속·감속 구간)은 근거 자료(역 사이 시운전 기록)가 없어 넣지 않았다. ③ 복선전철(역간격 2.62km)도 2.6km 미만 노선에서는 같은 이유로 빠진다 — 그 아래는 이 결정의 의도다.
 - **되돌리려면** `CostCalculator.withinLength` 에서 `overSpacing` 줄을 지우고 `outsideLengthRange`(`lengthRange.js`)의 역간격 줄을 지운다 — 한쪽만 지우면 지도와 서버 추천이 어긋난다(`lengthRange.test.js` 가 연결을 막는다).
 
-## 의존성 취약점 점검 — `npm audit` 4건 중 하나는 코드로 막았고 셋은 안 올렸다 (2026-11-22)
+## 의존성 취약점 점검 — 프론트 npm 4건(하나는 코드로 막음) · 백엔드 Maven 111건 → 2건 (2026-11-22)
 
 - **결과** — `npm audit`: critical 1(maplibre-gl) · high 2(vite·source-map-js) · moderate 1(esbuild). **심각도 숫자가 실제 위험이 아니다** — 권고문을 읽고 우리가 닿는 경로인지 봤다.
 - **maplibre-gl ≤ 6.4.0 (critical, GHSA-jrc7-96c5-q579)** — `DOM.sanitize()` 우회 XSS. 그 살균기를 쓰는 건 `Popup.setHTML` 이고, 우리는 구역 팝업(`MapView.jsx`) 한 곳뿐이었다.
@@ -840,4 +840,13 @@ PSC Box 39,223·75,645·98,057 / ST Box 29,345·56,595·73,364 / RC 라멘 39,46
 - **vite ≤ 6.4.3 · esbuild ≤ 0.24.2 (high/moderate 8건, launch-editor 포함)** — 전부 **개발 서버**(`npm run dev`)에만 해당한다. 운영은 빌드한 정적 파일을 nginx 가 서빙해 닿지 않는다.
   고치려면 vite 5 → 8 메이저라 안 올렸다. 개발 서버는 `127.0.0.1` 에서만 돌리고 낯선 사이트를 열어 둔 채로 두지 말 것(esbuild 권고: 아무 웹사이트가 개발 서버로 요청을 보내 응답을 읽을 수 있다).
 - **source-map-js (high, 빌드 중 소스맵 DoS)** — 호환 범위 안의 수정이라 `npm audit fix`(`--force` 없이)로 1.2.4 로 올렸다. 잠금 파일 4줄, `package.json` 은 그대로.
-- **백엔드(Maven)는 안 봤다** — 취약점 DB 조회 도구(OWASP dependency-check 등)가 설정에 없고, 내려받으면 시간이 길다. 열린 과제.
+- **백엔드(Maven) — 같은 날 점검하고 올렸다.** 방법: 플러그인(`dependency:list`·OWASP)이 오프라인 캐시에 없어서 **빌드된 jar 의 `BOOT-INF/lib/*.jar` 안 `META-INF/maven/.../pom.properties`** 로 좌표를 뽑고
+  (36개는 pom.properties 가 없어 파일 이름으로 그룹을 추정), **OSV**(`api.osv.dev/v1/querybatch`, 공개 DB — 보낸 것은 라이브러리 그룹:이름:버전뿐)에 조회했다.
+  **결과: 99개 중 24개 라이브러리에 111건**(critical 은 톰캣 8·시큐리티 2·Netty 1·스프링 MVC 1) — 원인은 하나, 부모가 `spring-boot-starter-parent 3.3.4`(2024-09) 라 스프링·톰캣·Jackson·Netty·시큐리티가 다 낡았다.
+  **조치:** Boot **3.5.16**(Maven Central 최신 3.5.x)·springdoc **2.8.17**(Boot 3.4+ 용)으로 올려 8개 25건, 같은 계열에 고쳐진 패치가 있는 것(톰캣 10.1.62·Netty 4.1.141·Jackson 2.21.8·commons-lang3 3.22.0·log4j 2.25.5)은
+  Boot 관리 버전 덮어쓰기(`pom.xml` 속성)로 올려 **1개 2건**. Lombok 고정(1.18.38)은 Boot 가 1.18.46 을 관리해 걷었다. 하이버네이트 방언 명시(`hibernate.dialect`)는 6.6 이 경고(HHH90000025)를 내 지웠다.
+  **남은 2건: `spring-webmvc 6.2.19` 의 CVE-2026-47890(SSE 조각 렌더링)·CVE-2026-47884(XsltView) — 6.2 계열 최신이 이미 6.2.19 라 올릴 수 있는 수정이 없고(수정은 7.0.9), 우리 코드에는 SSE·XSLT·뷰 리졸버가 없다**(REST JSON 전용). 받아들인다.
+  **검증:** 단위 314개 + 실제 스택 훑기 둘(31개 노선 계산 — 추천 목록이 업그레이드 전과 한 글자도 다르지 않음, 입력 견고성 50가지 — 401/403/404/400 코드·메시지 동일). 기동 로그 오류 0.
+  **못 해 본 것: 소셜 로그인(Google·카카오) 실제 왕복** — 시큐리티가 6.3 → 6.5 로 바뀌었다. 단위 테스트(`SocialLoginTest`·`OAuth2ClientConfigTest`)는 통과하지만 배포 전에 한 번 직접 눌러 볼 것.
+  **되돌리려면** `pom.xml` 의 부모·springdoc·덮어쓰기 속성과 `application.yml` 의 방언 줄을 되돌린다(브랜치 `deps-boot-3.5` 병합 커밋 한 번).
+  **다음에 할 때:** 이 jar 점검은 `backend/` 에서 위 방법으로 반복할 수 있다(OSV 는 공개·무인증). 새 CVE 가 나오면 Boot 최신 패치를 확인하고, 덮어쓰기 속성은 Boot 를 올릴 때 걷어 낸다.
