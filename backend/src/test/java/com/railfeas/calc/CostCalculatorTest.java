@@ -594,6 +594,44 @@ class CostCalculatorTest {
     }
 
     /**
+     * **노선이 그 수단의 역간격보다 짧으면 추천하지 않는다**(11-22 전국 훑기, 자율 모델 결정). 광역급행(표정속도 91.8km/h 는 역간격 6.92km 이상을 달릴 때의
+     * 값)이 신촌~홍대 1.2km·한강 횡단 2.8km 에서도 1위였다 — 가속하다 끝나는 노선에서 그 속도는 나올 수 없다. 권장 연장 초과의 짝이고 같은 방식이다
+     * (표에는 남기고 기본으로만 내세우지 않는다, 전부 걸리면 거르지 않는다).
+     */
+    @Test
+    @DisplayName("역간격보다 짧은 노선에서는 그 수단을 추천하지 않는다 — 길이가 같으면 통과, 전부 걸리면 거르지 않는다")
+    void doesNotRecommendModesLongerSpacedThanTheRoute() {
+        var results = List.of(result(ModeType.EXPRESS_RAIL, 0.20), result(ModeType.DOUBLE_ELEC, 0.15),
+                result(ModeType.HEAVY_METRO, 0.03));
+        var capacities = Map.of(
+                ModeType.EXPRESS_RAIL, capacity(ModeType.EXPRESS_RAIL, null, 60_000, 6.92, 91.8, null),
+                ModeType.DOUBLE_ELEC, capacity(ModeType.DOUBLE_ELEC, null, 60_000, 2.62, 47.6, null),
+                ModeType.HEAVY_METRO, capacity(ModeType.HEAVY_METRO, null, 80_000, 1.06, 32.4, 60.2));
+
+        // 1.2km — 역간격이 이보다 긴 급행·복선전철은 못 내세운다
+        assertThat(CostCalculator.recommended(results, capacities, 1.2)).isEqualTo(ModeType.HEAVY_METRO);
+        // 4km — 급행(6.92)만 걸린다
+        assertThat(CostCalculator.recommended(results, capacities, 4.0)).isEqualTo(ModeType.DOUBLE_ELEC);
+        // 역간격과 정확히 같은 길이는 통과한다(경계)
+        assertThat(CostCalculator.recommended(results, capacities, 6.92)).isEqualTo(ModeType.EXPRESS_RAIL);
+        // 12km — 모두 통과, B/C 최고안
+        assertThat(CostCalculator.recommended(results, capacities, 12.0)).isEqualTo(ModeType.EXPRESS_RAIL);
+        // 전부 걸리면(0.5km — 가장 짧은 역간격 1.06 도 못 채운다) 길이를 따지지 않는다
+        assertThat(CostCalculator.recommended(results, capacities, 0.5)).isEqualTo(ModeType.EXPRESS_RAIL);
+    }
+
+    @Test
+    @DisplayName("역간격을 모르는 수단(NULL)에는 하한이 없다 — 모르는 것을 근거로 거르지 않는다")
+    void unknownSpacingHasNoLowerBound() {
+        var results = List.of(result(ModeType.SINGLE_ELEC, 0.9), result(ModeType.HEAVY_METRO, 0.5));
+        var capacities = Map.of(
+                ModeType.SINGLE_ELEC, capacity(ModeType.SINGLE_ELEC, null, 25_000, null, 45.0, null),
+                ModeType.HEAVY_METRO, capacity(ModeType.HEAVY_METRO, null, 80_000, 1.06, 32.4, 60.2));
+
+        assertThat(CostCalculator.recommended(results, capacities, 0.8)).isEqualTo(ModeType.SINGLE_ELEC);
+    }
+
+    /**
      * **절감이 없는 안은 추천하지 않는다.** 기존 KTX 를 편익 기준에 넣자 서울~부산의 신설안
      * 11개가 전부 B/C 0 이 됐는데, 추천 칸에는 여전히 복선전철이 찍혔다 — 아무 시간도
      * 아끼지 못하는 안을 내세운 셈이다. 답은 "추천할 신설안이 없다" 다.

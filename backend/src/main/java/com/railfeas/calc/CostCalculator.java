@@ -393,12 +393,21 @@ public class CostCalculator {
                 .orElse(null);
     }
 
-    /** 상한이 없는 수단(복선전철·급행)은 언제나 참이다 */
+    /**
+     * 노선 길이가 그 수단이 쓰이는 범위 안인가 — 위로는 **권장 연장**, 아래로는 **역간격**(11-22 자율 모델 결정).
+     * 표정속도는 정차 사이를 역간격만큼 달릴 때의 값이라, 노선이 역간격보다 짧으면 그 속도가 나올 수 없다 — 급행(6.92km)이 신촌~홍대 1.2km 에서도
+     * 1위였다. 역간격은 운영 노선의 중앙값(DB `spacing_km`)이라 새 숫자를 만들지 않는다. **모르는 쪽(NULL)에는 그 방향의 경계가 없다.**
+     * 되돌리려면 이 메서드에서 하한 줄만 지운다(네 곳이 같은 규칙 — `lengthRange.js`)
+     */
     private static boolean withinLength(ScenarioResult result,
                                         Map<ModeType, ModeCapacity> capacities, double lengthKm) {
         ModeCapacity capacity = capacities.get(result.getModeType());
-        return capacity == null || capacity.getMaxLengthKm() == null
-                || lengthKm <= capacity.getMaxLengthKm().doubleValue();
+        if (capacity == null) {
+            return true;
+        }
+        boolean underMax = capacity.getMaxLengthKm() == null || lengthKm <= capacity.getMaxLengthKm().doubleValue();
+        boolean overSpacing = capacity.getSpacingKm() == null || lengthKm >= capacity.getSpacingKm().doubleValue();
+        return underMax && overSpacing;
     }
 
     private int estimateStations(double lengthKm, ModeCapacity capacity) {

@@ -7,6 +7,7 @@ import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
 import ComparePage from './scenario/ComparePage';
 import { gainsNothing } from './scenario/gainsNothing';
+import { outsideLengthRange } from './scenario/lengthRange';
 import { followsRoad, mergeRoadMountain, mountainFor, newPieces, roadMountainView } from './scenario/mountainNote';
 import { drawnStructure } from './scenario/drawnStructure';
 import { mergeRoadWater } from './scenario/roadWater';
@@ -135,11 +136,11 @@ export default function App() {
   }, [user]);
 
   // 물·산 안내가 따를 `shown`(지도에 그린 행)이 아래 훅들에 필요하다 — 순수 계산이라 훅 위에 둔다(훅은 이른 `return` 위여야 한다)
-  /** 그린 노선이 그 수단의 권장 연장을 넘는가 */
-  const overLength = (r) => {
-    const limit = modes.find((m) => m.modeType === r.modeType)?.maxLengthKm;
-    return limit != null && savedLength != null && savedLength > Number(limit);
-  };
+  /**
+   * 그린 노선이 그 수단이 쓰이는 범위 밖인가 — 권장 연장을 넘거나 역간격보다 짧다(`lengthRange.js`, 서버 추천과 같은 경계).
+   * 이름은 `overLength` 그대로다(`CostTable`·`ScenarioPanel` 로 내려가는 prop) — 뜻이 「연장 초과」 에서 「범위 밖」 으로 넓어졌다
+   */
+  const overLength = (r) => outsideLengthRange(modes.find((m) => m.modeType === r.modeType), savedLength);
 
   /**
    * 비교표에서 고른 안의 정차역. 안 골랐으면 **권장 연장 안에 드는** 안 중 B/C 최고안이다.
