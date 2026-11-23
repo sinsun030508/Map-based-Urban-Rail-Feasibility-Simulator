@@ -330,6 +330,9 @@ public class StationPlanner {
      */
     static double[] pointAt(List<double[]> route, List<Double> cum, double distance) {
         int last = cum.size() - 1;
+        if (last < 1) {                             // 꼭짓점이 하나뿐 — 옛 선형 탐색처럼 그 꼭짓점을 돌려준다(구간이 없어 보간할 것도 없다)
+            return route.get(route.size() - 1);
+        }
         double d = Math.max(0, Math.min(cum.get(last), distance));
         int lo = 1, hi = last;                      // 답은 [1, last] 안 — last 는 조건과 상관없이 마지막 후보다
         while (lo < hi) {

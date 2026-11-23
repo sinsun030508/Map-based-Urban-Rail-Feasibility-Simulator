@@ -111,4 +111,14 @@ class StationPlannerPointAtTest {
             assertThat(StationPlanner.pointAt(same, cumSame, d)).containsExactly(reference(same, cumSame, d));
         }
     }
+
+    @Test
+    @DisplayName("꼭짓점이 하나뿐인 경로에서도 옛 구현처럼 그 꼭짓점을 돌려준다 — 예외를 던지지 않는다")
+    void singleVertexRoute() {
+        List<double[]> one = List.of(new double[]{37.5, 127.0});
+        List<Double> cum = cumulativeOf(one);
+        for (double d : new double[]{-1, 0, 5}) {
+            assertThat(StationPlanner.pointAt(one, cum, d)).containsExactly(reference(one, cum, d));
+        }
+    }
 }

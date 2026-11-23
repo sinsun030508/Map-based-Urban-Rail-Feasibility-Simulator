@@ -188,6 +188,11 @@
   **재는 법(다음에):** JFR 은 서버에 옵션만 주면 된다 — `JAVA_TOOL_OPTIONS=-XX:FlightRecorderOptions=repository=<ASCII 경로> -XX:StartFlightRecording=settings=profile,filename=<ASCII 경로>` 후 `jcmd <pid> JFR.dump name=1 filename=…` 로 덤프,
   `jfr print --events jdk.ExecutionSample --stack-depth 40` 로 집계. **경로 함정 셋(겪은 것):** ① 저장소 경로의 **공백**("Map-based Urban Rail …")은 `JAVA_TOOL_OPTIONS` 에서 잘려 JVM 이 `Unrecognized option` 으로 못 뜬다
   ② 사용자 폴더의 **한글**(`C:\Users\신선호`)은 JFR 경로로 넘어가며 깨져 파일을 못 쓴다 ③ **JFR 저장소(`repository`) 기본값이 한글 임시 폴더라** 덤프가 0바이트다 — 저장소 폴더도 ASCII 경로(`C:/Users/Public/…`)로 지정할 것
+- **오늘 변경 전체를 새 눈으로 코드 리뷰했다 — 두 결함이 나왔고 고쳤다**(11-22 `/code-review`, 범위 `4030e5c..HEAD`). 내가 혼자 쓴 변경은 같은 맹점을 공유해 단위 테스트·정답지·부하 시험이 놓친 것이 있었다. ① **`pointAt` 이분 탐색이 꼭짓점 1개짜리 경로에서
+  `IndexOutOfBoundsException`** — 옛 선형 탐색은 구간이 없으면 마지막 꼭짓점을 돌려줬다. 동치 시험(무작위·경계·꼭짓점 둘)에 **꼭짓점 하나**를 안 넣어서 못 잡았다 — 재현 테스트를 먼저 써 실패를 보고(`singleVertexRoute`) 가드(`last < 1`)를 넣었다.
+  ② **짧은 노선에서 지도가 비고 패널은 추천을 말한다** — 역간격 하한을 넣을 때 서버는 「범위 안이 하나도 없으면 범위를 무시」 하는데 화면의 `shown` 은 필터만 해 0.5km 노선(전부 범위 밖)에서 `undefined` 였다. 「지도·굵은 행·서버 추천이 같은 규칙」 이라는 규칙을 내가 어겼다.
+  `defaultRow` 로 한 곳에 모으고 화면에서 확인했다(위 프론트 규칙). **교훈:** 규칙을 서버에 넣으면 같은 규칙이 화면에 몇 곳 있는지 **grep 으로 세어 본 뒤** 끝낼 것(이번엔 `overLength` 를 쓰는 곳만 보고 `shown` 의 필터를 놓쳤다).
+  리뷰가 참고로 남긴 둘은 고치지 않았다 — `tools/verify/harness.py` 가 윈도우 전용(README 에 적혀 있다), `ScenarioResult.stations` 가 cascade 없는 점(주석이 경고한다)
 - 우회(`/api/route/detour`)·인구(`/api/reference/population`)는 전부터 버틴다 — 점 50개로 호수 41곳을
   지나도 0.6~1.6초, 인구는 전국 범위도 2만 칸(0.9MB)에서 잘려 0.1초다
 - **검증 오류의 지점 좌표는 「N번째 지점이 한반도 밖입니다」 로 말한다**(`ApiExceptionHandler.message`).

@@ -7,7 +7,7 @@ import MapView from './map/MapView';
 import { usingVWorld } from './map/mapStyle';
 import ComparePage from './scenario/ComparePage';
 import { gainsNothing } from './scenario/gainsNothing';
-import { outsideLengthRange } from './scenario/lengthRange';
+import { defaultRow, outsideLengthRange } from './scenario/lengthRange';
 import { followsRoad, mergeRoadMountain, mountainFor, newPieces, roadMountainView } from './scenario/mountainNote';
 import { drawnStructure } from './scenario/drawnStructure';
 import { mergeRoadWater } from './scenario/roadWater';
@@ -154,8 +154,7 @@ export default function App() {
    */
   const shown = results.length
     ? results.find((r) => resultKey(r) === selectedResult)
-      || [...results].filter((r) => !overLength(r) && !gainsNothing(r))
-        .sort((a, b) => (b.bcRatio ?? -1) - (a.bcRatio ?? -1))[0]
+      || defaultRow(results, overLength, gainsNothing)
     : null;
 
   /**
