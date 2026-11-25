@@ -29,8 +29,8 @@ public class CalculationGate {
     private final int perUser;
     private final ConcurrentHashMap<Long, Integer> inFlight = new ConcurrentHashMap<>();
 
-    public CalculationGate(@Value("${railfeas.calc.max-concurrent:0}") int maxConcurrent,
-                           @Value("${railfeas.calc.max-per-user:2}") int maxPerUser) {
+    public CalculationGate(@Value("${app.calc.max-concurrent:0}") int maxConcurrent,
+                           @Value("${app.calc.max-per-user:2}") int maxPerUser) {
         int total = maxConcurrent > 0 ? maxConcurrent : Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
         this.global = new Semaphore(total);
         this.perUser = Math.max(1, maxPerUser);

@@ -4,6 +4,7 @@ import CostChart from './CostChart';
 import RowBreakdown from './RowBreakdown';
 import FloatingWindow from './FloatingWindow';
 import { gainsNothing } from './gainsNothing';
+import { isFeasible } from './lengthRange';
 import { belowBreakEven } from './breakEven';
 import { resultKey } from './resultKey';
 import { STALE_MESSAGE } from './stale';
@@ -41,7 +42,10 @@ export default function CostTable({
   // 굵은 행이 없는 것이 답이다(백엔드 `recommended` 와 같은 규칙, `noGain`).
   const candidates = sorted.filter((r) => !gainsNothing(r));
   const noGain = hasDemand && !candidates.length;
-  const best = (overLength ? candidates.find((r) => !overLength(r)) : null) || candidates[0];
+  // 굵게 강조할 안은 수송능력 안에서만 고른다 — 서버 추천·지도의 기본 행(`defaultRow`)과 같은 판정(`isFeasible`, 11-25). `noGain` 은 위처럼 B/C 0 만 본다 —
+  // 전부 수송능력 초과인 노선에 「절감 시간이 없다」 는 틀린 이유를 적지 않게. 그때는 굵은 행이 없다(서버도 추천을 비운다)
+  const pickable = candidates.filter(isFeasible);
+  const best = (overLength ? pickable.find((r) => !overLength(r)) : null) || pickable[0];
   // 이용객·첨두는 **기준 행(경전철이 아닌 행)** 의 값이다 — 경전철 행만 경전철 배수가 곱해져 다르다(demandNote.js)
   const base = baseRow(results);
   const riders = base?.estimatedRidership;

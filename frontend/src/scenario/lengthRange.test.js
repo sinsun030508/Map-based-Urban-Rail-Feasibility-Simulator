@@ -87,3 +87,32 @@ test('App 의 shown 이 defaultRow 를 쓴다 — 옛 「범위 필터만」 식
   assert.match(app, /defaultRow\(results, overLength, gainsNothing\)/);
   assert.doesNotMatch(app, /filter\(\(r\) => !overLength\(r\) && !gainsNothing\(r\)\)/);
 });
+
+// ── 수송능력 초과(feasible=false)는 내세우지 않는다(11-25 코드 리뷰) — 서버 `recommended` 는 빼는데 화면은 안 빼, B/C 1위가 수송능력 초과인 노선에서
+//    지도·패널·굵은 행은 그 안을, 서버 추천(시나리오 비교·관리자 통계)은 다음 안을 가리켰다
+import { isFeasible } from './lengthRange.js';
+
+const fr = (modeType, bcRatio, feasible) => ({ modeType, bcRatio, feasible });
+
+test('수송능력 초과인 안은 B/C 가 가장 높아도 기본으로 그리지 않는다 — 서버 추천과 같은 안', () => {
+  const rows = [fr('BRT_HIGH', 9.1, false), fr('EXPRESS_RAIL', 6.8, true), fr('TRAM', 2.0, true)];
+  assert.equal(defaultRow(rows, () => false, noGain).modeType, 'EXPRESS_RAIL');
+});
+
+test('전부 수송능력 초과면 기본 행이 없다 — 서버도 그때 추천을 비운다', () => {
+  assert.equal(defaultRow([fr('BRT_HIGH', 9.1, false), fr('BRT_LOW', 3.0, false)], () => false, noGain), undefined);
+});
+
+test('수송능력 판정이 없는 행(옛 결과·null)은 안으로 본다 — 모르는 것을 초과로 읽지 않는다', () => {
+  assert.equal(isFeasible({ feasible: true }), true);
+  assert.equal(isFeasible({ feasible: false }), false);
+  assert.equal(isFeasible({}), true);
+  assert.equal(isFeasible({ feasible: null }), true);
+});
+
+test('비교표의 굵은 행도 같은 판정을 쓴다 — 굵은 행만 초과 안을 강조하면 지도와 어긋난다', () => {
+  const table = readFileSync(new URL('./CostTable.jsx', import.meta.url), 'utf8');
+  assert.match(table, /import \{[^}]*\bisFeasible\b[^}]*\} from '\.\/lengthRange'/);
+  assert.match(table, /const pickable = candidates\.filter\(isFeasible\);/);
+  assert.match(table, /const best = \(overLength \? pickable\.find\(.*\) : null\) \|\| pickable\[0\];/);
+});
