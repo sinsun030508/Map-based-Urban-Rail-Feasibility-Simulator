@@ -126,7 +126,7 @@ class LoginThrottleTest {
     }
 
     private final AuthService service = Mockito.mock(AuthService.class);
-    private final AuthController controller = new AuthController(service, null, null, throttle);
+    private final AuthController controller = new AuthController(service, null, null, throttle, new SignupThrottle(new MemoryCounter(), 10));
     private final AuthDto.LoginRequest request = new AuthDto.LoginRequest("a@example.test", "틀린 값");
 
     private static MockHttpServletRequest from(String address) {

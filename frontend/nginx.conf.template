@@ -1,32 +1,74 @@
 # 개발 때 Vite 프록시가 하던 일을 배포에서 맡는다(vite.config.js 와 같은 경로).
 # ${VWORLD_KEY}·${VWORLD_REFERER} 는 켜질 때 환경변수로 채워진다 — 키가 브라우저에 안 보인다.
+#
+# 접속 주소마다 횟수를 센다(11-26 보안 점검 — 없을 땐 인구 API·VWorld 프록시를 마음껏 두드릴 수 있었다). 값은 판단값이다.
+# 이 파일은 nginx 의 http 블록 안에 들어가므로 zone 을 server 밖에 둔다.
+#   api   — 초당 10, 지도 끌기·계산 몰림은 burst 50 으로 받는다
+#   auth  — 로그인·가입은 분당 10(백엔드 LoginThrottle·SignupThrottle 이 계정·주소 단위로 한 번 더 막는다)
+#   tiles — VWorld 타일은 화면 한 번에 수십 장이라 초당 30, burst 200
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+limit_req_zone $binary_remote_addr zone=auth:10m rate=10r/m;
+limit_req_zone $binary_remote_addr zone=tiles:10m rate=30r/s;
+limit_req_status 429;
+
 server {
     listen 80;
     root /usr/share/nginx/html;
     client_max_body_size 1m;
+    # 오류 화면·Server 헤더에 nginx 버전을 싣지 않는다
+    server_tokens off;
+
+    # 보안 헤더 — location 이 add_header 를 따로 쓰면 이것들이 사라지므로 location 에는 add_header 를 두지 않는다.
+    # CSP: 스크립트는 우리 것만. 지도 타일은 같은 출처(/vworld/) 또는 OpenFreeMap(VWorld 키가 없을 때 mapStyle.js).
+    # MapLibre 는 작업자를 blob: 로 띄우고, 스타일은 인라인(React style 속성)이라 style-src 에 'unsafe-inline' 이 든다.
+    # HSTS 는 HTTPS 를 붙일 때 넣는다(docs/deploy.md) — HTTP 에서 보내면 무시되거나 잘못 걸리면 접속이 막힌다
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self' https://tiles.openfreemap.org; font-src 'self' data:; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+
+    # 막히면 화면이 문구를 띄우도록 백엔드와 같은 모양({"message": ...})으로 답한다 — HTML 이면 「요청 실패 (429)」 만 보인다
+    error_page 429 = @too_many;
+    location @too_many {
+        default_type application/json;
+        charset utf-8;
+        return 429 '{"message":"요청이 너무 많습니다 — 잠시 뒤에 다시 시도해 주세요"}';
+    }
+
+    # 소셜 로그인이 공개 주소로 redirect-uri 를 만들도록 원래 주소를 넘긴다(백엔드 forward-headers).
+    # server 단에 둬 백엔드로 가는 location 들이 함께 쓴다(/vworld/ 는 자기 것을 써 이것을 물려받지 않는다)
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    # 덮어쓴다 — 덧붙이면 손님이 보낸 값이 맨 앞에 남아 로그인 횟수 제한을 주소를 바꿔 비켜 간다
+    proxy_set_header X-Forwarded-For $remote_addr;
 
     # 화면 주소(/oauth/callback 등)는 index.html 이 받는다
     location / {
         try_files $uri /index.html;
     }
 
-    # 소셜 로그인이 공개 주소로 redirect-uri 를 만들도록 원래 주소를 넘긴다(백엔드 forward-headers)
-    location ~ ^/(api|oauth2|login/oauth2)/ {
+    # 로그인·가입은 따로 더 좁게 센다 — 정규식 location 은 먼저 맞는 것이 이기므로 아래 /api 보다 앞에 둔다
+    location ~ ^/api/auth/(login|signup)$ {
+        limit_req zone=auth burst=10 nodelay;
         proxy_pass http://backend:9090;
-        proxy_set_header Host $http_host;
-        proxy_set_header X-Forwarded-Host $http_host;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        # 덮어쓴다 — 덧붙이면 손님이 보낸 값이 맨 앞에 남아 로그인 횟수 제한을 주소를 바꿔 비켜 간다
-        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+
+    location ~ ^/(api|oauth2|login/oauth2)/ {
+        limit_req zone=api burst=50 nodelay;
+        proxy_pass http://backend:9090;
         # 1,000km 노선 계산이 7초 안팎이고 산 구간은 몇 초 더 걸린다
         proxy_read_timeout 120s;
     }
 
     location /vworld/ {
+        limit_req zone=tiles burst=200 nodelay;
         rewrite ^/vworld/(.*)$ /req/wmts/1.0.0/${VWORLD_KEY}/Base/$1 break;
         proxy_pass https://api.vworld.kr;
         proxy_ssl_server_name on;
         proxy_set_header Host api.vworld.kr;
-        proxy_set_header Referer ${VWORLD_REFERER};
+        # 따옴표가 있어야 한다 — 키 없이(OpenFreeMap) 배포하면 값이 비어 `Referer ;` 가 되고 nginx 가 설정 오류로 안 켜졌다(11-26)
+        proxy_set_header Referer "${VWORLD_REFERER}";
     }
 }

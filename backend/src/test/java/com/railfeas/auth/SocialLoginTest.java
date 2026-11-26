@@ -93,7 +93,7 @@ class SocialLoginTest {
     private static AuthController controller(UserRepository users, ClientRegistrationRepository clients) {
         ObjectProvider<ClientRegistrationRepository> provider = Mockito.mock(ObjectProvider.class);
         Mockito.when(provider.getIfAvailable()).thenReturn(clients);
-        return new AuthController(null, users, provider, null);
+        return new AuthController(null, users, provider, null, null);
     }
 
     @Test

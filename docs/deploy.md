@@ -72,12 +72,19 @@ docker exec -it railfeas-db sh -c 'mysql -uroot -p railfeas -e "UPDATE \`user\` 
 - **`docker compose down -v` 를 쓰지 않는다** — 볼륨이 지워지면 가입 계정과 시나리오가 사라진다
 - **로그인은 (이메일, 접속 주소)마다 15분에 10번까지다** — 앞단에 프록시·로드밸런서를 하나 더 두면 접속 주소가 그 장비로 보이니
   `nginx.conf.template` 의 `X-Forwarded-For` 를 함께 고친다
+- **가입은 접속 주소마다 한 시간에 10번까지다**(`SIGNUP_MAX_PER_HOUR` 로 바꾼다) — 중복 이메일(409)도 센다
+- **nginx 가 보안 헤더와 속도 제한을 건다**(`frontend/nginx.conf.template`, 11-26) — `X-Frame-Options`·CSP·`nosniff` 와, 접속 주소마다
+  API 초당 10(burst 50)·로그인/가입 분당 10(burst 10)·VWorld 타일 초당 30(burst 200). 막히면 `{"message": ...}` 429 다.
+  **지도에 새 외부 출처(타일·글꼴)를 붙이면 CSP 의 `img-src`·`connect-src` 에 넣는다** — 안 넣으면 지도가 비고 콘솔에만 위반이 뜬다.
+  이 PC 에서 배포 이미지로 띄워 로그인·지도(OpenFreeMap)·저장·계산·인구 3D 까지 CSP 위반 0건을 확인했다
 - **HTTPS 는 아직 없다** — 80 만 연다. 로그인 토큰이 평문으로 오가므로 공개 운영 전에 도메인과 인증서(예: certbot)를 붙여야 한다.
-  그때 `PUBLIC_URL` 과 소셜 콘솔의 주소도 `https` 로 바꾼다
+  그때 `PUBLIC_URL` 과 소셜 콘솔의 주소도 `https` 로 바꾸고, nginx 에 HSTS(`Strict-Transport-Security`)를 더한다
 
 ## 함정
 
 - **`.env` 값 끝의 공백** — compose 는 잘라 주지만 셸에서 `grep | cut` 으로 꺼내 넘기면 그대로 남는다. `frontend/.env` 의 키 끝 공백이
   nginx `rewrite` 의 인자를 늘려 `invalid number of arguments` 로 web 이 재시작을 반복했다(CRLF 도 같다)
+- **VWorld 키 없이 띄우면 web 이 안 켜졌다**(11-26 에 고침) — `VWORLD_REFERER` 가 비면 `proxy_set_header Referer ;` 가 되어
+  `invalid number of arguments` 였다. 지금은 따옴표로 감싸 빈 값도 된다
 - **`/v3/api-docs` 가 200 이어도 문서가 아니다** — nginx 가 모르는 주소를 화면(`index.html`)으로 넘긴 것이다. 백엔드 쪽은 401 이다
 - **compose 를 겹쳐 쓰면 `db` 설정이 바뀌어 컨테이너가 다시 만들어진다** — 자료는 이름 붙은 볼륨에 있어 그대로다

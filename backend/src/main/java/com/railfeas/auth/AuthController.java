@@ -25,18 +25,25 @@ public class AuthController {
     private final AuthService authService;
     private final UserRepository users;
     private final LoginThrottle throttle;
+    private final SignupThrottle signupThrottle;
     private final ObjectProvider<ClientRegistrationRepository> clients;
 
     public AuthController(AuthService authService, UserRepository users,
-                          ObjectProvider<ClientRegistrationRepository> clients, LoginThrottle throttle) {
+                          ObjectProvider<ClientRegistrationRepository> clients, LoginThrottle throttle,
+                          SignupThrottle signupThrottle) {
         this.authService = authService;
         this.users = users;
         this.clients = clients;
         this.throttle = throttle;
+        this.signupThrottle = signupThrottle;
     }
 
+    /** 가입은 접속 주소마다 시간당 횟수를 센다 — 성공·중복(409) 모두 센다(`SignupThrottle`) */
     @PostMapping("/signup")
-    public AuthDto.TokenResponse signup(@Valid @RequestBody AuthDto.SignupRequest request) {
+    public AuthDto.TokenResponse signup(@Valid @RequestBody AuthDto.SignupRequest request, HttpServletRequest http) {
+        String address = http.getRemoteAddr();
+        signupThrottle.check(address);
+        signupThrottle.attempted(address);
         return authService.signup(request);
     }
 

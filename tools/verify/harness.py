@@ -95,6 +95,8 @@ class Server:
         self.prefix = prefix
         self.env = load_env()
         self.env["SERVER_PORT"] = str(PORT)
+        # 실행마다 가입하므로 가입 제한(접속 주소마다 시간당 10번, SignupThrottle)에 걸린다 — 검증 서버에서만 연다
+        self.env.setdefault("SIGNUP_MAX_PER_HOUR", "1000")
         self.env.update(env_overrides or {})
         self.proc = None
         self.log_path = OUT_DIR / f"{prefix}.log"
