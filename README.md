@@ -2,6 +2,61 @@
 
 [![CI](https://github.com/sinsun030508/Map-based-Urban-Rail-Feasibility-Simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/sinsun030508/Map-based-Urban-Rail-Feasibility-Simulator/actions/workflows/ci.yml)
 
+## 서버 내리고 올리기 (EC2)
+
+명령은 서버 터미널에서 실행한다. 처음 올리는 절차는 [`docs/deploy.md`](docs/deploy.md).
+
+> **콘솔의 「인스턴스 종료(Terminate)」 와 `docker compose down -v` 는 쓰지 않는다** — 서버 디스크나 가입 계정·시나리오가 지워진다.
+
+| | A. 앱만 끄기 | B. 인스턴스 중지 |
+|---|---|---|
+| 하는 곳 | 서버 터미널 | AWS 콘솔 |
+| 서버 요금 | 계속 나간다 | 멈춘다(디스크 요금은 계속) |
+| 퍼블릭 IP | 그대로 | **다시 켜면 바뀐다** |
+
+### A. 앱만 끄고 켜기
+
+내리기
+
+```bash
+cd ~/railfeas && docker compose -f docker-compose.yml -f docker-compose.deploy.yml stop
+```
+
+올리기
+
+```bash
+cd ~/railfeas && docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d
+```
+
+### B. 인스턴스 중지하고 시작하기
+
+**처음 중지하기 전에 한 번** — 스왑이 재부팅 뒤에도 켜지게 한다(`/swapfile` 을 만들어 둔 서버).
+
+```bash
+grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+**내리기** — EC2 → 인스턴스 → 서버 선택 → 인스턴스 상태 → **인스턴스 중지**. A 의 `stop` 을 먼저 하지 않는다(직접 멈춘 컨테이너는 서버를
+켜도 자동으로 올라오지 않는다).
+
+**올리기**
+
+1. **인스턴스 시작** 뒤 새 퍼블릭 IPv4 주소를 확인하고 터미널에 접속한다.
+2. `.env` 의 주소를 새 IP 로 바꾼다. 출력이 콘솔의 새 IP 와 같아야 한다.
+   ```bash
+   cd ~/railfeas && sed -i "s|^PUBLIC_URL=.*|PUBLIC_URL=http://$(curl -s https://checkip.amazonaws.com)|" .env && grep '^PUBLIC_URL' .env
+   ```
+3. 백엔드와 웹을 다시 만든다(빌드는 하지 않는다).
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.deploy.yml up -d --force-recreate backend web
+   ```
+4. 1~2분 뒤 확인한다 — 컨테이너 4개가 `Up`, `Swap` 2.0Gi, `api 200`.
+   ```bash
+   docker ps --format '{{.Names}}  {{.Status}}'; free -h | head -3; curl -s -o /dev/null -w 'api %{http_code}\n' http://localhost/api/auth/providers
+   ```
+5. 브라우저에서 `http://새IP` 를 연다(다시 로그인). 안 열리면 보안 그룹 80 의 소스(「내 IP」)를 다시 지정한다. 소셜 로그인을 쓰면 콘솔의 리디렉션
+   주소도 새 주소로 바꾼다.
+
 지도에 노선을 그리면 **건설비 · 예상 이용객 · B/C**를 산출하고, 그 수요에 맞는 교통수단과
 정차역을 추천하는 웹 서비스. 예비타당성조사(KDI PIMAC) 방법론을 축소·근사한
 개인 프로젝트(8주, 단독 / 학번 202245079 신선호).
