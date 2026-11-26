@@ -135,6 +135,6 @@ cd frontend && npm test         # 123개 — 뜻이 갈리는 화면 표기·훅
 - `docs/engineering-notes.md` — 왜 그 값인가, 무엇에 데였는가
 - `docs/research-log.md` — 찾다 막힌 길 (**다시 찾기 전에 볼 것**)
 - `frontend/CLAUDE.md` — 화면 규칙
-- `docs/deploy.md` — EC2 배포 절차 (이 PC 에서 전체 기동까지 시험, EC2 에는 아직 안 올렸다)
+- `docs/deploy.md` — EC2 배포 절차 (11-26 에 EC2 에 올려 가입·계산까지 확인, HTTPS 는 아직 없다)
 - `docs/erd.md` — **실제 스키마 ERD**. `docs/erd.png` 은 제안서에 낸 그림이라 다르다
 - `docs/` — 제안서(docx·pdf), 실습일지 1~5, 중간발표 대본(전문·10분)

@@ -192,9 +192,10 @@ cd frontend && npm run dev                       # 3000 (`VITE_PORT`)
 ## 현재 상태
 
 제안서 기능 7개와 기능 8(시나리오 비교·관리자 CRUD)의 **핵심은 구현했고 전 구간 실행 검증을
-마쳤다.** **단 제안서와 대조하면(11-05) 빠진 것이 있다**(회원 관리·시나리오 생성 통계·단가 관리·대시보드의 비용 구성·역별
-이용객 차트는 11-06 에 붙였다) — EC2 에 실제로 올리는 일(AWS 계정 필요 — 이미지·`docker-compose.deploy.yml`·`docs/deploy.md` 는
-11-06 에 만들어 이 PC 에서 전체 기동까지 시험했다. GitHub Actions 는 11-05, Swagger 는 11-06 에 붙였다 — `SWAGGER_ENABLED=true` 일 때만 `/swagger-ui.html` 이 열린다). Recharts 대신 SVG 는 의도다. **단 소셜 로그인(기능 1)은 11-04 까지 화면이 없었다**(백엔드만) — 버튼·`/oauth/callback`·`/api/auth/me` 를
+마쳤다.** 제안서와 대조해(11-05) 빠졌던 것은 채웠다(회원 관리·시나리오 생성 통계·단가 관리·대시보드의 비용 구성·역별
+이용객 차트는 11-06, GitHub Actions 는 11-05, Swagger 는 11-06 — `SWAGGER_ENABLED=true` 일 때만 `/swagger-ui.html` 이 열린다).
+**EC2 에도 올렸다**(11-26, 시드니 리전·HTTP — 가입·노선 계산까지 확인. HTTPS·서버의 VWorld·소셜 로그인은 아직이다, `docs/deploy.md`).
+Recharts 대신 SVG 는 의도다. **단 소셜 로그인(기능 1)은 11-04 까지 화면이 없었다**(백엔드만) — 버튼·`/oauth/callback`·`/api/auth/me` 를
 붙였다. **Google·카카오 둘 다 실제 왕복까지 확인했다**(11-05 — 계정 생성·USER·비밀번호 없음, 주소에 토큰 안 남음,
 새로고침 유지, 관리자 API 403). 카카오는 콘솔 설정 넷이 필요했다 — 로그인 켜기(KOE004)·닉네임 동의(KOE205)·
 Redirect URI(KOE006)·**Client Secret**(켜져 있으면 `KAKAO_CLIENT_SECRET` 이 있어야 한다, 없으면 토큰 교환이 401·KOE010). 기존 수단(도시철도·KTX)이 비교표의 참조 행으로 들어가고, 장거리 노선은 고속선
