@@ -222,8 +222,6 @@ public class CostCalculator {
                         p.getLongitude().doubleValue()})
                 .toList();
 
-        String zoneWarning = zoneWarning(List.of(scenario.getPoints().stream()
-                .map(p -> new double[]{p.getLatitude().doubleValue(), p.getLongitude().doubleValue()}).toList()), zones);
         BenefitCalculator.Params params = benefits.load();
 
         // 찍은 점이 아니라 **선 전체**를 잰다 — 점만 세면 선의 1/2~1/8 만 잡히고 경유점을 찍을수록 수요가 늘어난다.
@@ -242,9 +240,6 @@ public class CostCalculator {
                 : existing.doorToDoorHours(params.get("baseline_speed_kmh"));
         boolean servesShortTrips = existing == null || existing.servesShortTrips();
 
-        // 그린 선이 뚫어야 하는 터널 길이 — 구조와 무관해 한 번만 잰다(산 구간 캐시를 같이 쓴다)
-        TunnelKm.Tunnels tunnelKm = tunnel.on(points, standards);
-
         // 트램·BRT 는 기존 도로·다리를 따라간다(11-12) — 구간마다 기존 도로(1.5배 안) 또는 새 도로. 도로망이 없으면 null(그린 직선)
         // 도로로 못 이은 구간이 강·바다를 건너면 육지는 도로, 물 위만 새 다리로 잇는다(11-19) — 물 토막은 아래 waterPieces
         RoadRoute.Plan roadPlan = standards.stream().anyMatch(s -> ON_ROAD.contains(s.getModeType()))
@@ -257,6 +252,9 @@ public class CostCalculator {
         List<ScenarioResult> results = new ArrayList<>();
         // 역 배치는 역간격이 같으면 같다 — 수단당 한 번만 계산해 지하·고가가 함께 쓴다
         Map<ModeType, StationPlanner.Plan> plannedByMode = new HashMap<>();
+        // 도로를 따라가지 않는 행의 터널·구역은 **지도에 그린 선(역을 잇는 선)** 으로 잰다(11-26) — 역 배치처럼 수단마다 한 번, 지하·고가가 함께 쓴다
+        Map<ModeType, TunnelKm.Tunnels> tunnelsByMode = new HashMap<>();
+        Map<ModeType, String> zoneByMode = new HashMap<>();
         for (CostStandard std : standards) {
             ModeCapacity capacity = capacities.get(std.getModeType());
             boolean onRoad = road != null && ON_ROAD.contains(std.getModeType());
@@ -275,6 +273,11 @@ public class CostCalculator {
             List<StationPlanner.Placed> placed = plan.stations();
             // 역이 옆으로 비켜 선 만큼만 더한다. 선 위에만 있으면 그린 길이 그대로다
             double routeKm = baseKm + plan.detourKm();
+            // 철도 행의 선 — 역이 큰길로 옮겨지면(11-12) 길이(detourKm)도 지도 선도 그 역들을 지난다. 터널·구역도 같은 선으로 재야
+            // 지도의 갈색·파란 토막이 선 위에 놓이고 표의 터널비가 지도와 같은 선의 값이 된다(11-26 — 직선으로 재 토막이 허공에 떴다)
+            List<double[]> drawn = onRoad ? null : StationLine.through(points, placed);
+            TunnelKm.Tunnels tunnelKm = onRoad ? null : tunnelsByMode.computeIfAbsent(std.getModeType(), mode -> tunnel.on(drawn, standards));
+            String zoneWarning = onRoad ? roadZoneWarning : zoneByMode.computeIfAbsent(std.getModeType(), mode -> zoneWarning(List.of(drawn), zones));
 
             // **추정 역 수가 아니라 실제로 놓인 역 수로 값을 매긴다.** 물 위처럼 역을
             // 놓을 수 없는 구간에서는 `StationPlanner` 가 역을 빼므로 둘이 달라진다 —
@@ -315,7 +318,7 @@ public class CostCalculator {
                     // B/C 는 양쪽 다 현재가치로 본다. total_cost 에는 명목 총액을 남긴다
                     .bcRatio(benefits.bcRatio(benefit, benefits.costPresentValue(params, cost)))
                     .feasible(isFeasible(peak, capacity))
-                    .warning(warning(routeKm, peak, capacity, onRoad ? roadZoneWarning : zoneWarning, people,
+                    .warning(warning(routeKm, peak, capacity, zoneWarning, people,
                             stations - stationCount, plan.offLimits(), tunnelPart.note(), vehicle ? road.note() : null))
                     .build();
             attachStations(result, placed, dailyRiders);

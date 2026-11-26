@@ -83,6 +83,12 @@ class CostCalculatorTest {
     }
 
     private CostCalculator calculator(IntercityRailFinder intercity, TunnelKm tunnel, RoadNetwork roads, WaterBodies water, Coastline coast) {
+        return calculator(intercity, tunnel, roads, water, coast, RoadNetwork.of(List.of()));
+    }
+
+    /** 정차역을 옮길 큰길(`stationRoads`)까지 받는다 — 역이 큰길로 옮겨져 그린 선 밖에 서는 노선을 만든다 */
+    private CostCalculator calculator(IntercityRailFinder intercity, TunnelKm tunnel, RoadNetwork roads, WaterBodies water, Coastline coast,
+                                      RoadNetwork stationRoads) {
         PopulationIndex index = new PopulationIndex("없는파일.csv", "없는파일.csv");
         index.load();
 
@@ -97,7 +103,7 @@ class CostCalculatorTest {
         existingLines.load();
 
         return new CostCalculator(index, new BenefitCalculator(parameters),
-                new StationPlanner(index), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"),
+                new StationPlanner(index, stationRoads), new ExistingOptions(existingLines, intercity, new KtxTravelTime("없는파일.csv"),
                         new UrbanLineSpeed("없는파일.csv")), tunnel, roads, water, coast);
     }
 
@@ -731,6 +737,61 @@ class CostCalculatorTest {
 
         assertThat(heavy).isEqualTo(base);
         assertThat(light).isEqualTo((int) Math.round(base * Math.exp(-0.7)));
+    }
+
+    // ── 철도 행은 지도에 그린 선(역을 잇는 선)으로 잰다 ──────────────────────────────────
+    // 정차역이 큰길로 옮겨지면(11-12) 노선 길이도 지도 선도 그 역들을 지난다. 터널·구역만 찍은 직선으로 재 지도의 갈색·파란 토막이
+    // 선 밖 허공에 떴고, 표의 터널비도 지도와 다른 선의 값이었다(11-26 사용자 요청)
+
+    /** 그린 선(남북 10km)에서 동쪽 약 0.35km 를 나란히 가는 큰길 — 정차역이 그 위로 옮겨진다 */
+    private static RoadNetwork parallelRoad() {
+        double east = 0.004;
+        double[] a = ROUTE_POINTS.get(0), b = ROUTE_POINTS.get(1);
+        return RoadNetwork.ofEdges(List.of(new RoadNetwork.Edge(0, 1, 0, new double[][]{{a[0], a[1] + east}, {b[0], b[1] + east}})));
+    }
+
+    private ScenarioResult railOnParallelRoad(TunnelKm tunnel, List<com.railfeas.reference.RestrictedZone> zones) {
+        IntercityRailFinder intercity = new IntercityRailFinder("없는KTX파일.csv");
+        intercity.load();
+        var capacity = capacity(ModeType.HEAVY_METRO, null, 80_000, 2.0, 30.0, null);
+        return calculator(intercity, tunnel, RoadNetwork.of(List.of()), new WaterBodies("없는파일.geojson"), null, parallelRoad())
+                .calculate(scenario(10.0), List.of(standard(ModeType.HEAVY_METRO, StructureType.ELEVATED)),
+                        Map.of(ModeType.HEAVY_METRO, capacity), zones)
+                .results().get(0);
+    }
+
+    @Test
+    @DisplayName("철도 행의 터널은 역을 잇는 선으로 잰다 — 역이 큰길로 옮겨지면 지도에 그린 선과 같은 선이다(11-26)")
+    void railTunnelIsMeasuredOnTheLineThroughStations() {
+        List<List<double[]>> asked = new java.util.ArrayList<>();
+        TunnelKm recording = (route, standards) -> {
+            asked.add(route);
+            return new TunnelKm.Tunnels(java.util.OptionalDouble.of(0), java.util.OptionalDouble.of(0));
+        };
+        ScenarioResult r = railOnParallelRoad(recording, List.of());
+
+        List<double[]> stations = r.getStations().stream()
+                .map(s -> new double[]{s.getLatitude().doubleValue(), s.getLongitude().doubleValue()}).toList();
+        assertThat(stations.get(stations.size() / 2)[1]).as("가운데 역이 동쪽 큰길로 옮겨졌다").isGreaterThan(ROUTE_POINTS.get(0)[1] + 0.003);
+        assertThat(asked).as("철도 수단마다 한 번").hasSize(1);
+        assertThat(asked.get(0)).as("찍은 직선이 아니라 역을 잇는 선").hasSameSizeAs(stations);
+        for (int i = 0; i < stations.size(); i++) {
+            assertThat(asked.get(0).get(i)[0]).isCloseTo(stations.get(i)[0], org.assertj.core.data.Offset.offset(1e-6));
+            assertThat(asked.get(0).get(i)[1]).isCloseTo(stations.get(i)[1], org.assertj.core.data.Offset.offset(1e-6));
+        }
+    }
+
+    @Test
+    @DisplayName("철도 행의 구역 경고도 역을 잇는 선으로 본다 — 직선에서 0.35km 떨어졌어도 역이 지나는 구역이면 알린다(11-26)")
+    void railZoneWarningFollowsTheLineThroughStations() {
+        // 큰길 위(직선에서 동쪽 0.35km) 반경 0.2km — 직선은 비껴가고 역을 잇는 선은 지난다
+        var zone = newInstance(com.railfeas.reference.RestrictedZone.class,
+                "name", "큰길 옆 보호구역",
+                "centerLat", BigDecimal.valueOf(37.5215),
+                "centerLng", BigDecimal.valueOf(126.9820),
+                "radiusKm", BigDecimal.valueOf(0.2));
+
+        assertThat(railOnParallelRoad(TunnelKm.NONE, List.of(zone)).getWarning()).contains("큰길 옆 보호구역");
     }
 
     // ── 산 구간 터널비 ─────────────────────────────────────────────────────────

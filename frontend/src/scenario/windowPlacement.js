@@ -10,7 +10,9 @@ export const HEADER_H = 52;
 /** 어디로 끌어도 제목줄이 이만큼은 화면에 남는다 — 다 나가면 되찾을 수 없다 */
 export const MIN_VISIBLE = 80;
 export const GAP = 12;
-export const DEFAULT_W = 620;
+// 처음 크기는 작게 — 620 폭·화면 끝까지 높이였을 때 창이 지도를 반 넘게 덮었다(11-26 사용자 「표 화면이 너무 크다」). 더 보려면 모서리를 끌어 키운다
+export const DEFAULT_W = 480;
+export const MAX_H = 560;
 export const MIN_W = 320;
 
 /**
@@ -22,7 +24,7 @@ export function initialRect({ vw, vh, panelLeft }) {
   const w = Math.min(DEFAULT_W, Math.max(MIN_W, room), Math.max(MIN_W, vw - 2 * GAP));
   const x = Math.max(GAP, panelLeft - GAP - w);
   const y = HEADER_H + GAP;
-  const h = Math.max(240, vh - y - GAP);
+  const h = Math.min(MAX_H, Math.max(240, vh - y - GAP));
   return { x, y, w, h };
 }
 

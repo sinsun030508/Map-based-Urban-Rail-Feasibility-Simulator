@@ -18,6 +18,10 @@ import java.time.LocalDateTime;
 public final class CalculationRules {
 
     /**
+     * 철도 행의 **터널·구역을 지도에 그린 선(역을 잇는 선)으로 재기로** 한 시각(11-26 15:51, `StationLine` — 사용자 요청). 정차역이 큰길로 옮겨지면(11-12)
+     * 노선 길이와 지도 선은 그 역들을 지나는데 터널·구역만 찍은 직선으로 재, 지도의 갈색·파란 토막이 선 밖 허공에 떴고 표의 터널비도 다른 선의 값이었다.
+     * 지하철·경전철·복선전철(도로를 따라가지 않는 행)의 터널비·건설비·B/C·구역 경고가 바뀐다. 도로를 따라가는 행은 그대로다.
+     * 그 전 — 11-22 20:50
      * 추천에 **아래쪽 경계(역간격)**를 둔 시각(11-22 20:50, `CostCalculator.withinLength` — 조사 기록 「짧은 노선의 광역급행 추천」, 사용자가 「묻지 말고 알아서」 하라고 해 적용한 자율 모델 결정).
      * 그린 길이가 그 수단의 역간격(운영 노선 중앙값)보다 짧으면 기본으로 내세우지 않는다 — 권장 연장 초과와 같은 방식이다(표엔 남기고, 전부 걸리면 거르지 않는다).
      * 광역급행(표정속도 91.8km/h 는 역간격 6.92km 이상 달릴 때의 값)이 신촌~홍대 1.2km·한강 횡단 2.8km 에서도 1위였다. 전국 31개 노선 훑기에서 5개의 추천이 바뀐다
@@ -83,7 +87,7 @@ public final class CalculationRules {
      * 평균 통행거리까지만, 10-22 23:50 탑승 시간을 반올림하지 않기로, 23:39 기존 수단을 전환 전
      * 수단에 넣고 B/C 0 은 추천하지 않기로 했다
      */
-    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 22, 20, 50);
+    public static final LocalDateTime CHANGED_AT = LocalDateTime.of(2026, 11, 26, 15, 51);
 
     private CalculationRules() {
     }

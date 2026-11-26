@@ -10,6 +10,7 @@ import { gainsNothing } from './scenario/gainsNothing';
 import { defaultRow, outsideLengthRange } from './scenario/lengthRange';
 import { followsRoad, mergeRoadMountain, mountainFor, newPieces, roadMountainView } from './scenario/mountainNote';
 import { drawnStructure } from './scenario/drawnStructure';
+import { drawnLine } from './scenario/drawnLine';
 import { mergeRoadWater } from './scenario/roadWater';
 import { mergeRoadZones } from './scenario/roadZone';
 import { isStale } from './scenario/stale';
@@ -170,20 +171,25 @@ export default function App() {
    */
   // **지도에 그린 행의 구조로 묻는다**(11-15) — 선택창(지하)으로만 물으면 고가 행을 골라도 「물 아래 구간 · 하저터널」 로 적히고 호수 우회 제안이 없었다
   const waterStructure = drawnStructure(shown, structure);
-  const waterKey = JSON.stringify([points, waterStructure]);
+  // **산·물·구역은 지도에 지금 그려진 선으로 묻는다**(11-26 사용자 요청) — 철도 행은 정차역이 큰길로 옮겨져 지도 선이 그 역들을 지나는데,
+  // 찍은 직선으로 물어 갈색·파란 토막이 빨간 선 밖 허공에 떴다. 서버도 같은 선으로 터널비를 잰다(`StationLine`).
+  // 도로를 따라가는 행은 새 구간만 따로 묻는다(아래 roadNew) — 그때 이 답은 쓰이지 않는다
+  const asked = drawnLine(points, shown) || points;
+  const askedKey = JSON.stringify(asked);
+  const waterKey = JSON.stringify([asked, waterStructure]);
   useEffect(() => {
-    if (points.length < 2) {
+    if (asked.length < 2) {
       setWater(null);
       return undefined;
     }
     const key = waterKey;
     const t = setTimeout(() => {
-      api.detour(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), waterStructure)
+      api.detour(asked.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), waterStructure)
         .then((r) => setWater({ key, ...r }))
         .catch(() => setWater(null));
     }, 600);
     return () => clearTimeout(t);
-  }, [points, waterStructure]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [askedKey, waterStructure]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * 산 구간(`/api/route/mountain`) — 호수와 같은 틀이다(0.6초 뒤, `key` 로 낡은 답을 버린다, 실패해도
@@ -192,20 +198,19 @@ export default function App() {
    * **구조 선택창과 상관없이 땅 위 기준으로 묻는다**(11-12). 선택창의 구조로 물었더니 지하를 고른 채 계산한 뒤 표에서 트램·고가
    * 행을 골라도 산 안내가 안 떴다 — 그 행들의 건설비엔 터널비가 들어 있는데. 보일지는 지도에 그린 행의 구조로 정한다(아래 `mountainShown`)
    */
-  const pointsKey = JSON.stringify(points);
   useEffect(() => {
-    if (points.length < 2) {
+    if (asked.length < 2) {
       setMountain(null);
       return undefined;
     }
-    const key = pointsKey;
+    const key = askedKey;
     const t = setTimeout(() => {
-      api.mountain(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), 'ELEVATED')
+      api.mountain(asked.map(([lng, lat]) => ({ latitude: lat, longitude: lng })), 'ELEVATED')
         .then((r) => setMountain({ key, ...r }))
         .catch(() => setMountain(null));
     }, 600);
     return () => clearTimeout(t);
-  }, [points]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [askedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * 도로를 따라가는 행(트램·BRT·광역급행)의 산·물 — **새로 놓는 구간만** 묻는다(11-12). 기존 도로·다리는 이미 있고, 그린 직선으로 판정하면
@@ -242,18 +247,18 @@ export default function App() {
    * **구조와 상관없다**(문화재 구역은 지하 굴착이 문제다). **이 훅도 아래의 이른 `return` 보다 위에 있어야 한다**
    */
   useEffect(() => {
-    if (points.length < 2) {
+    if (asked.length < 2) {
       setZone(null);
       return undefined;
     }
-    const key = pointsKey;
+    const key = askedKey;
     const t = setTimeout(() => {
-      api.zoneDetour(points.map(([lng, lat]) => ({ latitude: lat, longitude: lng })))
+      api.zoneDetour(asked.map(([lng, lat]) => ({ latitude: lat, longitude: lng })))
         .then((r) => setZone({ key, ...r }))
         .catch(() => setZone(null));
     }, 600);
     return () => clearTimeout(t);
-  }, [points]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [askedKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) {
     return (
@@ -336,11 +341,11 @@ export default function App() {
   const mountainNow = mountainStructure === 'UNDERGROUND' ? null
     : followsRoad(shown)
       ? roadMountainView(roadMountain && roadMountain.key === roadKey ? roadMountain : null, shown)
-      : mountainFor(mountain && mountain.key === pointsKey ? mountain : null, shown);
+      : mountainFor(mountain && mountain.key === askedKey ? mountain : null, shown);
   // **도로를 따라가는 행은 새로 놓는 구간의 구역만 본다**(11-14) — 지도의 원은 구역 위치라 그대로 그린다
   const zoneNow = followsRoad(shown)
     ? (roadZone && roadZone.key === roadKey ? roadZone : null)
-    : (zone && zone.key === pointsKey ? zone : null);
+    : (zone && zone.key === askedKey ? zone : null);
   // 터널 토막(갈색)과 돌아가는 안의 미리보기(점선) — 돌아갈 수 있는 구간이 있을 때만 미리보기를 그린다
   const mountainPieces = (mountainNow?.mountains || []).flatMap((m) => m.pieces || []);
   const mountainPreview = (mountainNow?.mountains || []).some((m) => m.detoured)
