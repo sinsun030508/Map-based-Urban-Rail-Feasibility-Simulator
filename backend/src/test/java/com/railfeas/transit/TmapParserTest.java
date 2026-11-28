@@ -41,8 +41,8 @@ class TmapParserTest {
         assertThat(it.fare()).isEqualTo(1650);
         assertThat(it.running()).isTrue();
         assertThat(it.legs()).containsExactly(
-                new TransitDto.Leg("WALK", 300, null, null, "출발지", "가역", true),
-                new TransitDto.Leg("SUBWAY", 600, "가선", "009D3E", "가역", "나역", true));
+                new TransitDto.Leg("WALK", 300, null, null, "출발지", "가역", true, List.of()),
+                new TransitDto.Leg("SUBWAY", 600, "가선", "009D3E", "가역", "나역", true, List.of()));
     }
 
     @Test
@@ -85,7 +85,22 @@ class TmapParserTest {
 
         assertThat(it.fare()).isNull();
         assertThat(it.walkSec()).isZero();
-        assertThat(it.legs().get(0)).isEqualTo(new TransitDto.Leg("BUS", 60, null, null, null, null, true));
+        assertThat(it.legs().get(0)).isEqualTo(new TransitDto.Leg("BUS", 60, null, null, null, null, true, List.of()));
+    }
+
+    @Test
+    void 선_좌표를_옮긴다_탑승은_passShape_도보는_steps_를_잇고_깨진_토막은_버린다() throws Exception {
+        String bus = "{\"mode\":\"BUS\",\"sectionTime\":60,"
+                + "\"passShape\":{\"linestring\":\"127.1,37.5 127.2,37.6  x,y 127.3 127.4,37.7\"}}";
+        String walk = "{\"mode\":\"WALK\",\"sectionTime\":60,\"steps\":["
+                + "{\"linestring\":\"127.0,37.4 127.05,37.45\"},{\"linestring\":\"127.1,37.5\"}]}";
+
+        List<TransitDto.Leg> legs = parse(plan(itinerary(120, walk, bus))).get(0).legs();
+
+        assertThat(legs.get(0).path()).containsExactly(
+                List.of(127.0, 37.4), List.of(127.05, 37.45), List.of(127.1, 37.5));
+        assertThat(legs.get(1).path()).containsExactly(
+                List.of(127.1, 37.5), List.of(127.2, 37.6), List.of(127.4, 37.7));
     }
 
     @Test

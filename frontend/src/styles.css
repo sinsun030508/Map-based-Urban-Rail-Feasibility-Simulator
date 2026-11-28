@@ -49,6 +49,9 @@ button.transit-open:disabled { opacity: .85; }
 .transit-card.own { background: #f5f8fd; border-color: #1a56db; }
 .transit-card.idle { border-style: dashed; }
 .transit-card.idle .transit-legs { opacity: .6; }
+.transit-card.pickable { cursor: pointer; }
+.transit-card.pickable:hover { background: #f5f8fd; }
+.transit-card.picked { border-color: #111827; box-shadow: inset 0 0 0 2px #111827; }
 .transit-card button { align-self: flex-start; padding: 2px 8px; }
 .transit-name { font-size: 13px; }
 .transit-total { font-size: 22px; font-weight: 700; line-height: 1.2; }

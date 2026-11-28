@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { mapStyle, INITIAL_VIEW } from './mapStyle';
 import { routeFeatures } from '../geo/routeLine';
+import { transitFeatures, transitBounds } from '../geo/transitLine';
 import usePopulation3D from './usePopulation3D';
 import { visibleLabels } from './labelLayout';
 
@@ -11,6 +12,7 @@ const EXISTING_SOURCE = 'existing-route';
 const WATER_SOURCE = 'water-pieces';
 const MOUNTAIN_SOURCE = 'mountain-pieces';
 const MOUNTAIN_PREVIEW_SOURCE = 'mountain-preview';
+const TRANSIT_SOURCE = 'transit-route';
 
 /**
  * 지도와 노선 표시. 좌표 상태는 App 이 들고 있고 여기서는 그리기만 한다.
@@ -22,6 +24,7 @@ const MOUNTAIN_PREVIEW_SOURCE = 'mountain-preview';
  * mountainPieces — 35‰ 보다 가팔라 터널이 필요한 토막들(같은 모양). 갈색으로 덧그린다.
  *   0.1km 토막은 점 하나뿐이라 선이 안 그려진다 — 그런 토막은 갈색 동그라미로 찍는다.
  * mountainPreview — 산을 돌아가는 안의 선형([경도,위도] 목록). 바꾸기 전 미리보기라 점선이다.
+ * transitLegs — 하단바에서 고른 실제 대중교통 경로의 구간들. 탑승은 노선 색 실선, 도보는 회색 점선이고 지도를 그 경로에 맞춘다.
  */
 /** 중심·반경(km)의 원을 64각형 고리로 — [경도, 위도] */
 function circleRing(lng, lat, radiusKm) {
@@ -36,7 +39,7 @@ function circleRing(lng, lat, radiusKm) {
 
 export default function MapView({
   points, zones, stations, routeLine, existingOption, show3D, focus, waterPieces, mountainPieces, mountainPreview,
-  onPick,
+  transitLegs, onPick,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -150,6 +153,34 @@ export default function MapView({
         source: MOUNTAIN_SOURCE,
         filter: ['==', ['geometry-type'], 'Point'],
         paint: { 'circle-color': '#8b5a2b', 'circle-radius': 3.5 },
+      });
+
+      // 실제 대중교통 경로 — 고른 동안만 보이므로 맨 위에 둔다. 흰 테두리가 빨간 노선과 갈라 준다
+      map.addSource(TRANSIT_SOURCE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      map.addLayer({
+        id: 'transit-casing',
+        type: 'line',
+        source: TRANSIT_SOURCE,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#ffffff', 'line-width': 9 },
+      });
+      map.addLayer({
+        id: 'transit-line',
+        type: 'line',
+        source: TRANSIT_SOURCE,
+        filter: ['!=', ['get', 'walk'], true],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': ['get', 'color'], 'line-width': 6 },
+      });
+      map.addLayer({
+        id: 'transit-walk',
+        type: 'line',
+        source: TRANSIT_SOURCE,
+        filter: ['==', ['get', 'walk'], true],
+        paint: { 'line-color': '#4b5563', 'line-width': 4, 'line-dasharray': [1, 1] },
       });
 
       setMapReady(true);
@@ -335,6 +366,20 @@ export default function MapView({
       geometry: { type: 'LineString', coordinates: mountainPreview || [] },
     });
   }, [mountainPieces, mountainPreview, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const features = transitFeatures(transitLegs);
+    map.getSource(TRANSIT_SOURCE).setData({ type: 'FeatureCollection', features });
+    const bounds = transitBounds(features);
+    if (!bounds) return;
+    // 하단바가 지도 아래를 덮는다 — 그만큼 비워 두고 맞춘다(여백이 지도보다 크면 안 움직이므로 60% 까지)
+    const box = containerRef.current;
+    const bar = box.parentElement?.querySelector('.transit-bar');
+    const bottom = Math.min((bar?.offsetHeight ?? 0) + 60, box.clientHeight * 0.6);
+    map.fitBounds(bounds, { padding: { top: 40, left: 40, right: 60, bottom }, maxZoom: 15, duration: 0 });
+  }, [transitLegs, mapReady]);
 
   // 규제 구역 — 좌표가 근사치라 원으로만 표시하고 "확인 필요" 안내에 쓴다.
   // **실제 반경(km)으로 그린다**(11-12). 전에는 화면 픽셀 크기(줌 14 에서 26px ≈ 170m)로 찍어 반경 1km 구역이 훨씬 작게 보였고,

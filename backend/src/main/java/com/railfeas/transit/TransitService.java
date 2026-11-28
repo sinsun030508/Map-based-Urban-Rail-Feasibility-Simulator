@@ -75,7 +75,8 @@ public class TransitService {
         BigDecimal toLng = round(to.longitude());
         LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), KST);
         LocalDateTime at = SearchTime.next(now);
-        String key = "railfeas:transit:" + fromLat + "," + fromLng + ":" + toLat + "," + toLng + ":" + at;
+        // v2 — 선 좌표가 들기 전에 담은 답은 쓰지 않는다
+        String key = "railfeas:transit:v2:" + fromLat + "," + fromLng + ":" + toLat + "," + toLng + ":" + at;
 
         Optional<TransitDto.Response> saved = read(key);
         if (saved.isPresent()) {

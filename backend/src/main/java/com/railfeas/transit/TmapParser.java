@@ -54,7 +54,38 @@ final class TmapParser {
             }
         }
         return new TransitDto.Leg(leg.path("mode").asText(), leg.path("sectionTime").asInt(), route, color,
-                text(leg.path("start").path("name")), text(leg.path("end").path("name")), running);
+                text(leg.path("start").path("name")), text(leg.path("end").path("name")), running, line(leg));
+    }
+
+    /** 탑승 구간은 `passShape.linestring`, 도보는 `steps[].linestring` 을 차례로 잇는다 */
+    private static List<List<Double>> line(JsonNode leg) {
+        List<List<Double>> points = new ArrayList<>();
+        append(points, leg.path("passShape").path("linestring").asText(""));
+        if (points.isEmpty()) {
+            for (JsonNode step : leg.path("steps")) {
+                append(points, step.path("linestring").asText(""));
+            }
+        }
+        return List.copyOf(points);
+    }
+
+    /** "경도,위도 경도,위도 …" — 못 읽는 토막은 버리고, 앞 토막의 끝과 같은 점은 한 번만 담는다 */
+    private static void append(List<List<Double>> points, String linestring) {
+        for (String token : linestring.trim().split("\\s+")) {
+            int comma = token.indexOf(',');
+            if (comma < 0) {
+                continue;
+            }
+            try {
+                List<Double> point = List.of(Double.parseDouble(token.substring(0, comma)),
+                        Double.parseDouble(token.substring(comma + 1)));
+                if (points.isEmpty() || !points.get(points.size() - 1).equals(point)) {
+                    points.add(point);
+                }
+            } catch (NumberFormatException e) {
+                // 깨진 토막 하나 때문에 경로를 버리지 않는다
+            }
+        }
     }
 
     private static String text(JsonNode node) {

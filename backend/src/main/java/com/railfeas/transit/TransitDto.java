@@ -35,7 +35,12 @@ public final class TransitDto {
     public record Itinerary(int totalSec, int walkSec, int transfers, Integer fare, boolean running, List<Leg> legs) {
     }
 
-    /** @param mode TMAP 그대로 — WALK·BUS·SUBWAY·EXPRESSBUS·TRAIN … @param color `#` 없는 여섯 자리 또는 null */
-    public record Leg(String mode, int sec, String route, String color, String from, String to, boolean running) {
+    /**
+     * @param mode  TMAP 그대로 — WALK·BUS·SUBWAY·EXPRESSBUS·TRAIN …
+     * @param color `#` 없는 여섯 자리 또는 null
+     * @param path  지도에 그릴 [경도, 위도] 점들. TMAP 이 안 주면 빈 목록 — 지어내지 않는다
+     */
+    public record Leg(String mode, int sec, String route, String color, String from, String to, boolean running,
+                      List<List<Double>> path) {
     }
 }

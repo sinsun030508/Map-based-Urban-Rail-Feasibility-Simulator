@@ -16,6 +16,7 @@ import { mergeRoadZones } from './scenario/roadZone';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
 import TransitBar from './scenario/TransitBar';
+import { routeKey } from './scenario/transit';
 import { resultKey } from './scenario/resultKey';
 
 export default function App() {
@@ -59,6 +60,8 @@ export default function App() {
   const [roadWater, setRoadWater] = useState(null);
   const [roadZone, setRoadZone] = useState(null);
   const [existingOption, setExistingOption] = useState(null);
+  // 하단바에서 고른 실제 대중교통 경로 — 지도에 덧그린다. 어느 노선의 것인지(key) 함께 둔다
+  const [transitRoute, setTransitRoute] = useState(null);
   const [referenceUpdatedAt, setReferenceUpdatedAt] = useState(null);
   // 수단별 권장 연장(max_length_km) — 기본으로 그릴 정차역을 고를 때 쓴다
   const [modes, setModes] = useState([]);
@@ -449,6 +452,9 @@ export default function App() {
     setUser(null);
   }
 
+  // 점이 바뀌었거나 결과가 비면 앞 노선의 경로는 그리지 않는다
+  const transitNow = transitRoute && results.length > 0 && transitRoute.key === routeKey(points) ? transitRoute : null;
+
   return (
     <div className="app">
       <header>
@@ -485,12 +491,14 @@ export default function App() {
             waterPieces={waterPieces}
             mountainPieces={mountainPieces}
             mountainPreview={mountainPreview}
+            transitLegs={transitNow?.legs}
             onPick={(p) => {
               setPoints((prev) => [...prev, p]);
               reset();
             }}
           />
-          <TransitBar points={points} row={shown} ready={results.length > 0} />
+          <TransitBar points={points} row={shown} ready={results.length > 0}
+            selected={transitNow?.index ?? null} onSelect={setTransitRoute} />
         </div>
         <ScenarioPanel
           points={points}
