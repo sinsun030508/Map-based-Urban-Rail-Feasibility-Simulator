@@ -58,6 +58,7 @@ python3 etl/dem_tiles.py     # 지형 타일 36MB. 안 받으면 산 판정만 �
 | `VWORLD_KEY` · `VWORLD_REFERER` | 키와, **그 키에 등록한 도메인**(`http://서버주소/`). 비우면 OpenFreeMap 으로 떨어진다 |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 콘솔의 리디렉션 URI 에 `PUBLIC_URL/login/oauth2/code/google` 추가 |
 | `KAKAO_CLIENT_ID` · `KAKAO_CLIENT_SECRET` | 콘솔의 Redirect URI 에 `PUBLIC_URL/login/oauth2/code/kakao` 추가 |
+| `TMAP_APP_KEY` · `TMAP_DAILY_LIMIT` | 「지금 있는 대중교통과 비교」 — SK open API 의 TMAP 대중교통 앱 키. 비우면 버튼이 없다. 상한 기본 10(무료 한도) |
 
 ## 4. 띄우기
 

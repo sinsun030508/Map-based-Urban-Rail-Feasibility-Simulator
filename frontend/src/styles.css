@@ -21,6 +21,39 @@ main { flex: 1; display: flex; min-height: 0; }
 
 .map { flex: 1; }
 
+/* 지도와 그 위에 겹치는 하단바. 바는 지도 크기를 바꾸지 않는다 */
+.map-area { flex: 1; position: relative; display: flex; min-width: 0; }
+
+/* 「지금 있는 대중교통과 비교」 — 축척(왼쪽 아래)·출처(오른쪽 아래) 위에 띄운다 */
+button.transit-open {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 34px; z-index: 2;
+  white-space: nowrap; font-weight: 600; box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
+}
+button.transit-open:disabled { opacity: .85; }
+.transit-bar {
+  position: absolute; left: 8px; right: 8px; bottom: 34px; max-height: 45%; overflow-y: auto; z-index: 2;
+  background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgba(0, 0, 0, .18);
+}
+.transit-head {
+  position: sticky; top: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 8px 12px; background: #fff; border-bottom: 1px solid var(--line); font-size: 13px;
+}
+.transit-head .spacer { flex: 1; }
+.transit-head button { padding: 4px 10px; }
+.transit-list { list-style: none; margin: 0; padding: 0; }
+.transit-card { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.transit-card:last-child { border-bottom: none; }
+.transit-card.own { background: #f5f8fd; }
+.transit-card.idle .transit-legs { opacity: .6; }
+.transit-card button { margin-left: 8px; padding: 2px 8px; }
+/* 구간 칩 — 폭은 구간 시간에 비례, 노선 색은 아래 띠(어떤 색이어도 글자가 읽힌다) */
+.transit-legs { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+.transit-leg {
+  flex-basis: 0; min-width: max-content; padding: 2px 6px; white-space: nowrap;
+  background: var(--bg); border-bottom: 5px solid; border-radius: 4px 4px 2px 2px;
+}
+.transit-leg small { color: var(--muted); }
+
 /* 넓은 화면에서는 패널이 함께 커져야 한다. 340px 고정이면 남는 폭을 지도가 다 먹어
    비교표(9행 × 6열)가 어느 화면에서나 308px 에 눌려 '복선전/철', '20/분' 으로 접힌다.
    이 표가 이 서비스의 결과물인데 지도만 커지는 셈이었다. */
@@ -208,8 +241,9 @@ table.admin-table.compare td.existing .existing-facts { display: block; white-sp
 /* 수단별 B/C 막대 — 표 위에 모양만 보여 준다 (숫자는 표가 갖고 있다) */
 .bc-chart { margin: 10px 0 4px; }
 .bc-chart figcaption { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-/* 폭 300 으로 그린 그림을 창 폭만큼 늘리면 글자까지 커진다 — 넓은 상세 창에서 10px 글자가 24px 이 됐다(11-26). 1.4배까지만 */
-.bc-chart svg { width: 100%; max-width: 420px; height: auto; display: block; overflow: visible; }
+/* 폭 300 으로 그린 그림을 창 폭만큼 늘리면 글자까지 커진다 — 넓은 상세 창에서 10px 글자가 24px 이 됐다(11-26). 420px(1.4배)도
+   크다고 해 320px 로 줄였다(11-28) — 막대 글자가 표 글자와 비슷해진다 */
+.bc-chart svg { width: 100%; max-width: 320px; height: auto; display: block; overflow: visible; }
 .bc-bar { fill: #1a56db; }
 .bc-row { cursor: pointer; }
 .bc-row.picked .bc-bar { fill: #0f3da8; }

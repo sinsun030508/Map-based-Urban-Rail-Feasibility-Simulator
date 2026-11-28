@@ -15,6 +15,7 @@ import { mergeRoadWater } from './scenario/roadWater';
 import { mergeRoadZones } from './scenario/roadZone';
 import { isStale } from './scenario/stale';
 import ScenarioPanel from './scenario/ScenarioPanel';
+import TransitBar from './scenario/TransitBar';
 import { resultKey } from './scenario/resultKey';
 
 export default function App() {
@@ -472,22 +473,25 @@ export default function App() {
       </header>
 
       <main>
-        <MapView
-          points={points}
-          zones={zones}
-          stations={shown?.stations}
-          routeLine={shown?.routeLine}
-          existingOption={existingOption}
-          show3D={show3D}
-          focus={focus}
-          waterPieces={waterPieces}
-          mountainPieces={mountainPieces}
-          mountainPreview={mountainPreview}
-          onPick={(p) => {
-            setPoints((prev) => [...prev, p]);
-            reset();
-          }}
-        />
+        <div className="map-area">
+          <MapView
+            points={points}
+            zones={zones}
+            stations={shown?.stations}
+            routeLine={shown?.routeLine}
+            existingOption={existingOption}
+            show3D={show3D}
+            focus={focus}
+            waterPieces={waterPieces}
+            mountainPieces={mountainPieces}
+            mountainPreview={mountainPreview}
+            onPick={(p) => {
+              setPoints((prev) => [...prev, p]);
+              reset();
+            }}
+          />
+          <TransitBar points={points} row={shown} ready={results.length > 0} />
+        </div>
         <ScenarioPanel
           points={points}
           title={title}

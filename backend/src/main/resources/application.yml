@@ -64,6 +64,10 @@ app:
   # 가입은 접속 주소마다 한 시간에 이만큼(SignupThrottle, 판단값). 검증 도구(tools/verify)는 실행마다 가입해 1000 으로 연다
   signup:
     max-per-hour: ${SIGNUP_MAX_PER_HOUR:10}
+  # 실제 대중교통 경로(TMAP) — 키가 비면 그 기능만 꺼진다. 하루 상한은 무료 10건에 맞춘 값이고 서버가 센다(`TransitService`)
+  tmap:
+    app-key: ${TMAP_APP_KEY:}
+    daily-limit: ${TMAP_DAILY_LIMIT:10}
   jwt:
     # 기본값을 두지 않는다. 이 파일은 공개 저장소에 올라가므로 여기 적힌 키는
     # 누구나 읽어 토큰을 위조할 수 있다. 값이 없으면 조용히 돌지 말고 기동이 막혀야 한다.

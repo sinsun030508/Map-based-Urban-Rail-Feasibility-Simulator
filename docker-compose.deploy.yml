@@ -37,6 +37,9 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET:-}
+      # 실제 대중교통 경로(TMAP) — 비우면 그 기능만 꺼진다. 하루 상한은 서버가 센다
+      TMAP_APP_KEY: ${TMAP_APP_KEY:-}
+      TMAP_DAILY_LIMIT: ${TMAP_DAILY_LIMIT:-10}
       # nginx 뒤에서도 소셜 로그인 redirect-uri 를 공개 주소로 만든다
       SERVER_FORWARD_HEADERS_STRATEGY: framework
       LOGGING_LEVEL_COM_RAILFEAS: INFO
