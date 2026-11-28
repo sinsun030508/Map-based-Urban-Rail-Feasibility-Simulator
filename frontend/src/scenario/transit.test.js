@@ -46,15 +46,15 @@ test('구간 폭은 시간에 비례하되 3분보다 좁아지지 않는다', (
 });
 
 test('경로 요약 — 걷기를 뺀 시간을 보조로 적고 「몇 분 빠름」 은 적지 않는다', () => {
-  const text = itinerarySummary(it);
-  assert.equal(text, '52분 (걷기 12분) · 환승 2 · 1,650원 · 걷기 빼면 40분');
-  assert.equal(itinerarySummary({ ...it, fare: null }), '52분 (걷기 12분) · 환승 2 · 걷기 빼면 40분');
-  assert.doesNotMatch(text, /빠/);
+  const box = itinerarySummary(it);
+  assert.deepEqual(box, { total: '52분', facts: '걷기 12분 · 환승 2 · 1,650원', ride: '걷기 빼면 40분' });
+  assert.equal(itinerarySummary({ ...it, fare: null }).facts, '걷기 12분 · 환승 2');
+  assert.doesNotMatch(Object.values(box).join(' '), /빠/);
 });
 
 test('신설안 요약 — 역~역이라고 적고, 행이나 소요시간이 없으면 없다', () => {
   const own = ownSummary({ modeType: 'EXPRESS_RAIL', structureType: 'ELEVATED', travelTimeMin: 17.6 });
-  assert.deepEqual(own, { name: '신설 광역급행 고가', text: '역~역 18분', note: '걷기·대기 제외' });
+  assert.deepEqual(own, { name: '신설 광역급행 고가', total: '18분', note: '역~역 · 걷기·대기 제외' });
   assert.equal(ownSummary(undefined), null);
   assert.equal(ownSummary({ modeType: 'TRAM', structureType: 'AT_GRADE', travelTimeMin: null }), null);
 });

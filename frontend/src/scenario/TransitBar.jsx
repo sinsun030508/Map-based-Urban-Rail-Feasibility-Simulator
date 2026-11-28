@@ -69,7 +69,9 @@ export default function TransitBar({ points, row, ready }) {
         <ol className="transit-list">
           {own && (
             <li className="transit-card own">
-              <div className="transit-title"><strong>{own.name}</strong> {own.text} <span className="muted">({own.note})</span></div>
+              <strong className="transit-name">{own.name}</strong>
+              <span className="transit-total">{own.total}</span>
+              <span className="muted">{own.note}</span>
             </li>
           )}
           {now.status !== 'OK' && (
@@ -78,22 +80,26 @@ export default function TransitBar({ points, row, ready }) {
               {(now.status === 'FAILED') && <button type="button" onClick={ask} disabled={loading}>다시 시도</button>}
             </li>
           )}
-          {(now.itineraries || []).map((it, i) => (
-            <li key={i} className={it.running ? 'transit-card' : 'transit-card idle'}>
-              <div className="transit-title">
-                <strong>실제 경로 {i + 1}</strong> {itinerarySummary(it)}
-                {!it.running && <span className="warn"> · 그 시각에 다니지 않는 구간이 있습니다</span>}
-              </div>
-              <div className="transit-legs">
-                {it.legs.map((leg, j) => (
-                  <span key={j} className="transit-leg" title={[leg.from, leg.to].filter(Boolean).join(' → ')}
-                    style={{ flexGrow: legWeight(leg), borderBottomColor: legColor(leg) }}>
-                    {legName(leg)} <small>{minutes(leg.sec)}분</small>{!leg.running && <small className="warn"> 운행 안 함</small>}
-                  </span>
-                ))}
-              </div>
-            </li>
-          ))}
+          {(now.itineraries || []).map((it, i) => {
+            const box = itinerarySummary(it);
+            return (
+              <li key={i} className={it.running ? 'transit-card' : 'transit-card idle'}>
+                <strong className="transit-name">실제 경로 {i + 1}</strong>
+                <span className="transit-total">{box.total}</span>
+                <span className="muted">{box.facts}</span>
+                <span className="muted">{box.ride}</span>
+                {!it.running && <span className="warn">그 시각에 다니지 않는 구간이 있습니다</span>}
+                <div className="transit-legs">
+                  {it.legs.map((leg, j) => (
+                    <span key={j} className="transit-leg" title={[leg.from, leg.to].filter(Boolean).join(' → ')}
+                      style={{ flexGrow: legWeight(leg), borderBottomColor: legColor(leg) }}>
+                      {legName(leg)} <small>{minutes(leg.sec)}분</small>{!leg.running && <small className="warn"> 운행 안 함</small>}
+                    </span>
+                  ))}
+                </div>
+              </li>
+            );
+          })}
         </ol>
       )}
     </section>

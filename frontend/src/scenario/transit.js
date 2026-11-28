@@ -44,20 +44,24 @@ export function legColor(leg) {
 
 export const legWeight = (leg) => Math.max(leg.sec, MIN_WEIGHT_SEC);
 
+/** 상자 하나에 적는 셋 — 크게 쓰는 총시간, 그 아래 한 줄, 보조로 걷기를 뺀 시간 */
 export function itinerarySummary(it) {
-  return [
-    `${minutes(it.totalSec)}분 (걷기 ${minutes(it.walkSec)}분)`,
-    `환승 ${it.transfers}`,
-    it.fare == null ? null : `${it.fare.toLocaleString('ko-KR')}원`,
-    `걷기 빼면 ${minutes(it.totalSec - it.walkSec)}분`,
-  ].filter(Boolean).join(' · ');
+  return {
+    total: `${minutes(it.totalSec)}분`,
+    facts: [
+      `걷기 ${minutes(it.walkSec)}분`,
+      `환승 ${it.transfers}`,
+      it.fare == null ? null : `${it.fare.toLocaleString('ko-KR')}원`,
+    ].filter(Boolean).join(' · '),
+    ride: `걷기 빼면 ${minutes(it.totalSec - it.walkSec)}분`,
+  };
 }
 
 /** 지도에 그린 신설안 한 줄. 행이 없거나 소요시간을 모르면 null */
 export function ownSummary(row) {
   if (!row || !row.travelTimeMin) return null;
   const name = `신설 ${MODE_LABEL[row.modeType] || row.modeType} ${STRUCTURE_LABEL[row.structureType] || ''}`.trim();
-  return { name, text: `역~역 ${Math.round(row.travelTimeMin)}분`, note: '걷기·대기 제외' };
+  return { name, total: `${Math.round(row.travelTimeMin)}분`, note: '역~역 · 걷기·대기 제외' };
 }
 
 /** 기준 시각은 운행 여부만 바꾼다(경로·소요시간은 거의 같다 — 11-28 실제 호출) */

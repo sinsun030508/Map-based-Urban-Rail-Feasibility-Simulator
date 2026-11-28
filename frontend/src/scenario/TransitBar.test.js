@@ -28,3 +28,10 @@ test('옛 노선의 답은 그리지 않고, 늦게 온 앞 요청이 새 답을
 test('지도 아래 축척·출처 표시를 가리지 않게 띄운다', () => {
   assert.match(read('../styles.css'), /\.transit-bar \{[^}]*bottom: 34px;/);
 });
+
+test('카드는 가로로 나란한 상자다 — 좁으면 옆으로 넘긴다(11-28 사용자 요청)', () => {
+  const css = read('../styles.css');
+  assert.match(css, /\.transit-list \{[^}]*display: flex;[^}]*overflow-x: auto;/);
+  assert.match(css, /\.transit-card \{[^}]*flex: 1 0 220px;[^}]*border: 1px solid/);
+});
+

@@ -40,14 +40,21 @@ button.transit-open:disabled { opacity: .85; }
 }
 .transit-head .spacer { flex: 1; }
 .transit-head button { padding: 4px 10px; }
-.transit-list { list-style: none; margin: 0; padding: 0; }
-.transit-card { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
-.transit-card:last-child { border-bottom: none; }
-.transit-card.own { background: #f5f8fd; }
+/* 카드는 가로로 나란한 상자(11-28 사용자 요청) — 넓으면 폭을 나눠 갖고, 좁으면 옆으로 넘긴다 */
+.transit-list { display: flex; gap: 8px; list-style: none; margin: 0; padding: 8px; overflow-x: auto; }
+.transit-card {
+  flex: 1 0 220px; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
+}
+.transit-card.own { background: #f5f8fd; border-color: #1a56db; }
+.transit-card.idle { border-style: dashed; }
 .transit-card.idle .transit-legs { opacity: .6; }
-.transit-card button { margin-left: 8px; padding: 2px 8px; }
+.transit-card button { align-self: flex-start; padding: 2px 8px; }
+.transit-name { font-size: 13px; }
+.transit-total { font-size: 22px; font-weight: 700; line-height: 1.2; }
 /* 구간 칩 — 폭은 구간 시간에 비례, 노선 색은 아래 띠(어떤 색이어도 글자가 읽힌다) */
-.transit-legs { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+/* 상자 아래쪽에 붙여 상자끼리 칩의 높이가 맞는다 */
+.transit-legs { display: flex; flex-wrap: wrap; gap: 3px; margin-top: auto; padding-top: 6px; }
 .transit-leg {
   flex-basis: 0; min-width: max-content; padding: 2px 6px; white-space: nowrap;
   background: var(--bg); border-bottom: 5px solid; border-radius: 4px 4px 2px 2px;
